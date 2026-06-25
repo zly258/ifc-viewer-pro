@@ -1,0 +1,129 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BIMVision Pro - Intelligent IFC Viewer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
+    <script>
+      // Enhanced Polyfills for browser environment
+      window.process = { 
+        env: { NODE_ENV: 'production' }, 
+        browser: true, 
+        version: '',
+        cwd: () => '/',
+        platform: 'browser'
+      };
+      window.global = window;
+      
+      // Buffer Polyfill
+      window.Buffer = {
+        isBuffer: () => false,
+        from: (data) => data instanceof Uint8Array ? data : new Uint8Array(data || 0),
+        alloc: (size) => new Uint8Array(size),
+        concat: (arr) => {
+            const total = arr.reduce((acc, curr) => acc + curr.length, 0);
+            const res = new Uint8Array(total);
+            let offset = 0;
+            for(const a of arr) { res.set(a, offset); offset += a.length; }
+            return res;
+        }
+      };
+
+      // Mock 'require' to prevent "Dynamic require of 'fs' is not supported" errors
+      window.require = (moduleName) => {
+        if (['fs', 'path', 'os', 'crypto', 'stream', 'util', 'events', 'child_process'].includes(moduleName)) {
+           return {};
+        }
+        console.warn(`Blocked dynamic require for: ${moduleName}`);
+        return {};
+      };
+    </script>
+    <style>
+      /* Custom scrollbar for webkit */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1; /* Slate 300 */
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8; /* Slate 400 */
+      }
+      body {
+        background-color: #f8fafc; /* Slate 50 */
+        color: #1e293b; /* Slate 800 */
+        overflow: hidden;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "fs": "data:text/javascript,export default { readFileSync: () => {}, writeFileSync: () => {}, existsSync: () => false, promises: {} }; export const readFileSync = () => {}; export const writeFileSync = () => {}; export const existsSync = () => false; export const promises = {};",
+    "path": "data:text/javascript,export default { join: (...args) => args.join('/'), dirname: (p) => p, resolve: (...args) => args.join('/'), sep: '/' }; export const join = (...args) => args.join('/'); export const dirname = (p) => p; export const resolve = (...args) => args.join('/'); export const sep = '/';",
+    "os": "data:text/javascript,export default { platform: () => 'browser', homedir: () => '/' }; export const platform = () => 'browser';",
+    "crypto": "data:text/javascript,export default { getRandomValues: (arr) => window.crypto.getRandomValues(arr) }; export const getRandomValues = (arr) => window.crypto.getRandomValues(arr);",
+    "stream": "data:text/javascript,export default {};",
+    "http": "data:text/javascript,export default {};",
+    "https": "data:text/javascript,export default {};",
+    "zlib": "data:text/javascript,export default {};",
+    "url": "data:text/javascript,export default {};",
+    "util": "data:text/javascript,export default { promisify: (fn) => fn }; export const promisify = (fn) => fn;",
+    "net": "data:text/javascript,export default {}",
+    "tls": "data:text/javascript,export default {}",
+    "child_process": "data:text/javascript,export default {}",
+    "process": "data:text/javascript,export default window.process",
+    
+    "node:fs": "data:text/javascript,export default { readFileSync: () => {}, writeFileSync: () => {}, existsSync: () => false, promises: {} }; export const readFileSync = () => {};",
+    "node:path": "data:text/javascript,export default { join: (...args) => args.join('/'), dirname: (p) => p, resolve: (...args) => args.join('/') }; export const join = (...args) => args.join('/');",
+    "node:os": "data:text/javascript,export default { platform: () => 'browser' }; export const platform = () => 'browser';",
+    "node:crypto": "data:text/javascript,export default { getRandomValues: (arr) => window.crypto.getRandomValues(arr) };",
+    "node:stream": "data:text/javascript,export default {};",
+    
+    "react": "https://esm.sh/react@19.2.4",
+    "react/jsx-runtime": "https://esm.sh/react@19.2.4/jsx-runtime",
+    "react-dom/client": "https://esm.sh/react-dom@19.2.4/client",
+    
+    "three": "https://esm.sh/three@0.182.0",
+    "three/": "https://esm.sh/three@0.182.0/",
+    "three/examples/jsm/": "https://esm.sh/three@0.182.0/examples/jsm/",
+    "three/examples/jsm/utils/BufferGeometryUtils": "https://esm.sh/three@0.182.0/examples/jsm/utils/BufferGeometryUtils.js?external=three",
+    "three-mesh-bvh": "https://esm.sh/three-mesh-bvh@0.7.3?external=three",
+    
+    "web-ifc": "https://esm.sh/web-ifc@0.0.66?external=fs,path,util&target=esnext",
+    
+    "lucide-react": "https://esm.sh/lucide-react@0.454.0?external=react",
+    
+    "react-window": "https://esm.sh/react-window@1.8.10?external=react,react-dom",
+    "react-virtualized-auto-sizer": "https://esm.sh/react-virtualized-auto-sizer@1.0.24?external=react,react-dom",
+    "react-dom/": "https://esm.sh/react-dom@19.2.4/",
+    "react/": "https://esm.sh/react@19.2.4/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="font-sans antialiased text-slate-800 bg-slate-50">
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
