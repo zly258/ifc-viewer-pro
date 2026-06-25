@@ -11,14 +11,14 @@
   "dependencies": {
     "crypto": "latest",
     "process": "latest",
-    "react": "19.2.4",
+    "react": "18.2.0",
     "three": "0.182.0",
     "three-mesh-bvh": "0.7.3",
     "web-ifc": "0.0.66",
     "lucide-react": "0.454.0",
     "react-window": "1.8.10",
     "react-virtualized-auto-sizer": "1.0.24",
-    "react-dom": "19.2.4"
+    "react-dom": "18.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
