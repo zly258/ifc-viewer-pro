@@ -5,13 +5,14 @@ import PropertyPanel from './components/PropertyPanel';
 import ModelTree from './components/ModelTree';
 import MeasurementPanel from './components/MeasurementPanel';
 import BottomToolbar from './components/BottomToolbar';
-import SettingsModal, { ViewSettings, DEFAULT_VIEW_SETTINGS } from './components/SettingsModal';
+import SettingsModal, { ViewSettings, DEFAULT_VIEW_SETTINGS, SETTINGS_VERSION } from './components/SettingsModal';
 import DraggablePanel from './components/common/DraggablePanel';
 import { TopStatusBar } from './components/TopStatusBar';
 import { IFCElementData, MeasurementResult } from './types';
-import { Loader, Cpu, Network, FileText, Ruler, Sun } from 'lucide-react';
+import { Loader, Cpu, Network, FileText, Ruler, Sun, Bookmark } from 'lucide-react';
 import { ifcManager } from './services/ifcManager';
 import LightingSimulationPanel from './components/LightingSimulationPanel';
+import BcfPanel from './components/BcfPanel';
 
 const App: React.FC = () => {
   const [selectedElement, setSelectedElement] = useState<IFCElementData | null>(null);
@@ -21,6 +22,7 @@ const App: React.FC = () => {
   const [showPropertyPanel, setShowPropertyPanel] = useState(false);
   const [showMeasurePanel, setShowMeasurePanel] = useState(false);
   const [showLightingPanel, setShowLightingPanel] = useState(false);
+  const [showBcfPanel, setShowBcfPanel] = useState(false);
   
   // Modal States
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -31,9 +33,10 @@ const App: React.FC = () => {
       try {
         const parsed = JSON.parse(saved);
         return {
-          ifcUpAxis: parsed.ifcUpAxis || 'Y',
+          ifcUpAxis: parsed.settingsVersion ? (parsed.ifcUpAxis || 'Z') : 'Z',
           glbUpAxis: parsed.glbUpAxis || 'Y',
-          shadowQuality: parsed.shadowQuality || 'off'
+          shadowQuality: parsed.shadowQuality || 'off',
+          settingsVersion: SETTINGS_VERSION
         };
       } catch (e) {
         return DEFAULT_VIEW_SETTINGS;
@@ -69,8 +72,9 @@ const App: React.FC = () => {
   }, [settings.shadowQuality]);
 
   const handleSaveSettings = (newSettings: ViewSettings) => {
-    setSettings(newSettings);
-    localStorage.setItem('bimvision_settings', JSON.stringify(newSettings));
+    const versionedSettings = { ...newSettings, settingsVersion: SETTINGS_VERSION };
+    setSettings(versionedSettings);
+    localStorage.setItem('bimvision_settings', JSON.stringify(versionedSettings));
     setIsSettingsOpen(false);
   };
 
@@ -138,7 +142,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col w-full h-screen bg-slate-50 text-slate-800 overflow-hidden font-sans relative">
+    <div className="flex flex-col w-full h-screen bg-[var(--app-bg)] text-slate-800 overflow-hidden font-sans relative">
       
       <TopStatusBar fileName={lastFileName} />
 
@@ -215,13 +219,24 @@ const App: React.FC = () => {
               <LightingSimulationPanel 
                   onShadowQualityChange={(quality) => {
                       setSettings(prev => {
-                          const newSettings = { ...prev, shadowQuality: quality };
+                          const newSettings = { ...prev, shadowQuality: quality, settingsVersion: SETTINGS_VERSION };
                           localStorage.setItem('bimvision_settings', JSON.stringify(newSettings));
                           return newSettings;
                       });
                   }}
                   currentShadowQuality={settings.shadowQuality}
               />
+          </DraggablePanel>
+
+          <DraggablePanel 
+              title="视点与批注 (BCF)" 
+              icon={Bookmark}
+              isOpen={showBcfPanel} 
+              onClose={() => setShowBcfPanel(false)}
+              initialPosition={{ x: Math.max(20, window.innerWidth - 340), y: 120 }}
+              initialSize={{ w: 320, h: 480 }}
+          >
+              <BcfPanel selectedElement={selectedElement} />
           </DraggablePanel>
 
           {/* Floating UI Layer (Toolbar) */}
@@ -235,16 +250,18 @@ const App: React.FC = () => {
               activeRightPanel={showPropertyPanel ? 'properties' : null}
               onToggleLightingPanel={() => setShowLightingPanel(!showLightingPanel)}
               isLightingPanelOpen={showLightingPanel}
+              onToggleBcfPanel={() => setShowBcfPanel(!showBcfPanel)}
+              isBcfPanelOpen={showBcfPanel}
           />
           
           {/* Combined Loading Overlay */}
           {(isLoading || processingStatus) && (
-              <div className="absolute inset-0 bg-white/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center pointer-events-none transition-opacity duration-300">
+              <div className="absolute inset-0 bg-white/88 backdrop-blur-sm z-50 flex flex-col items-center justify-center pointer-events-none transition-opacity duration-300">
                   {/* Phase 1: Reading/Loading (Determinate Progress) */}
                   {isLoading ? (
                       <>
                         <Loader className="w-10 h-10 text-blue-500 animate-spin mb-4" />
-                        <h3 className="text-xl font-light text-slate-800 mb-2">{processingStatus || "正在读取文件"}</h3>
+                        <h3 className="text-base font-semibold text-slate-800 mb-3">{processingStatus || "正在读取文件"}</h3>
                         <div className="w-64 h-2 bg-slate-200 rounded-full overflow-hidden shadow-inner">
                             <div className="h-full bg-blue-500 transition-all duration-200 ease-out" style={{ width: `${Math.max(5, progress)}%` }} />
                         </div>
@@ -254,10 +271,10 @@ const App: React.FC = () => {
                   /* Phase 2: Processing (Indeterminate) */
                       <>
                         <div className="relative">
-                            <Cpu className="w-10 h-10 text-green-500 animate-pulse mb-4" />
-                            <div className="absolute top-0 right-0 w-3 h-3 bg-green-400 rounded-full animate-ping" />
+                            <Cpu className="w-10 h-10 text-blue-500 animate-pulse mb-4" />
+                            <div className="absolute top-0 right-0 w-3 h-3 bg-blue-400 rounded-full animate-ping" />
                         </div>
-                        <h3 className="text-xl font-light text-slate-800 mb-2">{processingStatus || "处理中..."}</h3>
+                        <h3 className="text-base font-semibold text-slate-800 mb-2">{processingStatus || "处理中..."}</h3>
                         <p className="text-xs text-slate-400">正在解析几何数据与属性</p>
                       </>
                   )}
@@ -266,8 +283,8 @@ const App: React.FC = () => {
           
           {!lastFileName && !isLoading && !processingStatus && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                  <div className="text-slate-400 text-sm bg-white/50 px-4 py-2 rounded-full border border-slate-200 shadow-sm">
-                      请点击下方“加载”按钮导入 IFC/GLB 模型
+                  <div className="text-slate-500 text-sm bg-white/80 px-4 py-2 rounded-lg border border-slate-200">
+                      点击下方“加载”导入 IFC、GLB 或 GLTF 模型
                   </div>
               </div>
           )}
@@ -275,13 +292,13 @@ const App: React.FC = () => {
       
       {showClearConfirm && (
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden p-5 animate-in fade-in zoom-in-95 duration-150">
+              <div className="panel-surface w-full max-w-sm overflow-hidden p-5 animate-fade-in-up">
                   <h3 className="text-sm font-semibold text-slate-800 mb-2 font-sans">清空当前场景</h3>
                   <p className="text-xs text-slate-500 mb-4 leading-relaxed font-sans">确定要清空当前场景吗？所有的模型和测量数据都会被清空且无法恢复。</p>
                   <div className="flex justify-end gap-2 text-xs font-sans">
                       <button 
                           onClick={() => setShowClearConfirm(false)} 
-                          className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors font-semibold border border-slate-200"
+                          className="secondary-button"
                       >
                           取消
                       </button>
@@ -290,7 +307,7 @@ const App: React.FC = () => {
                               handleClearScene();
                               setShowClearConfirm(false);
                           }} 
-                          className="px-3.5 py-2 text-white bg-red-600 hover:bg-red-700 font-semibold rounded-lg transition-colors"
+                          className="danger-primary-button"
                       >
                           确认清空
                       </button>

@@ -50,6 +50,10 @@ export class MeasurementManager {
         this.initCursorLabel();
     }
 
+    public updateContainer(container: HTMLElement) {
+        this.container = container;
+    }
+
     private initCursorLabel() {
         const div = document.createElement('div');
         div.className = 'bg-white/90 text-slate-800 px-2 py-1 rounded text-[10px] shadow-sm border border-slate-200 pointer-events-none whitespace-nowrap transform translate-x-4 translate-y-4 font-sans font-medium hidden';
@@ -462,7 +466,7 @@ export class MeasurementManager {
     private createLabel(pos: THREE.Vector3, text: string) {
         const div = document.createElement('div');
         // Autodesk Viewer style: White bg, rounded, shadow, clean text
-        div.className = 'bg-white text-slate-800 px-3 py-1.5 rounded-md text-xs font-semibold shadow-md border border-slate-200 pointer-events-none whitespace-pre-line text-center z-10 select-none';
+        div.className = 'bg-white text-slate-800 px-3 py-1.5 rounded-md text-xs font-semibold border border-slate-200 pointer-events-none whitespace-pre-line text-center z-10 select-none';
         div.textContent = text;
         // Small arrow visual could be added with pseudo-element class in CSS
 

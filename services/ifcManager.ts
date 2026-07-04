@@ -1,6 +1,5 @@
 
 import * as THREE from 'three';
-import * as WebIFC from 'web-ifc';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -21,12 +20,22 @@ THREE.Mesh.prototype.raycast = acceleratedRaycast;
 export class IFCManager {
     private container: HTMLElement | null = null;
     private scene: THREE.Scene;
-    public camera: THREE.OrthographicCamera;
+    public camera: THREE.OrthographicCamera | THREE.PerspectiveCamera;
+    public orthoCamera: THREE.OrthographicCamera;
+    public persCamera: THREE.PerspectiveCamera;
     private renderer: THREE.WebGLRenderer;
     private labelRenderer: CSS2DRenderer;
     private controls: OrbitControls;
     
-    private ifcApi: WebIFC.IfcAPI;
+    private worker: Worker | null = null;
+    private modelIdCounter = 1;
+    private savedStructures: Map<number, IFCSpatialStructure> = new Map();
+    private currentLoadingFileName: string = "";
+    private currentFitToFrame: boolean = true;
+    private loadResolver: (() => void) | null = null;
+    private propertyResolver: ((props: any) => void) | null = null;
+    private highlightResolver: ((geoms: any[]) => void) | null = null;
+
     private gltfLoader: GLTFLoader;
     private batcher: IfcBatcher;
     
@@ -53,6 +62,7 @@ export class IFCManager {
     private raycaster = new THREE.Raycaster();
     private mouse = new THREE.Vector2();
     private activeTool: ViewerTool = ViewerTool.SELECT;
+    private pointerDownPosition: { x: number; y: number } | null = null;
 
     private materialCache: Record<string, THREE.MeshStandardMaterial> = {};
     
@@ -92,8 +102,13 @@ export class IFCManager {
 
         // Renderer
         const fr = 50; 
-        this.camera = new THREE.OrthographicCamera(-fr, fr, fr, -fr, 0.1, 50000);
-        this.camera.up.set(0, 1, 0); // SWITCHED TO Y-UP (Standard Three.js)
+        this.orthoCamera = new THREE.OrthographicCamera(-fr, fr, fr, -fr, 0.1, 50000);
+        this.orthoCamera.up.set(0, 1, 0); // SWITCHED TO Y-UP (Standard Three.js)
+        
+        this.persCamera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 50000);
+        this.persCamera.up.set(0, 1, 0);
+        
+        this.camera = this.orthoCamera;
         
         this.renderer = new THREE.WebGLRenderer({ 
             antialias: true, 
@@ -109,12 +124,7 @@ export class IFCManager {
         this.batcher = new IfcBatcher();
 
         // Loaders
-        this.ifcApi = new WebIFC.IfcAPI();
-        
-        // Fixed path
-        this.ifcApi.SetWasmPath('https://cdn.jsdelivr.net/npm/web-ifc@0.0.66/');
-
-        // Note: SetLogLevel moved to init() to avoid early access errors
+        this.gltfLoader = new GLTFLoader();
         
         this.gltfLoader = new GLTFLoader();
         try {
@@ -346,7 +356,13 @@ export class IFCManager {
 
     private animate = () => {
         this.animationFrameId = requestAnimationFrame(this.animate);
-        this.controls.update(); // only required if controls.enableDamping or controls.autoRotate are set
+        
+        if (this.isWalking) {
+            this.updateWalkPosition();
+        } else {
+            this.controls.update(); // only required if controls.enableDamping or controls.autoRotate are set
+        }
+        
         this.renderer.render(this.scene, this.camera);
         if (this.measurementManager) this.labelRenderer.render(this.scene, this.camera);
     }
@@ -376,6 +392,7 @@ export class IFCManager {
 
             window.addEventListener('resize', this.handleResize);
             window.addEventListener('keydown', this.handleKeyDown);
+            this.renderer.domElement.addEventListener('pointerdown', this.handlePointerDown);
             this.renderer.domElement.addEventListener('mousemove', this.handleMouseMove);
             this.renderer.domElement.addEventListener('click', this.handleClick);
             this.renderer.domElement.addEventListener('dblclick', this.handleDoubleClick);
@@ -398,21 +415,12 @@ export class IFCManager {
         // Ensure Init is only called once and errors are handled
         if (!this.isInitialized) {
             try {
-                await this.ifcApi.Init();
+                this.initWorker();
                 this.isInitialized = true;
-                
-                // Set Log Level safely after Init
-                try {
-                     // LogLevel definition might vary by version, using safe numeric or enum if available
-                     this.ifcApi.SetLogLevel(WebIFC.LogLevel.LOG_LEVEL_OFF); 
-                } catch(e) {
-                     // Ignore errors setting log level
-                }
-                
-                console.log("WebIFC Initialized");
+                console.log("IFCManager and Worker Initialized");
             } catch(e) {
-                console.error("WebIFC Init Failed:", e);
-                this.onError("WebIFC 初始化失败 (WASM加载错误)");
+                console.error("Worker Init Failed:", e);
+                this.onError("Worker 初始化失败");
             }
             this.animate();
         }
@@ -445,6 +453,10 @@ export class IFCManager {
             this.clearSelection();
             this.onSelect(null);
         }
+    }
+
+    private handlePointerDown = (event: PointerEvent) => {
+        this.pointerDownPosition = { x: event.clientX, y: event.clientY };
     }
 
     private readFileWithProgress(file: File): Promise<Uint8Array> {
@@ -530,137 +542,146 @@ export class IFCManager {
     }
 
     // --- IFC Loading ---
-    loadIfc = async (file: File, fitToFrame = true) => {
-        if (!this.isInitialized) {
-             try {
-                await this.ifcApi.Init();
-                this.isInitialized = true;
-             } catch(e) {
-                this.onError("WebIFC 初始化失败 (WASM加载中或失败)");
-                return;
-             }
-        }
+    private initWorker() {
+        if (this.worker) return;
+        
+        // Load the worker via Vite module worker syntax
+        this.worker = new Worker(new URL('./ifc.worker.ts', import.meta.url), { type: 'module' });
+        
+        this.worker.onmessage = (e: MessageEvent) => {
+            const { type, data } = e.data;
+            
+            if (type === 'INIT_SUCCESS') {
+                console.log("[Worker] WebIFC initialized in background thread");
+            }
+            else if (type === 'PROCESSING') {
+                this.onProcessing(data || e.data.message);
+            }
+            else if (type === 'ERROR') {
+                console.error("[Worker Error]", data || e.data.message);
+                this.onError(data || e.data.message);
+                this.onProcessing(null);
+                if (this.loadResolver) {
+                    this.loadResolver();
+                    this.loadResolver = null;
+                }
+            }
+            else if (type === 'GEOMETRY_STREAM') {
+                const { modelID, expressID, geometryExpressID, color, flatTransformation, pos, norm, indices } = data;
+                
+                const geom = new THREE.BufferGeometry();
+                geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+                geom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(norm), 3));
+                geom.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
+                
+                const material = this.getMaterial(
+                    color ? new THREE.Color(color.x, color.y, color.z).getHex() : 0xcccccc,
+                    color ? color.w : 1.0
+                );
+                
+                const matrix = new THREE.Matrix4().fromArray(flatTransformation);
+                this.batcher.add(geom, material, matrix, expressID, geometryExpressID);
+            }
+            else if (type === 'LOAD_COMPLETE') {
+                const { modelID, structure, parentMap } = data;
+                
+                const mergedMeshes = this.batcher.build();
+                
+                const rootGroup = new THREE.Group();
+                rootGroup.name = this.currentLoadingFileName || "Model";
+                rootGroup.userData.modelID = modelID;
+                
+                mergedMeshes.forEach(mesh => {
+                    mesh.userData.modelID = modelID;
+                    mesh.userData.isBatch = true;
+                    mesh.castShadow = (this.shadowQuality !== 'off');
+                    mesh.receiveShadow = (this.shadowQuality !== 'off');
+                    rootGroup.add(mesh);
+                });
+                
+                if (this.ifcUpAxis === 'Z') {
+                    rootGroup.rotateX(-Math.PI / 2);
+                }
+                rootGroup.updateMatrixWorld(true);
+                
+                this.scene.add(rootGroup);
+                this.models.set(modelID, { group: rootGroup, modelID, name: rootGroup.name });
+                
+                // Merge parentMap entries
+                Object.entries(parentMap).forEach(([k, v]) => {
+                    this.parentMap.set(k, v as string);
+                });
+                
+                this.savedStructures.set(modelID, structure);
+                
+                if (this.currentFitToFrame) this.fitModelToFrame();
+                this.onLoading(100, 100);
+                this.onProcessing(null);
+                
+                if (this.loadResolver) {
+                    this.loadResolver();
+                    this.loadResolver = null;
+                }
+            }
+            else if (type === 'PROPERTIES_RESULT') {
+                if (this.propertyResolver) {
+                    this.propertyResolver(data);
+                    this.propertyResolver = null;
+                }
+            }
+            else if (type === 'HIGHLIGHT_GEOMETRY_RESULT') {
+                const { geometries } = data;
+                if (this.highlightResolver) {
+                    this.highlightResolver(geometries);
+                    this.highlightResolver = null;
+                }
+            }
+        };
+        
+        this.worker.postMessage({ type: 'INIT' });
+    }
 
+    loadIfc = async (file: File, fitToFrame = true) => {
+        if (!this.worker) {
+            this.initWorker();
+        }
+        
         this.onProcessing("读取 IFC 文件...");
         this.onLoading(0, 100);
         
-        try {
-            const data = await this.readFileWithProgress(file);
-            
-            this.onProcessing("解析模型结构...");
-            this.onLoading(85, 100);
-            const modelID = this.ifcApi.OpenModel(data, {
-                COORDINATE_TO_ORIGIN: true
-            });
-
-            await this.buildPropertyMap(modelID);
-            this.onLoading(90, 100);
-
-            this.onProcessing("生成几何体...");
-            let meshCount = 0;
-            
-            this.ifcApi.StreamAllMeshes(modelID, (flatMesh: WebIFC.FlatMesh) => {
-                const size = flatMesh.geometries.size();
-                const expressID = flatMesh.expressID;
-
-                if (!this.modelMeshExpressIDs.has(modelID)) {
-                    this.modelMeshExpressIDs.set(modelID, new Set());
-                }
-                this.modelMeshExpressIDs.get(modelID)!.add(expressID);
-
-                for (let i = 0; i < size; i++) {
-                    const placedGeom = flatMesh.geometries.get(i);
-                    const geom = this.makeGeometry(modelID, placedGeom);
-                    if (!geom) continue;
-
-                    const color = placedGeom.color;
-                    const material = this.getMaterial(
-                        color ? new THREE.Color(color.x, color.y, color.z).getHex() : 0xcccccc,
-                        color ? color.w : 1.0
-                    );
-
-                    const matrix = new THREE.Matrix4().fromArray(placedGeom.flatTransformation);
-                    this.batcher.add(geom, material, matrix, expressID);
-                    meshCount++;
-                }
-            });
-
-            console.log(`[IFCManager] Streamed ${meshCount} geometries.`);
-            this.onLoading(95, 100);
-            
-            this.onProcessing("优化网格...");
-            const mergedMeshes = this.batcher.build();
-            this.onLoading(98, 100);
-            
-            console.log(`[IFCManager] Created ${mergedMeshes.length} batched meshes.`);
-
-            const rootGroup = new THREE.Group();
-            rootGroup.name = file.name;
-            rootGroup.userData.modelID = modelID;
-            
-            mergedMeshes.forEach(mesh => {
-                mesh.userData.modelID = modelID;
-                mesh.userData.isBatch = true;
-                mesh.castShadow = (this.shadowQuality !== 'off');
-                mesh.receiveShadow = (this.shadowQuality !== 'off');
-                rootGroup.add(mesh);
-            });
-
-            // Adjust based on ifcUpAxis
-            if (this.ifcUpAxis === 'Z') {
-                rootGroup.rotateX(-Math.PI / 2);
-            }
-            rootGroup.updateMatrixWorld(true);
-
-            this.scene.add(rootGroup);
-            this.models.set(modelID, { group: rootGroup, modelID, name: file.name });
-            
-            if (fitToFrame) this.fitModelToFrame();
-            this.onLoading(100, 100);
-            this.onProcessing(null);
-
-        } catch (e: any) {
-            console.error(e);
-            this.onError(`Load Error: ${e.message}`);
-            this.onProcessing(null);
-        }
-    }
-
-    private makeGeometry(modelID: number, placedGeom: WebIFC.PlacedGeometry): THREE.BufferGeometry | null {
-        const geomData = this.ifcApi.GetGeometry(modelID, placedGeom.geometryExpressID);
-        if (!geomData) return null;
+        this.currentLoadingFileName = file.name;
+        this.currentFitToFrame = fitToFrame;
         
-        const verts = this.ifcApi.GetVertexArray(geomData.GetVertexData(), geomData.GetVertexDataSize());
-        const indices = this.ifcApi.GetIndexArray(geomData.GetIndexData(), geomData.GetIndexDataSize());
-
-        if (verts.length === 0 || indices.length === 0) return null;
-
-        const geometry = new THREE.BufferGeometry();
-        
-        const numVerts = verts.length / 6;
-        const pos = new Float32Array(numVerts * 3);
-        const norm = new Float32Array(numVerts * 3);
-
-        let idx3 = 0;
-        let idx6 = 0;
-        for (let i = 0; i < numVerts; i++) {
-            pos[idx3] = verts[idx6];
-            pos[idx3+1] = verts[idx6+1];
-            pos[idx3+2] = verts[idx6+2];
-            
-            norm[idx3] = verts[idx6+3];
-            norm[idx3+1] = verts[idx6+4];
-            norm[idx3+2] = verts[idx6+5];
-
-            idx3 += 3;
-            idx6 += 6;
-        }
-
-        geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-        geometry.setAttribute('normal', new THREE.BufferAttribute(norm, 3));
-        geometry.setIndex(new THREE.BufferAttribute(indices, 1));
-
-        return geometry;
+        const reader = new FileReader();
+        return new Promise<void>((resolve, reject) => {
+            reader.onload = async (e) => {
+                const buffer = e.target?.result as ArrayBuffer;
+                if (!buffer) {
+                    reject(new Error("File read returned empty buffer"));
+                    return;
+                }
+                
+                this.loadResolver = resolve;
+                this.worker!.postMessage({
+                    type: 'LOAD_IFC_MODEL',
+                    data: {
+                        fileBuffer: buffer,
+                        modelID: this.modelIdCounter++
+                    }
+                }, [buffer]); // transfer the array buffer to avoid copying
+            };
+            reader.onerror = (err) => {
+                reject(err);
+                this.onProcessing(null);
+            };
+            reader.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = (e.loaded / e.total) * 80; // Reader progress up to 80%
+                    this.onLoading(percent, 100);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
     }
 
     private getMaterial(color: number, opacity: number): THREE.MeshStandardMaterial {
@@ -744,8 +765,10 @@ export class IFCManager {
         const structures: { fileName: string; modelID: number; structure: IFCSpatialStructure }[] = [];
         for (const [modelID, model] of this.models) {
             if (modelID >= 0) {
-                const structure = await this.buildSpatialTree(modelID);
-                structures.push({ fileName: model.name, modelID: modelID, structure: structure });
+                const structure = this.savedStructures.get(modelID);
+                if (structure) {
+                    structures.push({ fileName: model.name, modelID: modelID, structure: structure });
+                }
             } else {
                 const structure = this.buildGLBSpatialTree(model.group, modelID);
                 structures.push({ fileName: model.name, modelID: modelID, structure: structure });
@@ -780,187 +803,7 @@ export class IFCManager {
         };
     }
 
-    private async buildSpatialTree(modelID: number): Promise<IFCSpatialStructure> {
-        const typeMap = new Map<number, string>();
-        [WebIFC.IFCPROJECT, WebIFC.IFCSITE, WebIFC.IFCBUILDING, WebIFC.IFCBUILDINGSTOREY].forEach(type => {
-            const lines = this.ifcApi.GetLineIDsWithType(modelID, type);
-            for(let i=0; i<lines.size(); i++) typeMap.set(lines.get(i), this.getTypeName(type));
-        });
 
-        const aggregates = new Map<number, number[]>(); 
-        const contains = new Map<number, number[]>();
-
-        const aggLines = this.ifcApi.GetLineIDsWithType(modelID, WebIFC.IFCRELAGGREGATES);
-        for(let i=0; i<aggLines.size(); i++) {
-            const rel = this.ifcApi.GetLine(modelID, aggLines.get(i));
-            if (!rel.RelatingObject) continue;
-            const parentID = rel.RelatingObject.value;
-            if (rel.RelatedObjects && Array.isArray(rel.RelatedObjects)) {
-                rel.RelatedObjects.forEach((r: any) => {
-                    if(!aggregates.has(parentID)) aggregates.set(parentID, []);
-                    aggregates.get(parentID)!.push(r.value);
-                });
-            }
-        }
-
-        const contLines = this.ifcApi.GetLineIDsWithType(modelID, WebIFC.IFCRELCONTAINEDINSPATIALSTRUCTURE);
-        for(let i=0; i<contLines.size(); i++) {
-            const rel = this.ifcApi.GetLine(modelID, contLines.get(i));
-            if (!rel.RelatingStructure) continue;
-            const parentID = rel.RelatingStructure.value;
-            if (rel.RelatedElements && Array.isArray(rel.RelatedElements)) {
-                rel.RelatedElements.forEach((r: any) => {
-                    if(!contains.has(parentID)) contains.set(parentID, []);
-                    contains.get(parentID)!.push(r.value);
-                });
-            }
-        }
-
-        const nestsLines = this.ifcApi.GetLineIDsWithType(modelID, WebIFC.IFCRELNESTS);
-        for(let i=0; i<nestsLines.size(); i++) {
-            const rel = this.ifcApi.GetLine(modelID, nestsLines.get(i));
-            if (!rel.RelatingObject) continue;
-            const parentID = rel.RelatingObject.value;
-            if (rel.RelatedObjects && Array.isArray(rel.RelatedObjects)) {
-                rel.RelatedObjects.forEach((r: any) => {
-                    if(!aggregates.has(parentID)) aggregates.set(parentID, []);
-                    aggregates.get(parentID)!.push(r.value);
-                });
-            }
-        }
-
-        const visitedExpressIDs = new Set<number>();
-        const projects = this.ifcApi.GetLineIDsWithType(modelID, WebIFC.IFCPROJECT);
-        const projectID = projects.size() > 0 ? projects.get(0) : 0;
-
-        const buildNode = async (id: number, parentIdStr?: string): Promise<IFCSpatialStructure> => {
-            visitedExpressIDs.add(id);
-            const nodeIdStr = `${modelID}_${id}`;
-            if (parentIdStr) {
-                this.parentMap.set(nodeIdStr, parentIdStr);
-            }
-
-            const props = this.ifcApi.GetLine(modelID, id);
-            const type = typeMap.get(id) || props.is_a || 'Object';
-            
-            const node: IFCSpatialStructure = {
-                expressID: id,
-                type: type,
-                name: props.Name?.value || `${this.formatTypeName(type)} #${id}`,
-                children: []
-            };
-
-            const childIDs = aggregates.get(id) || [];
-            for(const childID of childIDs) {
-                node.children.push(await buildNode(childID, nodeIdStr));
-            }
-
-            const elemIDs = contains.get(id) || [];
-            for(const elemID of elemIDs) {
-                node.children.push(await buildNode(elemID, nodeIdStr));
-            }
-            
-            return node;
-        };
-
-        let rootNode: IFCSpatialStructure;
-        if (projectID !== 0) {
-            rootNode = await buildNode(projectID);
-        } else {
-            const alternativeClasses = [WebIFC.IFCSITE, WebIFC.IFCBUILDING, WebIFC.IFCBUILDINGSTOREY];
-            let altID = 0;
-            for (const cls of alternativeClasses) {
-                const ids = this.ifcApi.GetLineIDsWithType(modelID, cls);
-                if (ids.size() > 0) {
-                    altID = ids.get(0);
-                    break;
-                }
-            }
-            if (altID !== 0) {
-                rootNode = await buildNode(altID);
-            } else {
-                rootNode = {
-                    expressID: 0,
-                    type: 'Project',
-                    name: 'Virtual Root',
-                    children: []
-                };
-            }
-        }
-
-        // Get unassigned meshes from model stream
-        const loadedIDs = this.modelMeshExpressIDs.get(modelID) || new Set<number>();
-        const unassignedNodes: IFCSpatialStructure[] = [];
-
-        for (const expressID of loadedIDs) {
-            if (!visitedExpressIDs.has(expressID)) {
-                try {
-                    const props = this.ifcApi.GetLine(modelID, expressID);
-                    const type = props.is_a || 'Object';
-                    unassignedNodes.push({
-                        expressID,
-                        type,
-                        name: props.Name?.value || `${this.formatTypeName(type)} #${expressID}`,
-                        children: []
-                    });
-                } catch (e) {
-                    unassignedNodes.push({
-                        expressID,
-                        type: 'Object',
-                        name: `未命名构件 #${expressID}`,
-                        children: []
-                    });
-                }
-            }
-        }
-
-        if (unassignedNodes.length > 0) {
-            const groupMap = new Map<string, IFCSpatialStructure[]>();
-            unassignedNodes.forEach(node => {
-                if (!groupMap.has(node.type)) {
-                    groupMap.set(node.type, []);
-                }
-                groupMap.get(node.type)!.push(node);
-            });
-
-            const groupChildren: IFCSpatialStructure[] = [];
-            let virtualID = -500;
-            const rootIdStr = `${modelID}_${rootNode.expressID}`;
-
-            groupMap.forEach((children, type) => {
-                const typeFolderID = virtualID--;
-                const folderIdStr = `${modelID}_${typeFolderID}`;
-                this.parentMap.set(folderIdStr, rootIdStr);
-                
-                children.forEach(c => {
-                    this.parentMap.set(`${modelID}_${c.expressID}`, folderIdStr);
-                });
-
-                groupChildren.push({
-                    expressID: typeFolderID,
-                    type: 'Group',
-                    name: `${this.formatTypeName(type)} (${children.length})`,
-                    children
-                });
-            });
-
-            const unassignedGroupID = -100;
-            const unassignedGroupStr = `${modelID}_${unassignedGroupID}`;
-            this.parentMap.set(unassignedGroupStr, rootIdStr);
-            groupChildren.forEach(folder => {
-                this.parentMap.set(`${modelID}_${folder.expressID}`, unassignedGroupStr);
-            });
-
-            rootNode.children.push({
-                expressID: unassignedGroupID,
-                type: 'Group',
-                name: `其他未分类构件 (${unassignedNodes.length})`,
-                children: groupChildren
-            });
-        }
-
-        return rootNode;
-    }
 
     private formatTypeName(type: string): string {
         if (type.startsWith('Ifc')) {
@@ -969,84 +812,16 @@ export class IFCManager {
         return type;
     }
 
-    private getTypeName(typeID: number) {
-        if (typeID === WebIFC.IFCPROJECT) return 'Project';
-        if (typeID === WebIFC.IFCSITE) return 'Site';
-        if (typeID === WebIFC.IFCBUILDING) return 'Building';
-        if (typeID === WebIFC.IFCBUILDINGSTOREY) return 'Storey';
-        return 'Object';
-    }
 
-    private async buildPropertyMap(modelID: number) {
-        const map = new Map<number, number[]>();
-        const typeMap = new Map<number, number>(); 
-        
-        try {
-            let lastYield = performance.now();
-
-            // RelDefinesByProperties (Psets & Quantities)
-            const relProps = this.ifcApi.GetLineIDsWithType(modelID, WebIFC.IFCRELDEFINESBYPROPERTIES);
-            for (let i = 0; i < relProps.size(); i++) {
-                if (performance.now() - lastYield > 35) { // Yield if blocked for > 35ms
-                    await new Promise(r => setTimeout(r, 0));
-                    lastYield = performance.now();
-                }
-                const id = relProps.get(i);
-                const rel = this.ifcApi.GetLine(modelID, id);
-                if (rel.RelatedObjects && Array.isArray(rel.RelatedObjects)) {
-                    const psetID = rel.RelatingPropertyDefinition?.value;
-                    if (psetID) {
-                        rel.RelatedObjects.forEach((objRef: any) => {
-                            const objID = objRef.value;
-                            if (!map.has(objID)) map.set(objID, []);
-                            map.get(objID)!.push(psetID);
-                        });
-                    }
-                }
-            }
-
-            // RelDefinesByType (Types)
-            const relTypes = this.ifcApi.GetLineIDsWithType(modelID, WebIFC.IFCRELDEFINESBYTYPE);
-            for (let i = 0; i < relTypes.size(); i++) {
-                if (performance.now() - lastYield > 35) {
-                    await new Promise(r => setTimeout(r, 0));
-                    lastYield = performance.now();
-                }
-                const id = relTypes.get(i);
-                const rel = this.ifcApi.GetLine(modelID, id);
-                if (rel.RelatedObjects && Array.isArray(rel.RelatedObjects) && rel.RelatingType) {
-                    const typeID = rel.RelatingType.value;
-                    rel.RelatedObjects.forEach((objRef: any) => {
-                        const objID = objRef.value;
-                        typeMap.set(objID, typeID);
-                    });
-                }
-            }
-
-            // Pass down properties from Types to Instances
-            for (const [objID, typeID] of Array.from(typeMap.entries())) {
-                const typePsets = map.get(typeID);
-                if (typePsets) {
-                    if (!map.has(objID)) map.set(objID, []);
-                    const objPsets = map.get(objID)!;
-                    for (const pid of typePsets) {
-                        if (!objPsets.includes(pid)) objPsets.push(pid);
-                    }
-                }
-            }
-
-        } catch(e) {
-            console.warn("Property Map generation issue", e);
-        }
-        this.propertyMaps.set(modelID, map);
-    }
 
     // --- Interaction ---
     
     // Perform Raycast
     private castRay(event: MouseEvent): { modelID: number, expressID: number, mesh: THREE.Mesh } | null {
-        if (!this.container) return null;
-        const rect = this.container.getBoundingClientRect();
+        const domElement = this.renderer.domElement;
+        if (!this.container || !domElement) return null;
+        const rect = domElement.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return null;
         this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         this.raycaster.setFromCamera(this.mouse, this.camera);
@@ -1071,17 +846,13 @@ export class IFCManager {
 
             if (mesh.userData.isBatch) {
                 const id = this.batcher.getExpressID(hit);
-                console.log("[castRay] Hit batch mesh. Extracted expressID:", id);
                 if (id !== null) expressID = id;
             } else if (mesh.userData.expressID !== undefined) {
                 expressID = mesh.userData.expressID;
-                console.log("[castRay] Hit normal mesh. Extracted expressID:", expressID);
             }
 
-            console.log("[castRay] Final result:", { modelID, expressID, meshName: mesh.name });
             return { modelID, expressID, mesh };
         }
-        console.log("[castRay] No intersections found.");
         return null;
     }
 
@@ -1104,8 +875,33 @@ export class IFCManager {
         }
     }
 
-    // Click handler (for measurement)
-    private handleClick = (event: MouseEvent) => {
+    private hasClickMoved(event: MouseEvent, threshold = 4): boolean {
+        if (!this.pointerDownPosition) return false;
+        const dx = event.clientX - this.pointerDownPosition.x;
+        const dy = event.clientY - this.pointerDownPosition.y;
+        return Math.hypot(dx, dy) > threshold;
+    }
+
+    private async selectFromPointer(event: MouseEvent) {
+        const hit = this.castRay(event);
+
+        if (hit) {
+            const { modelID, expressID, mesh } = hit;
+            if (expressID !== -1 && modelID !== undefined) {
+                this.highlightElement(modelID, expressID, mesh);
+                await this.selectElement(modelID, expressID);
+            } else if (mesh.userData.isGLB) {
+                this.highlightElement(modelID, -1, mesh);
+                this.onSelect({ expressID: -1, modelID, type: 'GLB', name: mesh.name, properties: mesh.userData.properties || [] });
+            }
+        } else {
+            this.clearSelection();
+            this.onSelect(null);
+        }
+    }
+
+    // Click handler
+    private handleClick = async (event: MouseEvent) => {
         if (!this.container) return;
         
         if (this.activeTool === ViewerTool.MEASURE) {
@@ -1116,145 +912,44 @@ export class IFCManager {
                  }
              }); 
              this.measurementManager?.onClick(event, m);
+             return;
+        }
+
+        if (this.activeTool === ViewerTool.SELECT || this.activeTool === ViewerTool.NONE) {
+            if (this.hasClickMoved(event)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            await this.selectFromPointer(event);
         }
     }
 
-    // Double Click Selection
+    // Double click keeps legacy zoom/selection behavior; normal selection is handled by single click.
     private handleDoubleClick = async (event: MouseEvent) => {
-        console.log("[handleDoubleClick] Triggered. Active tool:", this.activeTool);
         if (!this.container) return;
 
-        if (this.activeTool !== ViewerTool.SELECT) return;
-
-        const hit = this.castRay(event);
-        console.log("[handleDoubleClick] Raycast result:", hit);
-
-        if (hit) {
-            const { modelID, expressID, mesh } = hit;
-            if (expressID !== -1 && modelID !== undefined) {
-                this.highlightElement(modelID, expressID, mesh);
-                await this.selectElement(modelID, expressID);
-            }
-            else if (mesh.userData.isGLB) {
-                this.highlightElement(modelID, -1, mesh); // GLB Highlight
-                this.onSelect({ expressID: -1, modelID, type: 'GLB', name: mesh.name, properties: mesh.userData.properties || [] });
-            }
-        } else {
-            // Only clear if double-clicking on empty space
-            console.log("[handleDoubleClick] Clearing selection");
-            this.clearSelection();
-            this.onSelect(null);
+        if (this.activeTool === ViewerTool.MEASURE || this.activeTool === ViewerTool.SECTION || this.activeTool === ViewerTool.WALK) {
+            return;
         }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        await this.selectFromPointer(event);
     }
 
     private async selectElement(modelID: number, expressID: number) {
-        try {
-            const props = await this.ifcApi.GetLine(modelID, expressID);
-            const properties: IFCProperty[] = [];
-             
-            if(props) {
-                properties.push({ name: '构件类型', value: String(this.formatTypeName(props.is_a || 'Unknown')), setName: '基本信息' });
-                properties.push({ name: 'Express ID', value: String(expressID), setName: '基本信息' });
-                if (props.GlobalId && props.GlobalId.value) {
-                    properties.push({ name: '全局唯一标识 (GUID)', value: String(props.GlobalId.value), setName: '基本信息' });
-                }
-                if (props.Name && props.Name.value) {
-                    properties.push({ name: '构件名称', value: String(props.Name.value), setName: '基本信息' });
-                }
-
-                Object.keys(props).forEach(k => { 
-                    if(!['expressID','type','GlobalId','Name','is_a'].includes(k) && props[k]) {
-                        let val = props[k].value;
-                        if (val === undefined || val === null) {
-                            if (typeof props[k] !== 'object') val = props[k];
-                        }
-                        if (val !== undefined && val !== null) {
-                            if (typeof val === 'object' && val.value !== undefined) val = val.value;
-                            properties.push({ name: k, value: String(val), setName: '基本属性' });
-                        }
-                    }
-                });
-            }
-
-            try {
-                const parentId = this.parentMap.get(`${modelID}_${expressID}`);
-                if (parentId) {
-                    const pExpID = parseInt(parentId.split('_')[1], 10);
-                    if (!isNaN(pExpID) && pExpID > 0) {
-                        const parentProps = this.ifcApi.GetLine(modelID, pExpID);
-                        if (parentProps) {
-                            const pName = parentProps.Name?.value || parentProps.is_a || `Storey #${pExpID}`;
-                            properties.push({ name: '所在空间', value: String(this.formatTypeName(pName)), setName: '基本信息' });
-                        }
-                    }
-                }
-            } catch (e) {}
-
-            try {
-                const matRels = this.ifcApi.GetLineIDsWithType(modelID, WebIFC.IFCRELASSOCIATESMATERIAL);
-                for (let i = 0; i < matRels.size(); i++) {
-                    const rel = this.ifcApi.GetLine(modelID, matRels.get(i));
-                    if (rel.RelatedObjects && Array.isArray(rel.RelatedObjects)) {
-                        const isRelated = rel.RelatedObjects.some((o: any) => o.value === expressID);
-                        if (isRelated && rel.RelatingMaterial) {
-                            const mat = this.ifcApi.GetLine(modelID, rel.RelatingMaterial.value);
-                            if (mat) {
-                                let matName = mat.Name?.value || mat.is_a || 'Material';
-                                if (mat.MaterialParts && Array.isArray(mat.MaterialParts)) {
-                                    const parts: string[] = [];
-                                    for(const pt of mat.MaterialParts) {
-                                         const pLine = this.ifcApi.GetLine(modelID, pt.value);
-                                         if (pLine && pLine.Material) {
-                                             const item = this.ifcApi.GetLine(modelID, pLine.Material.value);
-                                             if (item && item.Name) parts.push(item.Name.value);
-                                         }
-                                    }
-                                    if (parts.length > 0) matName = parts.join(' + ');
-                                }
-                                properties.push({ name: '关联物理材质', value: String(matName), setName: '材质信息' });
-                            }
-                        }
-                    }
-                }
-            } catch (e) {}
-
-            const psetIDs = this.propertyMaps.get(modelID)?.get(expressID);
-             if(psetIDs) {
-                 for(const pid of psetIDs) {
-                     try {
-                         const pset = await this.ifcApi.GetLine(modelID, pid);
-                         const setName = pset.Name?.value || 'Pset';
-                         
-                         // Standard Property Set
-                         if(pset.HasProperties) {
-                             for(const pr of pset.HasProperties) {
-                                 try {
-                                     const p = await this.ifcApi.GetLine(modelID, pr.value);
-                                     if(p.Name && p.NominalValue) {
-                                         properties.push({name:p.Name.value, value:String(p.NominalValue.value), setName});
-                                     } 
-                                 } catch(e) {}
-                             }
-                         }
-                         
-                         // Element Quantities
-                         if (pset.Quantities) {
-                             for(const q of pset.Quantities) {
-                                 try {
-                                     const p = await this.ifcApi.GetLine(modelID, q.value);
-                                     const val = p.LengthValue ?? p.AreaValue ?? p.VolumeValue ?? p.CountValue ?? p.WeightValue ?? p.TimeValue;
-                                     if(p.Name && val !== undefined && val !== null) {
-                                         properties.push({name:p.Name.value, value:String(val.value !== undefined ? val.value : val), setName});
-                                     }
-                                 } catch(e) {}
-                             }
-                         }
-                     } catch(e) {}
-                 }
-             }
-
-             this.onSelect({ expressID, modelID, type: props.is_a || 'Object', name: props.Name?.value || `${this.formatTypeName(props.is_a || 'Object')} #${expressID}`, properties });
-        } catch(e) { console.error(e); }
+        if (!this.worker) return;
+        
+        return new Promise<void>((resolve) => {
+            this.propertyResolver = (propertiesData: any) => {
+                this.onSelect(propertiesData.data);
+                resolve();
+            };
+            this.worker!.postMessage({
+                type: 'GET_PROPERTIES',
+                data: { modelID, expressID }
+            });
+        });
     }
     
     public async selectByID(modelID: number, expressID: number, zoomTo = false) {
@@ -1316,65 +1011,72 @@ export class IFCManager {
     }
 
     // Generic Highlight Logic
-    private createHighlightGeometry(modelID: number, expressID: number, targetMesh: THREE.Mesh | undefined, material: THREE.MeshStandardMaterial): THREE.Mesh | null {
-        let mesh: THREE.Mesh | null = null;
+    private async highlightElement(modelID: number, expressID: number, targetMesh?: THREE.Mesh) {
+        this.clearSelection();
+        
         if (modelID >= 0 && expressID >= 0) {
-            try {
-                // Get geometry for specific element expressID
-                const flatMesh = this.ifcApi.GetFlatMesh(modelID, expressID);
-                const geometries: THREE.BufferGeometry[] = [];
-                const size = flatMesh.geometries.size();
-
-                for (let i = 0; i < size; i++) {
-                    const placedGeom = flatMesh.geometries.get(i);
-                    const geom = this.makeGeometry(modelID, placedGeom);
-                    if (geom) {
-                         const matrix = new THREE.Matrix4().fromArray(placedGeom.flatTransformation);
-                         geom.applyMatrix4(matrix);
-                         geometries.push(geom);
-                    }
-                }
-
-                if (geometries.length > 0) {
-                    const mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries);
-                    geometries.forEach(g => g.dispose()); 
-
-                    if (mergedGeometry) {
-                        mesh = new THREE.Mesh(mergedGeometry, material);
-                        const rootGroup = this.models.get(modelID)?.group;
-                        if (rootGroup) {
-                            mesh.rotation.copy(rootGroup.rotation);
-                            mesh.position.copy(rootGroup.position);
-                            mesh.scale.copy(rootGroup.scale);
-                            mesh.updateMatrixWorld(true);
+            if (!this.worker) return;
+            
+            return new Promise<void>((resolve) => {
+                this.highlightResolver = (geometries: any[]) => {
+                    const threeGeometries: THREE.BufferGeometry[] = [];
+                    
+                    geometries.forEach((g: any) => {
+                        const geom = new THREE.BufferGeometry();
+                        geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(g.pos), 3));
+                        geom.setIndex(new THREE.BufferAttribute(new Uint32Array(g.indices), 1));
+                        geom.computeVertexNormals();
+                        
+                        const matrix = new THREE.Matrix4().fromArray(g.flatTransformation);
+                        geom.applyMatrix4(matrix);
+                        threeGeometries.push(geom);
+                    });
+                    
+                    if (threeGeometries.length > 0) {
+                        const mergedGeometry = BufferGeometryUtils.mergeGeometries(threeGeometries);
+                        threeGeometries.forEach(g => g.dispose());
+                        
+                        if (mergedGeometry) {
+                            const mesh = new THREE.Mesh(mergedGeometry, this.highlightMaterial);
+                            const rootGroup = this.models.get(modelID)?.group;
+                            if (rootGroup) {
+                                mesh.rotation.copy(rootGroup.rotation);
+                                mesh.position.copy(rootGroup.position);
+                                mesh.scale.copy(rootGroup.scale);
+                                mesh.updateMatrixWorld(true);
+                            }
+                            
+                            this.highlightModel = mesh;
+                            this.highlightModel.renderOrder = 999;
+                            this.highlightModel.userData = { modelID };
+                            this.scene.add(this.highlightModel);
+                            this.renderScene();
                         }
                     }
-                }
-            } catch (e) { console.error(e); }
+                    resolve();
+                };
+                
+                this.worker!.postMessage({
+                    type: 'GET_HIGHLIGHT_GEOMETRY',
+                    data: { modelID, expressID }
+                });
+            });
         } else if (targetMesh) {
-             // GLB - Prevent double transform by creating a fresh mesh with cloned world-transformed geometry
              const geom = targetMesh.geometry.clone();
              targetMesh.updateMatrixWorld(true);
              geom.applyMatrix4(targetMesh.matrixWorld);
              
-             mesh = new THREE.Mesh(geom, material);
+             const mesh = new THREE.Mesh(geom, this.highlightMaterial);
              mesh.position.set(0, 0, 0);
              mesh.rotation.set(0, 0, 0);
              mesh.scale.set(1, 1, 1);
              mesh.updateMatrixWorld(true);
-        }
-        return mesh;
-    }
-
-    private highlightElement(modelID: number, expressID: number, targetMesh?: THREE.Mesh) {
-        this.clearSelection();
-        const mesh = this.createHighlightGeometry(modelID, expressID, targetMesh, this.highlightMaterial);
-        if (mesh) {
-            this.highlightModel = mesh;
-            this.highlightModel.renderOrder = 999;
-            this.highlightModel.userData = { modelID }; // Store ID for rotation sync
-            this.scene.add(this.highlightModel);
-            this.renderScene();
+             
+             this.highlightModel = mesh;
+             this.highlightModel.renderOrder = 999;
+             this.highlightModel.userData = { modelID };
+             this.scene.add(this.highlightModel);
+             this.renderScene();
         }
     }
 
@@ -1514,6 +1216,7 @@ export class IFCManager {
         window.removeEventListener('resize', this.handleResize); 
         window.removeEventListener('keydown', this.handleKeyDown);
         if (this.renderer?.domElement) {
+            this.renderer.domElement.removeEventListener('pointerdown', this.handlePointerDown);
             this.renderer.domElement.removeEventListener('mousemove', this.handleMouseMove);
             this.renderer.domElement.removeEventListener('click', this.handleClick);
             this.renderer.domElement.removeEventListener('dblclick', this.handleDoubleClick);
@@ -1608,7 +1311,356 @@ export class IFCManager {
         return model ? model.group.visible !== false : false;
     }
 
-    setTool(t: ViewerTool) { this.activeTool = t; this.measurementManager?.setActive(t === 'MEASURE'); if(t !== 'SECTION') this.sectionManager?.clear(); }
+    private isWalking = false;
+    private walkKeys = { w: false, a: false, s: false, d: false, q: false, e: false, shift: false };
+    private mouseDragging = false;
+    private prevMousePos = { x: 0, y: 0 };
+    private walkSpeed = 0.8; // units per frame/step
+    private lookSpeed = 0.003; // rad per pixel drag
+    
+    // Euler rotation angles for perspective walkthrough camera
+    private cameraYaw = 0;
+    private cameraPitch = 0;
+    
+    // Mobile Touch Navigation
+    private touchStartPos = { x: 0, y: 0 };
+    private touchStartDist = 0;
+    private isPinching = false;
+
+    setTool(t: ViewerTool) { 
+        this.activeTool = t; 
+        this.measurementManager?.setActive(t === 'MEASURE'); 
+        if(t !== 'SECTION') this.sectionManager?.clear(); 
+        
+        if (t === ViewerTool.WALK) {
+            this.activateWalkthroughMode();
+        } else {
+            this.deactivateWalkthroughMode();
+        }
+    }
+
+    private activateWalkthroughMode() {
+        if (this.isWalking) return;
+        
+        console.log("[IFCManager] Activating Walkthrough Mode");
+        this.isWalking = true;
+        
+        // 1. Switch active camera to PerspectiveCamera
+        this.camera = this.persCamera;
+        this.controls.object = this.persCamera;
+        
+        // 2. Position the PerspectiveCamera nicely relative to the scene center
+        const { center, size } = this.getModelBoundingBox();
+        if (size > 0) {
+            this.persCamera.position.copy(center).add(new THREE.Vector3(0, size * 0.3, size * 0.6));
+            this.persCamera.lookAt(center);
+            
+            // Set initial yaw/pitch from direction
+            const dir = new THREE.Vector3();
+            this.persCamera.getWorldDirection(dir);
+            this.cameraYaw = Math.atan2(-dir.x, -dir.z);
+            this.cameraPitch = Math.asin(dir.y);
+        } else {
+            this.persCamera.position.set(0, 1.6, 15);
+            this.cameraYaw = 0;
+            this.cameraPitch = 0;
+        }
+        
+        this.persCamera.updateProjectionMatrix();
+        this.updateCameraRotation();
+        
+        // 3. Disable OrbitControls
+        this.controls.enabled = false;
+        
+        // 4. Attach event listeners
+        window.addEventListener('keydown', this.handleWalkKeyDown);
+        window.addEventListener('keyup', this.handleWalkKeyUp);
+        
+        if (this.container) {
+            this.container.addEventListener('mousedown', this.handleWalkMouseDown);
+            this.container.addEventListener('mousemove', this.handleWalkMouseMove);
+            window.addEventListener('mouseup', this.handleWalkMouseUp);
+            
+            // Mobile touch events
+            this.container.addEventListener('touchstart', this.handleWalkTouchStart, { passive: false });
+            this.container.addEventListener('touchmove', this.handleWalkTouchMove, { passive: false });
+            this.container.addEventListener('touchend', this.handleWalkTouchEnd);
+        }
+    }
+
+    private deactivateWalkthroughMode() {
+        if (!this.isWalking) return;
+        
+        console.log("[IFCManager] Deactivating Walkthrough Mode");
+        this.isWalking = false;
+        
+        // 1. Reset keys
+        this.walkKeys = { w: false, a: false, s: false, d: false, q: false, e: false, shift: false };
+        this.mouseDragging = false;
+        this.isPinching = false;
+        
+        // 2. Switch back to OrthographicCamera
+        this.camera = this.orthoCamera;
+        this.controls.object = this.orthoCamera;
+        this.controls.enabled = true;
+        this.controls.update();
+        
+        // 3. Remove event listeners
+        window.removeEventListener('keydown', this.handleWalkKeyDown);
+        window.removeEventListener('keyup', this.handleWalkKeyUp);
+        
+        if (this.container) {
+            this.container.removeEventListener('mousedown', this.handleWalkMouseDown);
+            this.container.removeEventListener('mousemove', this.handleWalkMouseMove);
+            window.removeEventListener('mouseup', this.handleWalkMouseUp);
+            
+            this.container.removeEventListener('touchstart', this.handleWalkTouchStart);
+            this.container.removeEventListener('touchmove', this.handleWalkTouchMove);
+            this.container.removeEventListener('touchend', this.handleWalkTouchEnd);
+        }
+        
+        this.renderScene();
+    }
+
+    private handleWalkKeyDown = (e: KeyboardEvent) => {
+        const key = e.key.toLowerCase();
+        if (key === 'w' || key === 'arrowup') this.walkKeys.w = true;
+        if (key === 'a' || key === 'arrowleft') this.walkKeys.a = true;
+        if (key === 's' || key === 'arrowdown') this.walkKeys.s = true;
+        if (key === 'd' || key === 'arrowright') this.walkKeys.d = true;
+        if (key === 'q') this.walkKeys.q = true; // Fly up
+        if (key === 'e') this.walkKeys.e = true; // Fly down
+        if (e.shiftKey) this.walkKeys.shift = true;
+    }
+
+    private handleWalkKeyUp = (e: KeyboardEvent) => {
+        const key = e.key.toLowerCase();
+        if (key === 'w' || key === 'arrowup') this.walkKeys.w = false;
+        if (key === 'a' || key === 'arrowleft') this.walkKeys.a = false;
+        if (key === 's' || key === 'arrowdown') this.walkKeys.s = false;
+        if (key === 'd' || key === 'arrowright') this.walkKeys.d = false;
+        if (key === 'q') this.walkKeys.q = false;
+        if (key === 'e') this.walkKeys.e = false;
+        if (!e.shiftKey) this.walkKeys.shift = false;
+    }
+
+    private handleWalkMouseDown = (e: MouseEvent) => {
+        this.mouseDragging = true;
+        this.prevMousePos = { x: e.clientX, y: e.clientY };
+    }
+
+    private handleWalkMouseMove = (e: MouseEvent) => {
+        if (!this.mouseDragging) return;
+        
+        const deltaX = e.clientX - this.prevMousePos.x;
+        const deltaY = e.clientY - this.prevMousePos.y;
+        this.prevMousePos = { x: e.clientX, y: e.clientY };
+        
+        this.cameraYaw -= deltaX * this.lookSpeed;
+        this.cameraPitch -= deltaY * this.lookSpeed;
+        
+        // Constrain pitch between -85 and +85 degrees
+        const limit = Math.PI / 2 - 0.05;
+        this.cameraPitch = Math.max(-limit, Math.min(limit, this.cameraPitch));
+        
+        this.updateCameraRotation();
+    }
+
+    private handleWalkMouseUp = () => {
+        this.mouseDragging = false;
+    }
+
+    private updateCameraRotation() {
+        const target = new THREE.Vector3(
+            -Math.sin(this.cameraYaw) * Math.cos(this.cameraPitch),
+            Math.sin(this.cameraPitch),
+            -Math.cos(this.cameraYaw) * Math.cos(this.cameraPitch)
+        );
+        this.persCamera.lookAt(this.persCamera.position.clone().add(target));
+    }
+
+    private handleWalkTouchStart = (e: TouchEvent) => {
+        if (e.touches.length === 1) {
+            this.mouseDragging = true;
+            this.prevMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            this.isPinching = false;
+        } else if (e.touches.length === 2) {
+            this.mouseDragging = false;
+            this.isPinching = true;
+            this.touchStartPos = {
+                x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+            };
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            this.touchStartDist = Math.sqrt(dx*dx + dy*dy);
+        }
+    }
+
+    private handleWalkTouchMove = (e: TouchEvent) => {
+        if (e.touches.length === 1 && this.mouseDragging) {
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - this.prevMousePos.x;
+            const deltaY = touch.clientY - this.prevMousePos.y;
+            this.prevMousePos = { x: touch.clientX, y: touch.clientY };
+            
+            this.cameraYaw -= deltaX * this.lookSpeed * 1.5; 
+            this.cameraPitch -= deltaY * this.lookSpeed * 1.5;
+            
+            const limit = Math.PI / 2 - 0.05;
+            this.cameraPitch = Math.max(-limit, Math.min(limit, this.cameraPitch));
+            this.updateCameraRotation();
+        } else if (e.touches.length === 2 && this.isPinching) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            
+            const currentPos = {
+                x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+            };
+            
+            const distDelta = dist - this.touchStartDist;
+            this.touchStartDist = dist;
+            
+            const forward = distDelta * 0.2; 
+            
+            const moveVec = new THREE.Vector3();
+            this.persCamera.getWorldDirection(moveVec);
+            moveVec.y = 0; 
+            moveVec.normalize();
+            moveVec.multiplyScalar(forward);
+            
+            // Lateral pan based on touch center movement
+            const sideDeltaX = currentPos.x - this.touchStartPos.x;
+            const right = new THREE.Vector3();
+            right.crossVectors(moveVec, this.persCamera.up).normalize();
+            moveVec.addScaledVector(right, -sideDeltaX * 0.1);
+            
+            this.persCamera.position.add(moveVec);
+            this.touchStartPos = currentPos;
+        }
+    }
+
+    private handleWalkTouchEnd = () => {
+        this.mouseDragging = false;
+        this.isPinching = false;
+    }
+
+    private updateWalkPosition() {
+        if (!this.isWalking) return;
+        
+        const speed = this.walkSpeed * (this.walkKeys.shift ? 2.5 : 1.0);
+        const forward = new THREE.Vector3();
+        this.persCamera.getWorldDirection(forward);
+        
+        forward.y = 0; 
+        forward.normalize();
+        
+        const right = new THREE.Vector3();
+        right.crossVectors(forward, this.persCamera.up).normalize();
+        
+        const moveVec = new THREE.Vector3(0, 0, 0);
+        if (this.walkKeys.w) moveVec.addScaledVector(forward, speed);
+        if (this.walkKeys.s) moveVec.addScaledVector(forward, -speed);
+        if (this.walkKeys.a) moveVec.addScaledVector(right, -speed);
+        if (this.walkKeys.d) moveVec.addScaledVector(right, speed);
+        if (this.walkKeys.q) moveVec.y += speed; 
+        if (this.walkKeys.e) moveVec.y -= speed; 
+        
+        if (moveVec.lengthSq() === 0) return;
+        
+        const collisionFreePos = this.checkCollision(this.persCamera.position, moveVec);
+        this.persCamera.position.copy(collisionFreePos);
+        
+        this.snapToFloor();
+    }
+
+    private checkCollision(currentPos: THREE.Vector3, moveVec: THREE.Vector3): THREE.Vector3 {
+        const bodyRadius = 1.0; 
+        const moveDir = moveVec.clone().normalize();
+        const moveDist = moveVec.length();
+        
+        const meshes: THREE.Mesh[] = [];
+        this.models.forEach(m => {
+            if (m.group.visible !== false) {
+                m.group.traverse(c => { if(c instanceof THREE.Mesh && c.visible && c !== this.highlightModel) meshes.push(c) });
+            }
+        });
+        
+        if (meshes.length === 0) {
+            return currentPos.clone().add(moveVec);
+        }
+        
+        const collisionRaycaster = new THREE.Raycaster();
+        const rayStart = currentPos.clone();
+        
+        collisionRaycaster.set(rayStart, moveDir);
+        const intersects = collisionRaycaster.intersectObjects(meshes, false);
+        
+        if (intersects.length > 0) {
+            const hit = intersects[0];
+            const obstacleDistance = hit.distance;
+            
+            if (obstacleDistance < (bodyRadius + moveDist)) {
+                const wallNormal = hit.face?.normal.clone();
+                if (wallNormal) {
+                    wallNormal.transformDirection(hit.object.matrixWorld);
+                    
+                    const dot = moveVec.dot(wallNormal);
+                    const slideVec = moveVec.clone().addScaledVector(wallNormal, -dot);
+                    
+                    if (slideVec.lengthSq() > 0.001) {
+                        const slideDir = slideVec.clone().normalize();
+                        const slideDist = slideVec.length();
+                        collisionRaycaster.set(rayStart, slideDir);
+                        const slideIntersects = collisionRaycaster.intersectObjects(meshes, false);
+                        
+                        if (slideIntersects.length > 0 && slideIntersects[0].distance < (bodyRadius + slideDist)) {
+                            return currentPos;
+                        }
+                        return currentPos.clone().add(slideVec);
+                    }
+                }
+                return currentPos; 
+            }
+        }
+        
+        return currentPos.clone().add(moveVec);
+    }
+
+    private snapToFloor() {
+        const eyeHeight = 1.6; 
+        const maxStepHeight = 0.5; 
+        
+        const meshes: THREE.Mesh[] = [];
+        this.models.forEach(m => {
+            if (m.group.visible !== false) {
+                m.group.traverse(c => { if(c instanceof THREE.Mesh && c.visible && c !== this.highlightModel) meshes.push(c) });
+            }
+        });
+        if (meshes.length === 0) return;
+        
+        const floorRaycaster = new THREE.Vector3(0, -1, 0);
+        const raycasterObj = new THREE.Raycaster();
+        const rayStart = this.persCamera.position.clone();
+        rayStart.y += maxStepHeight;
+        
+        raycasterObj.set(rayStart, floorRaycaster);
+        const intersects = raycasterObj.intersectObjects(meshes, false);
+        
+        if (intersects.length > 0) {
+            const hit = intersects[0];
+            const floorHeight = hit.point.y;
+            const targetY = floorHeight + eyeHeight;
+            
+            const yDiff = Math.abs(this.persCamera.position.y - targetY);
+            if (yDiff < (eyeHeight + maxStepHeight + 2.0)) {
+                this.persCamera.position.y = THREE.MathUtils.lerp(this.persCamera.position.y, targetY, 0.2);
+            }
+        }
+    }
+
     setMeasurementMode(m: MeasurementMode) { this.measurementManager?.setMode(m); }
     
     rotateModel(id: number, axis: string, angle: number) { 

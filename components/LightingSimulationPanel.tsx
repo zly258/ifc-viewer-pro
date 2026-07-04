@@ -70,46 +70,46 @@ const LightingSimulationPanel: React.FC<LightingSimulationPanelProps> = ({
     };
 
     return (
-        <div className="h-full flex flex-col bg-white select-none">
+        <div className="h-full flex flex-col panel-content select-none">
             <div className="flex-1 overflow-y-auto p-4 space-y-5">
                 
                 {/* 1. Quick Presets */}
                 <div className="space-y-2">
-                    <div className="text-xs font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-wider">
+                    <div className="panel-section-title">
                         <Sparkles size={13} className="text-blue-500" /> 
-                        <span>快速环境预设 (Atmospheric Presets)</span>
+                        <span>快速环境预设</span>
                     </div>
                     <div className="grid grid-cols-4 gap-2">
                         <button
                             type="button"
                             onClick={() => applyPreset('sunrise')}
-                            className="group flex flex-col items-center justify-center p-2 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/40 text-slate-600 transition-all"
+                            className="option-button !min-h-[48px] !p-2"
                         >
-                            <span className="text-[10px] font-bold text-slate-700 group-hover:text-blue-600 transition-colors">日出</span>
+                            <span className="text-[10px] font-semibold">日出</span>
                             <span className="text-[9px] text-slate-400 mt-0.5 font-mono">07:00</span>
                         </button>
                         <button
                             type="button"
                             onClick={() => applyPreset('noon')}
-                            className="group flex flex-col items-center justify-center p-2 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/40 text-slate-600 transition-all"
+                            className="option-button !min-h-[48px] !p-2"
                         >
-                            <span className="text-[10px] font-bold text-slate-700 group-hover:text-blue-600 transition-colors">正午</span>
+                            <span className="text-[10px] font-semibold">正午</span>
                             <span className="text-[9px] text-slate-400 mt-0.5 font-mono">12:00</span>
                         </button>
                         <button
                             type="button"
                             onClick={() => applyPreset('sunset')}
-                            className="group flex flex-col items-center justify-center p-2 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/40 text-slate-600 transition-all"
+                            className="option-button !min-h-[48px] !p-2"
                         >
-                            <span className="text-[10px] font-bold text-slate-700 group-hover:text-blue-600 transition-colors">日落</span>
+                            <span className="text-[10px] font-semibold">日落</span>
                             <span className="text-[9px] text-slate-400 mt-0.5 font-mono">17:30</span>
                         </button>
                         <button
                             type="button"
                             onClick={() => applyPreset('night')}
-                            className="group flex flex-col items-center justify-center p-2 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-blue-50/40 text-slate-600 transition-all"
+                            className="option-button !min-h-[48px] !p-2"
                         >
-                            <span className="text-[10px] font-bold text-slate-700 group-hover:text-blue-600 transition-colors">月夜</span>
+                            <span className="text-[10px] font-semibold">月夜</span>
                             <span className="text-[9px] text-slate-400 mt-0.5 font-mono">21:00</span>
                         </button>
                     </div>
@@ -118,12 +118,12 @@ const LightingSimulationPanel: React.FC<LightingSimulationPanelProps> = ({
                 {/* 2. Time Slider */}
                 <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                        <div className="text-xs font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-wider">
+                        <div className="panel-section-title">
                             <Clock size={13} className="text-blue-500" />
-                            <span>时间模拟 (Solar Time)</span>
+                            <span>时间模拟</span>
                         </div>
-                        <span className="text-sm font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md flex items-center gap-1">
-                            {timeOfDay >= 6 && timeOfDay <= 18 ? <Sun size={12} className="text-amber-500 animate-spin-slow" /> : <Moon size={12} className="text-indigo-500" />}
+                        <span className="text-xs font-mono font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md flex items-center gap-1">
+                            {timeOfDay >= 6 && timeOfDay <= 18 ? <Sun size={12} className="text-blue-600" /> : <Moon size={12} className="text-blue-600" />}
                             {formatTime(timeOfDay)}
                         </span>
                     </div>
@@ -137,7 +137,7 @@ const LightingSimulationPanel: React.FC<LightingSimulationPanelProps> = ({
                             onChange={(e) => setTimeOfDay(parseFloat(e.target.value))}
                             className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600 border border-slate-200/50"
                         />
-                        <div className="flex justify-between text-[9px] font-bold text-slate-400 font-mono mt-1 px-0.5">
+                        <div className="flex justify-between text-[9px] font-medium text-slate-400 font-mono mt-1 px-0.5">
                             <span>00:00</span>
                             <span>06:00</span>
                             <span>12:00</span>
@@ -149,15 +149,15 @@ const LightingSimulationPanel: React.FC<LightingSimulationPanelProps> = ({
 
                 {/* 3. Sun Position Sliders */}
                 <div className="space-y-4">
-                    <div className="text-xs font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-wider">
+                    <div className="panel-section-title">
                         <Sliders size={13} className="text-blue-500" />
-                        <span>光照角度 (Sun Orientation)</span>
+                        <span>光照角度</span>
                     </div>
                     
                     {/* Azimuth */}
-                    <div className="space-y-1 bg-slate-50 border border-slate-100/80 rounded-xl p-3">
-                        <div className="flex justify-between text-xs font-bold text-slate-600">
-                            <span className="flex items-center gap-1"><Compass size={12} className="text-slate-400" /> 方位角 (Azimuth)</span>
+                    <div className="control-card space-y-1">
+                        <div className="flex justify-between text-xs font-semibold text-slate-600">
+                            <span className="flex items-center gap-1"><Compass size={12} className="text-slate-400" /> 方位角</span>
                             <span className="font-mono text-blue-600">{Math.round(azimuth)}°</span>
                         </div>
                         <p className="text-[10px] text-slate-400">控制阳光照射的罗盘方向（0° 北，90° 东，180° 南，270° 西）</p>
@@ -175,9 +175,9 @@ const LightingSimulationPanel: React.FC<LightingSimulationPanelProps> = ({
                     </div>
 
                     {/* Altitude */}
-                    <div className="space-y-1 bg-slate-50 border border-slate-100/80 rounded-xl p-3">
-                        <div className="flex justify-between text-xs font-bold text-slate-600">
-                            <span>仰角 (Altitude / Elevation)</span>
+                    <div className="control-card space-y-1">
+                        <div className="flex justify-between text-xs font-semibold text-slate-600">
+                            <span>仰角</span>
                             <span className="font-mono text-blue-600">{Math.round(altitude)}°</span>
                         </div>
                         <p className="text-[10px] text-slate-400">控制太阳距离地平线的倾斜高度（0° 掠射地平，90° 直射头顶）</p>
@@ -197,31 +197,31 @@ const LightingSimulationPanel: React.FC<LightingSimulationPanelProps> = ({
 
                 {/* 4. Shadows Settings Overrides */}
                 <div className="space-y-2 pt-2 border-t border-slate-100">
-                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
-                        <span>阴影投射模式 (Shadow Cast)</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase ${shadowQuality !== 'off' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                            {shadowQuality !== 'off' ? 'Active' : 'Disabled'}
+                    <div className="panel-section-title justify-between">
+                        <span>阴影投射模式</span>
+                        <span className={`status-badge ${shadowQuality !== 'off' ? 'status-badge-on' : 'status-badge-off'}`}>
+                            {shadowQuality !== 'off' ? '已开启' : '已关闭'}
                         </span>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                         <button
                             type="button"
                             onClick={() => handleShadowToggle('high')}
-                            className={`py-2 px-1 rounded-lg border text-xs font-bold transition-all ${shadowQuality === 'high' ? 'border-blue-600 bg-blue-50/40 text-blue-700 shadow-sm' : 'border-slate-100 text-slate-500 hover:border-slate-200'}`}
+                            className={`option-button ${shadowQuality === 'high' ? 'option-button-active' : ''}`}
                         >
                             高质量
                         </button>
                         <button
                             type="button"
                             onClick={() => handleShadowToggle('low')}
-                            className={`py-2 px-1 rounded-lg border text-xs font-bold transition-all ${shadowQuality === 'low' ? 'border-blue-600 bg-blue-50/40 text-blue-700 shadow-sm' : 'border-slate-100 text-slate-500 hover:border-slate-200'}`}
+                            className={`option-button ${shadowQuality === 'low' ? 'option-button-active' : ''}`}
                         >
                             低质量
                         </button>
                         <button
                             type="button"
                             onClick={() => handleShadowToggle('off')}
-                            className={`py-2 px-1 rounded-lg border text-xs font-bold transition-all ${shadowQuality === 'off' ? 'border-blue-600 bg-blue-50/40 text-blue-700 shadow-sm' : 'border-slate-100 text-slate-500 hover:border-slate-200'}`}
+                            className={`option-button ${shadowQuality === 'off' ? 'option-button-active' : ''}`}
                         >
                             无阴影
                         </button>

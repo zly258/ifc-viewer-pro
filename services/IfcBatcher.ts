@@ -1,99 +1,175 @@
-
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
+interface GeometryPlacement {
+    geometry: THREE.BufferGeometry;
+    transform: THREE.Matrix4;
+    expressID: number;
+    geometryExpressID: number;
+}
+
 interface MaterialGroup {
     material: THREE.MeshStandardMaterial;
-    geometries: THREE.BufferGeometry[];
+    placements: GeometryPlacement[];
 }
 
 export class IfcBatcher {
     private groups: Map<string, MaterialGroup> = new Map();
+    private readonly enableInstancing = false;
 
     constructor() {}
 
-    add(geometry: THREE.BufferGeometry, material: THREE.MeshStandardMaterial, transform: THREE.Matrix4, expressID: number) {
-        // Clone and apply transform
-        const geom = geometry.clone();
-        geom.applyMatrix4(transform);
-
-        // Sanitize attributes: Keep only position and normal
-        const cleanGeom = new THREE.BufferGeometry();
-        cleanGeom.setAttribute('position', geom.getAttribute('position'));
-        if (geom.getAttribute('normal')) {
-            cleanGeom.setAttribute('normal', geom.getAttribute('normal'));
-        } else {
-             cleanGeom.computeVertexNormals();
-        }
-        cleanGeom.setIndex(geom.getIndex());
-
-        // Write ExpressID into a vertex attribute
-        // This persists even if BVH reorders the geometry indices
-        const vertexCount = cleanGeom.getAttribute('position').count;
-        const ids = new Float32Array(vertexCount);
-        ids.fill(expressID);
-        cleanGeom.setAttribute('expressID', new THREE.BufferAttribute(ids, 1));
-
+    add(geometry: THREE.BufferGeometry, material: THREE.MeshStandardMaterial, transform: THREE.Matrix4, expressID: number, geometryExpressID: number) {
         const matId = this.getMaterialId(material);
         if (!this.groups.has(matId)) {
-            this.groups.set(matId, { material, geometries: [] });
+            this.groups.set(matId, { material, placements: [] });
         }
         const group = this.groups.get(matId)!;
-        group.geometries.push(cleanGeom);
+        group.placements.push({
+            geometry,
+            transform: transform.clone(),
+            expressID,
+            geometryExpressID
+        });
     }
 
-    build(): THREE.Mesh[] {
-        const meshes: THREE.Mesh[] = [];
+    build(): THREE.Object3D[] {
+        const meshes: THREE.Object3D[] = [];
 
         this.groups.forEach((group, matId) => {
-            if (group.geometries.length === 0) return;
+            if (group.placements.length === 0) return;
 
-            // Merge geometries (including the 'expressID' attribute)
-            const mergedGeometry = BufferGeometryUtils.mergeGeometries(group.geometries, false);
-            
-            if (!mergedGeometry) {
-                console.warn(`[IfcBatcher] Failed to merge group ${matId}`);
-                group.geometries.forEach(g => g.dispose());
-                return;
+            // 1. Group placements by geometryExpressID to count occurrences
+            const geomCountMap = new Map<number, GeometryPlacement[]>();
+            group.placements.forEach(p => {
+                if (!geomCountMap.has(p.geometryExpressID)) {
+                    geomCountMap.set(p.geometryExpressID, []);
+                }
+                geomCountMap.get(p.geometryExpressID)!.push(p);
+            });
+
+            // Placements that will be merged (non-instanced)
+            const mergeGeometries: THREE.BufferGeometry[] = [];
+
+            geomCountMap.forEach((placements, geomExpressID) => {
+                // Keep IFC geometry fidelity first. Some IFC exporters reuse geometry IDs with
+                // placement data that is not safe for direct instancing, which can distort shapes.
+                if (this.enableInstancing && placements.length >= 3) {
+                    const first = placements[0];
+                    
+                    // Sanitize base geometry (no transform applied!)
+                    const baseGeom = new THREE.BufferGeometry();
+                    baseGeom.setAttribute('position', first.geometry.getAttribute('position'));
+                    if (first.geometry.getAttribute('normal')) {
+                        baseGeom.setAttribute('normal', first.geometry.getAttribute('normal'));
+                    } else {
+                        baseGeom.computeVertexNormals();
+                    }
+                    baseGeom.setIndex(first.geometry.getIndex());
+                    
+                    baseGeom.computeBoundingBox();
+                    baseGeom.computeBoundingSphere();
+                    
+                    // @ts-ignore
+                    if (baseGeom.computeBoundsTree) baseGeom.computeBoundsTree();
+
+                    const instancedMesh = new THREE.InstancedMesh(baseGeom, group.material, placements.length);
+                    instancedMesh.name = `Instanced_${matId}_geom_${geomExpressID}`;
+                    
+                    const instanceExpressIDs: number[] = [];
+                    
+                    placements.forEach((p, idx) => {
+                        instancedMesh.setMatrixAt(idx, p.transform);
+                        instanceExpressIDs.push(p.expressID);
+                        // Dispose individual geometries since they are not merged
+                        p.geometry.dispose();
+                    });
+                    
+                    instancedMesh.userData = {
+                        instanceExpressIDs,
+                        isInstanced: true,
+                        geometryExpressID: geomExpressID
+                    };
+                    
+                    instancedMesh.instanceMatrix.needsUpdate = true;
+                    meshes.push(instancedMesh);
+                } else {
+                    // For geometries used < 3 times, we merge them (applying transform first)
+                    placements.forEach(p => {
+                        const geom = p.geometry.clone();
+                        geom.applyMatrix4(p.transform);
+
+                        const cleanGeom = new THREE.BufferGeometry();
+                        cleanGeom.setAttribute('position', geom.getAttribute('position'));
+                        if (geom.getAttribute('normal')) {
+                            cleanGeom.setAttribute('normal', geom.getAttribute('normal'));
+                        } else {
+                            cleanGeom.computeVertexNormals();
+                        }
+                        cleanGeom.setIndex(geom.getIndex());
+
+                        // Store expressID attribute for raycast selection in merged geometries
+                        const vertexCount = cleanGeom.getAttribute('position').count;
+                        const ids = new Float32Array(vertexCount);
+                        ids.fill(p.expressID);
+                        cleanGeom.setAttribute('expressID', new THREE.BufferAttribute(ids, 1));
+
+                        mergeGeometries.push(cleanGeom);
+                        
+                        // Dispose source geometry
+                        p.geometry.dispose();
+                    });
+                }
+            });
+
+            // 2. Build merged geometries
+            if (mergeGeometries.length > 0) {
+                const mergedGeometry = BufferGeometryUtils.mergeGeometries(mergeGeometries, false);
+                mergeGeometries.forEach(g => g.dispose());
+
+                if (mergedGeometry) {
+                    mergedGeometry.computeBoundingBox();
+                    mergedGeometry.computeBoundingSphere();
+
+                    // @ts-ignore
+                    if (mergedGeometry.computeBoundsTree) mergedGeometry.computeBoundsTree();
+
+                    const mesh = new THREE.Mesh(mergedGeometry, group.material);
+                    mesh.name = `Batch_${matId}`;
+                    mesh.userData = { isBatch: true };
+                    meshes.push(mesh);
+                }
             }
-
-            // Dispose source geometries to free memory
-            group.geometries.forEach(g => g.dispose());
-
-            // Compute BVH & Bounds
-            mergedGeometry.computeBoundingBox();
-            mergedGeometry.computeBoundingSphere();
-            
-            // BVH will reorder indices, but 'expressID' attribute remains aligned with vertices
-            // @ts-ignore
-            if (mergedGeometry.computeBoundsTree) mergedGeometry.computeBoundsTree();
-
-            const mesh = new THREE.Mesh(mergedGeometry, group.material);
-            mesh.name = `Batch_${matId}`;
-            
-            meshes.push(mesh);
         });
 
         this.groups.clear();
         return meshes;
     }
 
-    /**
-     * Retrieves the Express ID from the intersection point using the vertex attribute.
-     */
     getExpressID(intersection: THREE.Intersection): number | null {
         const mesh = intersection.object;
-        if (!(mesh instanceof THREE.Mesh)) return null;
         
+        // Handle InstancedMesh selection
+        if (mesh instanceof THREE.InstancedMesh) {
+            const instanceId = intersection.instanceId;
+            if (instanceId !== undefined && mesh.userData.instanceExpressIDs) {
+                const id = mesh.userData.instanceExpressIDs[instanceId];
+                console.log(`[IfcBatcher] Hit instance: ${instanceId}. ExpressID: ${id}`);
+                return id;
+            }
+            return null;
+        }
+
+        // Handle Merged Mesh selection
+        if (!(mesh instanceof THREE.Mesh)) return null;
         const geometry = mesh.geometry;
         if (!geometry.attributes.expressID) {
-            console.warn("[IfcBatcher] No expressID attribute on geometry!", geometry.attributes);
             return null;
         }
 
         if (intersection.face) {
             const id = geometry.attributes.expressID.getX(intersection.face.a);
-            console.log(`[IfcBatcher] Face: ${intersection.face.a}, ${intersection.face.b}, ${intersection.face.c}. ExpressID: ${id}`);
+            console.log(`[IfcBatcher] Face: ${intersection.face.a}. ExpressID: ${id}`);
             return id;
         }
 
@@ -105,7 +181,7 @@ export class IfcBatcher {
     }
 
     dispose() {
-        this.groups.forEach(g => g.geometries.forEach(geom => geom.dispose()));
+        this.groups.forEach(g => g.placements.forEach(p => p.geometry.dispose()));
         this.groups.clear();
     }
 }

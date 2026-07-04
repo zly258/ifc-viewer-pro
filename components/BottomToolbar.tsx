@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { FolderTree, FileText, Maximize, Box, Settings, MousePointer2, Ruler, Scissors, Trash2, Plus, DraftingCompass, Square, Box as BoxIcon, MapPin, List, Sun } from 'lucide-react';
+import { FolderTree, FileText, Maximize, Box, Settings, MousePointer2, Ruler, Scissors, Trash2, Plus, DraftingCompass, MapPin, List, Sun, Compass, Bookmark } from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
 import { CameraView, ViewerTool, MeasurementMode } from '../types';
 
@@ -13,6 +13,8 @@ interface BottomToolbarProps {
   activeRightPanel: 'properties' | null;
   onToggleLightingPanel: () => void;
   isLightingPanelOpen: boolean;
+  onToggleBcfPanel: () => void;
+  isBcfPanelOpen: boolean;
 }
 
 const BottomToolbar: React.FC<BottomToolbarProps> = ({ 
@@ -24,7 +26,9 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
     isModelTreeOpen,
     activeRightPanel,
     onToggleLightingPanel,
-    isLightingPanelOpen
+    isLightingPanelOpen,
+    onToggleBcfPanel,
+    isBcfPanelOpen
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -84,6 +88,10 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
   }, [activeTool]);
 
   const handleToolChange = (tool: ViewerTool) => {
+      if (tool === ViewerTool.SELECT && activeTool === ViewerTool.SELECT) {
+          return;
+      }
+
       if (activeTool === tool) {
           setActiveTool(ViewerTool.NONE);
           ifcManager.setTool(ViewerTool.NONE);
@@ -149,11 +157,11 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
     <button 
       type="button"
       onClick={onClick}
-      className={`group relative flex flex-col items-center justify-center gap-0.5 w-[50px] h-[45px] rounded-lg transition-all hover:bg-slate-100 ${active ? 'bg-blue-50 text-blue-600' : 'text-slate-500'} ${extraClass}`}
+      className={`toolbar-button group ${active ? 'toolbar-button-active' : ''} ${extraClass}`}
       title={label}
     >
-      <Icon size={20} strokeWidth={1.75} className={active ? "text-blue-600" : "text-slate-500 group-hover:text-slate-700"} />
-      <span className={`text-[9.5px] font-bold tracking-tight ${active ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600"}`}>{label}</span>
+      <Icon size={19} strokeWidth={1.8} />
+      <span>{label}</span>
     </button>
   );
 
@@ -162,21 +170,21 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
       
       {/* Sub-toolbar for Measurement Tool */}
       {activeTool === ViewerTool.MEASURE && (
-           <div className="bg-white/90 backdrop-blur border border-slate-200 rounded-lg p-1 shadow-lg mb-1 pointer-events-auto animate-in slide-in-from-bottom-2 flex items-center gap-1">
-              <button type="button" onClick={() => handleMeasureMode('DISTANCE')} className={`p-2 rounded hover:bg-slate-100 ${measureMode === 'DISTANCE' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`} title="距离">
+           <div className="sub-toolbar flex items-center gap-1">
+              <button type="button" onClick={() => handleMeasureMode('DISTANCE')} className={`icon-button ${measureMode === 'DISTANCE' ? 'icon-button-active' : ''}`} title="距离">
                   <Ruler size={18} />
               </button>
-              <button type="button" onClick={() => handleMeasureMode('ANGLE')} className={`p-2 rounded hover:bg-slate-100 ${measureMode === 'ANGLE' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`} title="角度">
+              <button type="button" onClick={() => handleMeasureMode('ANGLE')} className={`icon-button ${measureMode === 'ANGLE' ? 'icon-button-active' : ''}`} title="角度">
                    <DraftingCompass size={18} />
               </button>
-              <button type="button" onClick={() => handleMeasureMode('COORDINATE')} className={`p-2 rounded hover:bg-slate-100 ${measureMode === 'COORDINATE' ? 'bg-blue-50 text-blue-600' : 'text-slate-500'}`} title="坐标">
+              <button type="button" onClick={() => handleMeasureMode('COORDINATE')} className={`icon-button ${measureMode === 'COORDINATE' ? 'icon-button-active' : ''}`} title="坐标">
                    <MapPin size={18} />
               </button>
-              <div className="w-px h-5 bg-slate-200 mx-1"></div>
-              <button type="button" onClick={() => window.dispatchEvent(new Event('open-measure-panel'))} className="p-2 rounded hover:bg-blue-50 text-slate-500 hover:text-blue-600" title="显示测量结果">
+              <div className="toolbar-divider"></div>
+              <button type="button" onClick={() => window.dispatchEvent(new Event('open-measure-panel'))} className="icon-button" title="显示测量结果">
                    <List size={18} />
               </button>
-              <button type="button" onClick={() => { ifcManager.measurementManager?.clear(); ifcManager.renderScene(); }} className="p-2 rounded hover:bg-red-50 text-slate-400 hover:text-red-500" title="清除测量">
+              <button type="button" onClick={() => { ifcManager.measurementManager?.clear(); ifcManager.renderScene(); }} className="icon-button danger-button" title="清除测量">
                    <Trash2 size={18} />
               </button>
            </div>
@@ -184,13 +192,13 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
 
       {/* Sub-toolbar for Section Tool */}
       {activeTool === ViewerTool.SECTION && (
-          <div className="bg-white/90 backdrop-blur border border-slate-200 rounded-lg p-3 shadow-lg mb-1 pointer-events-auto animate-in slide-in-from-bottom-2 flex flex-col gap-3 min-w-[280px]">
+          <div className="sub-toolbar flex flex-col gap-3 min-w-[280px]">
               {(['X', 'Y', 'Z'] as const).map(axis => (
                   <div key={axis} className="flex items-center gap-3">
                       <button 
                         type="button"
                         onClick={() => toggleSectionPlane(axis)}
-                        className={`w-8 h-6 text-xs font-bold rounded transition-colors ${activePlanes[axis] ? 'bg-blue-600 shadow text-white' : 'bg-slate-100 text-slate-400 hover:text-slate-600'}`}
+                        className={`w-8 h-6 text-xs font-semibold rounded-md transition-colors ${activePlanes[axis] ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:text-slate-700'}`}
                       >
                           {axis}
                       </button>
@@ -227,33 +235,35 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
       )}
 
       {/* Main Toolbar */}
-      <div className="bg-white/95 backdrop-blur-xl border border-slate-200 rounded-2xl px-2 py-1.5 flex items-center gap-1 shadow-2xl shadow-slate-300/40 pointer-events-auto">
+      <div className="main-toolbar">
         
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".ifc,.glb,.gltf" multiple className="hidden" />
 
         <ToolButton icon={Plus} label="加载" onClick={() => fileInputRef.current?.click()} />
         
-        <div className="w-px h-6 bg-slate-200 mx-1" />
+        <div className="toolbar-divider" />
 
         <ToolButton icon={FolderTree} label="模型" active={isModelTreeOpen} onClick={onToggleModelTree} />
         <ToolButton icon={FileText} label="属性" active={activeRightPanel === 'properties'} onClick={() => onToggleRightPanel()} />
+        <ToolButton icon={Bookmark} label="批注" active={isBcfPanelOpen} onClick={onToggleBcfPanel} />
 
-        <div className="w-px h-6 bg-slate-200 mx-1" />
+        <div className="toolbar-divider" />
 
         <ToolButton icon={MousePointer2} label="选择" active={activeTool === ViewerTool.SELECT} onClick={() => handleToolChange(ViewerTool.SELECT)} />
+        <ToolButton icon={Compass} label="漫游" active={activeTool === ViewerTool.WALK} onClick={() => handleToolChange(ViewerTool.WALK)} />
         <ToolButton icon={Ruler} label="测量" active={activeTool === ViewerTool.MEASURE} onClick={() => handleToolChange(ViewerTool.MEASURE)} />
         <ToolButton icon={Scissors} label="剖切" active={activeTool === ViewerTool.SECTION} onClick={() => handleToolChange(ViewerTool.SECTION)} />
         <ToolButton icon={Sun} label="光照" active={isLightingPanelOpen} onClick={onToggleLightingPanel} />
         <ToolButton icon={Settings} label="设置" onClick={onOpenSettings} />
 
-        <div className="w-px h-6 bg-slate-200 mx-1" />
+        <div className="toolbar-divider" />
 
         <ToolButton icon={Maximize} label="充满" onClick={() => ifcManager.fitModelToFrame()} />
         
         <div className="relative" ref={viewMenuRef}>
            {viewMenuOpen && (
-               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-white border border-slate-200 rounded-xl shadow-2xl py-2 w-48 overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                   <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 border-b border-slate-100 mb-1 select-none">标准视图 (6)</div>
+               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 panel-surface py-2 w-48 overflow-hidden z-50 animate-fade-in-up">
+                   <div className="px-3 py-1 text-[10px] font-semibold text-slate-400 tracking-wide bg-slate-50 border-b border-slate-100 mb-1 select-none">标准视图</div>
                    {views.filter(v => v.group === '标准投影').map(v => (
                        <button
                           key={v.id}
@@ -264,7 +274,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
                           {v.label}
                        </button>
                    ))}
-                   <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 border-t border-b border-slate-100 my-1 select-none">等轴测/轴测视图 (6)</div>
+                   <div className="px-3 py-1 text-[10px] font-semibold text-slate-400 tracking-wide bg-slate-50 border-t border-b border-slate-100 my-1 select-none">轴测视图</div>
                    {views.filter(v => v.group === '轴测视图').map(v => (
                        <button
                           key={v.id}
@@ -280,7 +290,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
            <ToolButton icon={Box} label="视图" active={viewMenuOpen} onClick={() => setViewMenuOpen(!viewMenuOpen)} />
         </div>
         
-        <div className="w-px h-6 bg-slate-200 mx-1" />
+        <div className="toolbar-divider" />
         
         <ToolButton icon={Trash2} label="清空" onClick={handleClear} extraClass="hover:text-red-500 hover:bg-red-50" />
 

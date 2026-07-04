@@ -103,7 +103,7 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
   return (
     <div
       ref={panelRef}
-      className={`absolute flex flex-col bg-white/95 backdrop-blur-md border border-slate-200 shadow-2xl rounded-lg overflow-hidden z-30 transition-opacity duration-200 ${className}`}
+      className={`absolute flex flex-col glass-panel rounded-[var(--radius-panel)] overflow-hidden z-30 transition-all duration-200 ease-out animate-fade-in-up ${className}`}
       style={{
         left: position.x,
         top: position.y,
@@ -113,26 +113,26 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
     >
       {/* Header */}
       <div
-        className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-200 cursor-move select-none flex-shrink-0"
+        className="flex items-center justify-between px-4 h-11 bg-slate-50/80 border-b border-slate-200 cursor-move select-none flex-shrink-0 font-sans"
         onMouseDown={handleMouseDown}
       >
-        <div className="flex items-center gap-2 text-slate-700 font-medium text-sm pointer-events-none">
-          {Icon && <Icon size={16} className="text-blue-600" />}
+        <div className="flex items-center gap-2 text-slate-700 font-semibold text-xs tracking-wide pointer-events-none">
+          {Icon && <Icon size={15} className="text-blue-600" />}
           <span>{title}</span>
         </div>
         <div className="flex items-center gap-1">
             <GripHorizontal size={14} className="text-slate-300 mr-2" />
             <button
             onClick={onClose}
-            className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-red-500 transition-colors no-drag"
+            className="icon-button danger-button !w-7 !h-7 no-drag"
             >
-            <X size={16} />
+            <X size={15} />
             </button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden relative">
+      <div className="flex-1 overflow-hidden relative panel-content">
         {children}
       </div>
 

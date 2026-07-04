@@ -312,12 +312,12 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
                         <FileBox size={14} strokeWidth={1.5} className="mr-2 text-blue-600 shrink-0" />
                     ) : (
                         hasChildren ? 
-                        <Folder size={14} strokeWidth={1.5} className={`mr-2 shrink-0 ${isSelected ? 'text-blue-500' : 'text-yellow-500 fill-yellow-500/10'}`} /> : 
-                        <Box size={14} strokeWidth={1.5} className={`mr-2 shrink-0 ${isSelected ? 'text-blue-500' : 'text-green-600'}`} />
+                        <Folder size={14} strokeWidth={1.5} className={`mr-2 shrink-0 ${isSelected ? 'text-blue-500' : 'text-slate-400'}`} /> : 
+                        <Box size={14} strokeWidth={1.5} className={`mr-2 shrink-0 ${isSelected ? 'text-blue-500' : 'text-slate-400'}`} />
                     )}
                     
                     <div className="flex-1 truncate flex items-center justify-between min-w-0">
-                         <span className={`text-xs truncate whitespace-nowrap pr-1.5 ${isRootFile ? 'text-slate-800 font-bold' : isSelected ? 'text-blue-700 font-bold' : 'text-slate-600 font-semibold'}`}>
+                    <span className={`text-xs truncate whitespace-nowrap pr-1.5 ${isRootFile ? 'text-slate-800 font-semibold' : isSelected ? 'text-blue-700 font-semibold' : 'text-slate-600 font-medium'}`}>
                             {label}
                             {!isRootFile && modelID !== undefined && modelID >= 0 && expressID !== undefined && expressID > 0 && (
                                 <span className={`text-[10px] font-mono ml-1 font-normal ${isSelected ? 'text-blue-400' : 'text-slate-400'}`}>
@@ -358,21 +358,21 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
     };
 
     if (loading) return (
-        <div className="h-full flex flex-col bg-white">
+        <div className="h-full flex flex-col panel-content">
             <div className="flex-1 flex items-center justify-center text-xs text-slate-400">正在分析...</div>
         </div>
     );
 
     return (
-        <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col panel-content">
             {/* Search Input Box */}
-            <div className="p-2 border-b border-slate-100 bg-slate-50/50">
+            <div className="p-2 border-b border-slate-100 bg-slate-50">
                 <input 
                     type="text"
-                    placeholder="输入检索构件名称、类型或ID..."
+                    placeholder="检索构件名称、类型或 ID"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs text-slate-700 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-semibold placeholder-slate-400"
+                    className="input-control px-3 py-1.5"
                 />
             </div>
 
@@ -399,13 +399,13 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
 
             {modelToRemove !== null && (
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden p-5 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="panel-surface w-full max-w-sm overflow-hidden p-5 animate-fade-in-up">
                         <h3 className="text-sm font-semibold text-slate-800 mb-2">移除模型</h3>
-                        <p className="text-xs text-slate-500 mb-4 leading-relaxed">确定要移除此模型吗？其所有的网格 and 树状结构数据都将被清除。</p>
+                        <p className="text-xs text-slate-500 mb-4 leading-relaxed">确定要移除此模型吗？其所有网格和树状结构数据都将被清除。</p>
                         <div className="flex justify-end gap-2 text-xs">
                            <button 
                                 onClick={() => setModelToRemove(null)} 
-                                className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors font-medium border border-slate-200"
+                                className="secondary-button"
                             >
                                 取消
                             </button>
@@ -415,7 +415,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
                                     setFileStructures(prev => prev.filter(f => f.modelID !== modelToRemove));
                                     setModelToRemove(null);
                                 }} 
-                                className="px-3.5 py-2 text-white bg-red-600 hover:bg-red-700 font-semibold rounded-lg transition-colors"
+                                className="danger-primary-button"
                             >
                                 确认移除
                             </button>

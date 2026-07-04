@@ -66,6 +66,7 @@ export enum ViewerTool {
   SELECT = 'SELECT',
   MEASURE = 'MEASURE',
   SECTION = 'SECTION',
+  WALK = 'WALK',
   NONE = 'NONE'
 }
 

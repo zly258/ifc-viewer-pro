@@ -55,7 +55,7 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ onSelectElement, onLoadingStatus, o
       
       {/* 错误提示 */}
       {error && (
-        <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-red-500 text-white px-4 py-2 rounded shadow-lg flex items-center gap-2 animate-bounce z-50">
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-lg border border-red-500 flex items-center gap-2 z-50">
            <AlertTriangle className="w-5 h-5 text-white" />
            <span>{error}</span>
         </div>

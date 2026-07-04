@@ -45,7 +45,7 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
 
     if (measurements.length === 0) {
         return (
-            <div className="h-full flex flex-col items-center justify-center text-slate-400 p-6 bg-white">
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 p-6 panel-content">
                 <Ruler size={32} className="mb-3 opacity-20" />
                 <p className="text-xs">暂无测量结果</p>
                 <p className="text-[10px] opacity-70 mt-1">请使用底部工具栏进行测量</p>
@@ -54,16 +54,16 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
     }
 
     return (
-        <div className="h-full flex flex-col bg-white">
+        <div className="h-full flex flex-col panel-content">
             <div className="flex-1 overflow-y-auto p-2 space-y-2">
                 {measurements.map(m => (
-                    <div key={m.id} className="bg-slate-50 border border-slate-100 rounded-lg p-3 flex items-start justify-between group hover:border-blue-200 hover:shadow-sm transition-all">
+                    <div key={m.id} className="bg-slate-50 border border-slate-100 rounded-lg p-3 flex items-start justify-between group hover:border-blue-200 transition-all">
                         <div className="flex gap-3">
                             <div className="mt-0.5 text-blue-500 bg-blue-50 p-1.5 rounded">
                                 {getIcon(m.type)}
                             </div>
                             <div>
-                                <div className="text-xs font-bold text-slate-700 mb-0.5">{getLabel(m.type)}</div>
+                                <div className="text-xs font-semibold text-slate-700 mb-0.5">{getLabel(m.type)}</div>
                                 <div className="text-sm font-mono text-slate-900 whitespace-pre-wrap">{m.value}</div>
                             </div>
                         </div>
