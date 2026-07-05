@@ -70,7 +70,6 @@ export class IfcBatcher {
                     baseGeom.computeBoundingBox();
                     baseGeom.computeBoundingSphere();
                     
-                    // @ts-ignore
                     if (baseGeom.computeBoundsTree) baseGeom.computeBoundsTree();
 
                     const instancedMesh = new THREE.InstancedMesh(baseGeom, group.material, placements.length);
@@ -131,7 +130,6 @@ export class IfcBatcher {
                     mergedGeometry.computeBoundingBox();
                     mergedGeometry.computeBoundingSphere();
 
-                    // @ts-ignore
                     if (mergedGeometry.computeBoundsTree) mergedGeometry.computeBoundsTree();
 
                     const mesh = new THREE.Mesh(mergedGeometry, group.material);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { bcfManager, BcfViewpoint } from '../services/BcfManager';
 import { ifcManager } from '../services/ifcManager';
-import { Camera, Trash2, Download, Upload, Plus, Eye, BookOpen, Clock, AlertCircle } from 'lucide-react';
+import { Camera, Trash2, Download, Upload, Plus, Eye, AlertCircle } from 'lucide-react';
 import { IFCElementData } from '../types';
 
 interface BcfPanelProps {
@@ -17,15 +17,11 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
 
     useEffect(() => {
         setViewpoints(bcfManager.getViewpoints());
-        bcfManager.onViewpointsChange = (vps) => {
-            setViewpoints(vps);
-        };
+        bcfManager.onViewpointsChange = (vps) => setViewpoints(vps);
     }, []);
 
     const handleAddViewpoint = (e: React.FormEvent) => {
         e.preventDefault();
-        
-        // Take selected element metadata from the app state
         const success = bcfManager.captureViewpoint(title, comment, selectedElement);
         if (success) {
             setTitle('');
@@ -33,16 +29,14 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
             setIsAdding(false);
             setError(null);
         } else {
-            setError("视点拍摄失败，请确保模型已加载！");
+            setError('视点拍摄失败，请确保模型已加载！');
         }
     };
 
-    const handleRestore = (vp: BcfViewpoint) => {
-        bcfManager.restoreViewpoint(vp);
-    };
+    const handleRestore = (vp: BcfViewpoint) => bcfManager.restoreViewpoint(vp);
 
     const handleDelete = (e: React.MouseEvent, id: string) => {
-        e.stopPropagation(); // Prevent restoring when clicking delete
+        e.stopPropagation();
         bcfManager.deleteViewpoint(id);
     };
 
@@ -52,7 +46,7 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `BIMVision_BCF_Bookmarks_${Date.now()}.json`;
+        a.download = `BIMVision_BCF_${Date.now()}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -62,46 +56,82 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
     const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = (event) => {
             const content = event.target?.result as string;
-            const success = bcfManager.importFromJson(content);
-            if (!success) {
-                alert("BCF 导入失败，请检查文件格式是否正确。");
+            if (!bcfManager.importFromJson(content)) {
+                alert('BCF 导入失败，请检查文件格式是否正确。');
             }
         };
         reader.readAsText(file);
-        e.target.value = ''; // Reset input
+        e.target.value = '';
+    };
+
+    const formatDate = (timestamp: number) => {
+        const d = new Date(timestamp);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     };
 
     return (
-        <div className="flex flex-col h-full panel-content text-slate-700 font-sans select-none">
+        <div className="flex flex-col h-full panel-content select-none">
+
             {/* Header Toolbar */}
-            <div className="flex items-center justify-between p-3 border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 tracking-wide">
-                    <BookOpen size={14} className="text-blue-500" />
-                    <span>视点书签 ({viewpoints.length})</span>
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 12px',
+                borderBottom: '1px solid var(--border)',
+                background: 'var(--surface-1)',
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>
+                        视点书签
+                    </span>
+                    {viewpoints.length > 0 && (
+                        <span style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: 'var(--brand)',
+                            background: 'var(--brand-soft)',
+                            border: '1px solid var(--brand-border)',
+                            borderRadius: 99,
+                            padding: '0 6px',
+                            lineHeight: '18px',
+                        }}>
+                            {viewpoints.length}
+                        </span>
+                    )}
                 </div>
-                <div className="flex items-center gap-1">
-                    <button 
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <button
                         onClick={handleExport}
                         disabled={viewpoints.length === 0}
-                        className="icon-button !w-8 !h-8 disabled:opacity-40 disabled:hover:bg-transparent"
-                        title="导出 BCF (JSON)"
+                        className="icon-button"
+                        title="导出书签 (JSON)"
+                        style={{
+                            width: 28,
+                            height: 28,
+                            opacity: viewpoints.length === 0 ? 0.35 : 1,
+                        }}
                     >
                         <Download size={14} />
                     </button>
-                    <label className="icon-button !w-8 !h-8 cursor-pointer" title="导入 BCF (JSON)">
+                    <label
+                        className="icon-button"
+                        title="导入书签 (JSON)"
+                        style={{ width: 28, height: 28, cursor: 'pointer' }}
+                    >
                         <Upload size={14} />
                         <input type="file" accept=".json" onChange={handleImport} className="hidden" />
                     </label>
-                    <button 
+                    <button
                         onClick={() => setIsAdding(true)}
-                        className="primary-button !min-h-8 !px-2.5 !py-1 !text-[11px]"
+                        className="primary-button"
                         title="拍摄新视点"
+                        style={{ minHeight: 28, padding: '4px 10px', gap: 4, fontSize: 11 }}
                     >
-                        <Plus size={14} />
+                        <Plus size={13} />
                         <span>拍摄</span>
                     </button>
                 </div>
@@ -109,126 +139,234 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
 
             {/* Error Message */}
             {error && (
-                <div className="m-3 p-2.5 bg-red-50 border border-red-200 rounded-lg text-red-600 text-xs flex items-center gap-2">
-                    <AlertCircle size={14} className="flex-shrink-0" />
+                <div style={{
+                    margin: '10px 12px 0',
+                    padding: '8px 10px',
+                    background: 'var(--danger-soft)',
+                    border: '1px solid var(--danger-border)',
+                    borderRadius: 'var(--radius-md)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    fontSize: 11,
+                    color: 'var(--danger)',
+                }}>
+                    <AlertCircle size={13} style={{ flexShrink: 0 }} />
                     <span>{error}</span>
                 </div>
             )}
 
-            {/* Inline Capture Form */}
+            {/* Add Form */}
             {isAdding && (
-                <form onSubmit={handleAddViewpoint} className="m-3 control-card flex flex-col gap-3 animate-fade-in-up">
-                    <h3 className="panel-section-title !text-slate-800">
-                        <Camera size={14} className="text-blue-500" />
-                        <span>记录当前相机视点</span>
-                    </h3>
-                    <div className="flex flex-col gap-1 text-xs">
-                        <label className="font-semibold text-slate-500">书签名称</label>
-                        <input 
-                            type="text" 
-                            required 
-                            placeholder="如：三层结构柱钢筋重叠冲突"
+                <form
+                    onSubmit={handleAddViewpoint}
+                    className="animate-fade-in-up"
+                    style={{
+                        margin: '10px 12px',
+                        padding: '12px',
+                        background: 'var(--surface-1)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-md)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 10,
+                    }}
+                >
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <Camera size={13} style={{ color: 'var(--brand)' }} />
+                        记录当前相机视点
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>书签名称</label>
+                        <input
+                            type="text"
+                            required
+                            placeholder="如：三层结构柱钢筋冲突"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            className="input-control px-2.5 py-1.5"
+                            className="input-control"
+                            style={{ padding: '6px 10px' }}
                         />
                     </div>
-                    <div className="flex flex-col gap-1 text-xs">
-                        <label className="font-semibold text-slate-500">问题批注描述</label>
-                        <textarea 
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>问题批注</label>
+                        <textarea
                             rows={2}
                             placeholder="描述具体问题或标注细节..."
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
-                            className="input-control px-2.5 py-1.5 resize-none"
+                            className="input-control"
+                            style={{ padding: '6px 10px', resize: 'none' }}
                         />
                     </div>
                     {selectedElement && (
-                        <div className="text-[10px] text-blue-600 bg-blue-50/50 p-1.5 rounded border border-blue-100 flex flex-col gap-0.5 font-mono">
-                            <span className="font-semibold">关联构件：</span>
-                            <span>Express ID: #{selectedElement.expressID} ({selectedElement.type})</span>
+                        <div style={{
+                            fontSize: 10,
+                            fontFamily: 'monospace',
+                            color: 'var(--brand)',
+                            background: 'var(--brand-soft)',
+                            border: '1px solid var(--brand-border)',
+                            borderRadius: 'var(--radius-sm)',
+                            padding: '5px 8px',
+                        }}>
+                            关联构件：#{selectedElement.expressID} ({selectedElement.type})
                         </div>
                     )}
-                    <div className="flex justify-end gap-1.5 text-xs font-semibold mt-1">
-                        <button 
-                            type="button" 
-                            onClick={() => setIsAdding(false)}
-                            className="secondary-button !min-h-8 !px-3 !py-1.5"
-                        >
-                            取消
-                        </button>
-                        <button 
-                            type="submit"
-                            className="primary-button !min-h-8 !px-3 !py-1.5"
-                        >
-                            拍摄保存
-                        </button>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 7 }}>
+                        <button type="button" onClick={() => setIsAdding(false)} className="secondary-button" style={{ minHeight: 28, padding: '4px 12px' }}>取消</button>
+                        <button type="submit" className="primary-button" style={{ minHeight: 28, padding: '4px 12px' }}>拍摄保存</button>
                     </div>
                 </form>
             )}
 
-            {/* List of Viewpoints */}
-            <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
+            {/* Viewpoint List */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {viewpoints.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center text-slate-400 gap-2">
-                        <Camera size={28} className="text-slate-300 stroke-[1.5]" />
-                        <p className="text-xs">暂无视点书签</p>
-                        <p className="text-[10px] text-slate-400 max-w-[200px]">点击“拍摄”记录当前相机、构件选择和截图</p>
+                    <div className="empty-state" style={{ paddingTop: 48 }}>
+                        <div style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 'var(--radius-lg)',
+                            background: 'var(--surface-2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: 8,
+                        }}>
+                            <Camera size={20} style={{ color: 'var(--text-muted)' }} />
+                        </div>
+                        <span className="empty-state-title">暂无视点书签</span>
+                        <span className="empty-state-desc">点击"拍摄"记录当前相机位置与构件选择状态</span>
                     </div>
                 ) : (
                     viewpoints.map(vp => (
-                        <div 
+                        <div
                             key={vp.id}
                             onClick={() => handleRestore(vp)}
-                            className="group relative flex gap-3 p-2.5 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg cursor-pointer transition-all duration-150 flex-shrink-0"
+                            className="group"
+                            style={{
+                                position: 'relative',
+                                display: 'flex',
+                                gap: 10,
+                                padding: '10px 10px',
+                                background: 'var(--surface-0)',
+                                border: '1px solid var(--border)',
+                                borderRadius: 'var(--radius-md)',
+                                cursor: 'pointer',
+                                transition: 'border-color 0.15s, box-shadow 0.15s',
+                            }}
+                            onMouseEnter={e => {
+                                (e.currentTarget as HTMLElement).style.borderColor = 'var(--brand-border)';
+                                (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-sm)';
+                            }}
+                            onMouseLeave={e => {
+                                (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
+                                (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+                            }}
                         >
-                            {/* Screenshot Thumbnail */}
+                            {/* Thumbnail */}
                             {vp.screenshot ? (
-                                <div className="relative w-24 h-16 rounded-lg overflow-hidden border border-slate-200/80 bg-slate-100 flex-shrink-0 shadow-inner">
-                                    <img 
-                                        src={vp.screenshot} 
-                                        alt={vp.title} 
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                <div style={{
+                                    width: 80,
+                                    height: 56,
+                                    borderRadius: 'var(--radius-sm)',
+                                    overflow: 'hidden',
+                                    border: '1px solid var(--border)',
+                                    background: 'var(--surface-2)',
+                                    flexShrink: 0,
+                                    position: 'relative',
+                                }}>
+                                    <img
+                                        src={vp.screenshot}
+                                        alt={vp.title}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                     />
-                                    <div className="absolute top-1 left-1 bg-slate-900/70 text-white text-[8px] font-semibold px-1 py-0.5 rounded flex items-center gap-0.5">
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: 3,
+                                        left: 3,
+                                        background: 'rgba(15, 23, 42, 0.72)',
+                                        color: '#f8fafc',
+                                        fontSize: 9,
+                                        fontWeight: 600,
+                                        padding: '1px 5px',
+                                        borderRadius: 3,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 3,
+                                    }}>
                                         <Eye size={8} />
-                                        <span>{vp.isWalkMode ? '漫游' : '轴测'}</span>
+                                        {vp.isWalkMode ? '漫游' : '轴测'}
                                     </div>
                                 </div>
                             ) : (
-                                <div className="w-24 h-16 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center flex-shrink-0">
-                                    <Camera size={18} className="text-slate-300" />
+                                <div style={{
+                                    width: 80,
+                                    height: 56,
+                                    borderRadius: 'var(--radius-sm)',
+                                    border: '1px solid var(--border)',
+                                    background: 'var(--surface-1)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0,
+                                }}>
+                                    <Camera size={16} style={{ color: 'var(--text-muted)' }} />
                                 </div>
                             )}
 
-                            {/* Text Info */}
-                            <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
-                                <div className="flex flex-col gap-0.5">
-                                    <h4 className="text-xs font-semibold text-slate-800 truncate leading-tight group-hover:text-blue-600 transition-colors" title={vp.title}>
+                            {/* Info */}
+                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingTop: 1 }}>
+                                <div>
+                                    <div style={{
+                                        fontSize: 12,
+                                        fontWeight: 600,
+                                        color: 'var(--text-primary)',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                        marginBottom: 3,
+                                    }}>
                                         {vp.title}
-                                    </h4>
-                                    <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed" title={vp.comment}>
-                                        {vp.comment}
-                                    </p>
-                                </div>
-                                <div className="flex items-center justify-between text-[8px] text-slate-400 font-mono mt-1 select-none">
-                                    <span className="flex items-center gap-0.5">
-                                        <Clock size={8} />
-                                        <span>{new Date(vp.timestamp).toLocaleString('zh-CN', { hour12: false })}</span>
-                                    </span>
-                                    {vp.guid && (
-                                        <span className="text-[8px] text-slate-400 bg-slate-100 px-1 rounded truncate max-w-[80px]" title={`GUID: ${vp.guid}`}>
-                                            GUID: {vp.guid}
-                                        </span>
+                                    </div>
+                                    {vp.comment && (
+                                        <div style={{
+                                            fontSize: 11,
+                                            color: 'var(--text-muted)',
+                                            lineHeight: 1.5,
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: 'vertical',
+                                            overflow: 'hidden',
+                                        }}>
+                                            {vp.comment}
+                                        </div>
                                     )}
+                                </div>
+                                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace', marginTop: 4 }}>
+                                    {formatDate(vp.timestamp)}
                                 </div>
                             </div>
 
-                            {/* Quick Delete */}
+                            {/* Delete */}
                             <button
                                 onClick={(e) => handleDelete(e, vp.id)}
-                                className="icon-button danger-button !w-7 !h-7 absolute top-2 right-2 bg-white/90 opacity-0 group-hover:opacity-100 border border-slate-200"
+                                className="icon-button danger-button"
                                 title="删除书签"
+                                style={{
+                                    width: 26,
+                                    height: 26,
+                                    position: 'absolute',
+                                    top: 7,
+                                    right: 7,
+                                    background: 'var(--surface-0)',
+                                    border: '1px solid var(--border)',
+                                    opacity: 0,
+                                    transition: 'opacity 0.15s',
+                                }}
+                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
+                                onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '0'}
+                                onMouseOver={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
                             >
                                 <Trash2 size={12} />
                             </button>

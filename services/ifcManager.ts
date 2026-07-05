@@ -5,7 +5,6 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-// @ts-ignore
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 import { IFCElementData, ViewerTool, MeasurementMode, CameraView, IFCProperty, IFCSpatialStructure } from '../types';
 import { MeasurementManager } from './MeasurementManager';
@@ -42,7 +41,7 @@ export class IFCManager {
     private isInitialized: boolean = false;
 
     // 模型存储
-    private models: Map<number, { group: THREE.Group, modelID: number, name: string }> = new Map();
+    public models: Map<number, { group: THREE.Group, modelID: number, name: string }> = new Map();
     private propertyMaps: Map<number, Map<number, number[]>> = new Map();
     private modelMeshExpressIDs: Map<number, Set<number>> = new Map();
     public parentMap: Map<string, string> = new Map();
@@ -827,7 +826,6 @@ export class IFCManager {
         this.raycaster.setFromCamera(this.mouse, this.camera);
         
         // Re-enable firstHitOnly for three-mesh-bvh performance (CRITICAL FOR UI NOT TO LAG)
-        // @ts-ignore
         this.raycaster.firstHitOnly = true; 
         
         const meshes: THREE.Mesh[] = [];
@@ -875,7 +873,7 @@ export class IFCManager {
         }
     }
 
-    private hasClickMoved(event: MouseEvent, threshold = 4): boolean {
+    private hasClickMoved(event: MouseEvent, threshold = 10): boolean {
         if (!this.pointerDownPosition) return false;
         const dx = event.clientX - this.pointerDownPosition.x;
         const dy = event.clientY - this.pointerDownPosition.y;
@@ -888,7 +886,7 @@ export class IFCManager {
         if (hit) {
             const { modelID, expressID, mesh } = hit;
             if (expressID !== -1 && modelID !== undefined) {
-                this.highlightElement(modelID, expressID, mesh);
+                await this.highlightElement(modelID, expressID, mesh);
                 await this.selectElement(modelID, expressID);
             } else if (mesh.userData.isGLB) {
                 this.highlightElement(modelID, -1, mesh);
@@ -960,7 +958,7 @@ export class IFCManager {
         }
 
         if (modelID >= 0) {
-            this.highlightElement(modelID, expressID);
+            await this.highlightElement(modelID, expressID);
             await this.selectElement(modelID, expressID);
             
             if (zoomTo && this.highlightModel) {

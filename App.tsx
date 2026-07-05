@@ -9,21 +9,21 @@ import SettingsModal, { ViewSettings, DEFAULT_VIEW_SETTINGS, SETTINGS_VERSION } 
 import DraggablePanel from './components/common/DraggablePanel';
 import { TopStatusBar } from './components/TopStatusBar';
 import { IFCElementData, MeasurementResult } from './types';
-import { Loader, Cpu, Network, FileText, Ruler, Sun, Bookmark } from 'lucide-react';
+import { Network, FileText, Ruler, Sun, Bookmark, Upload } from 'lucide-react';
 import { ifcManager } from './services/ifcManager';
-import LightingSimulationPanel from './components/LightingSimulationPanel';
+import SunPanel from './components/SunPanel';
 import BcfPanel from './components/BcfPanel';
 
 const App: React.FC = () => {
   const [selectedElement, setSelectedElement] = useState<IFCElementData | null>(null);
-  
+
   // Panel Visibility States
   const [showModelTree, setShowModelTree] = useState(false);
   const [showPropertyPanel, setShowPropertyPanel] = useState(false);
   const [showMeasurePanel, setShowMeasurePanel] = useState(false);
   const [showLightingPanel, setShowLightingPanel] = useState(false);
   const [showBcfPanel, setShowBcfPanel] = useState(false);
-  
+
   // Modal States
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -33,10 +33,10 @@ const App: React.FC = () => {
       try {
         const parsed = JSON.parse(saved);
         return {
-          ifcUpAxis: parsed.settingsVersion ? (parsed.ifcUpAxis || 'Z') : 'Z',
-          glbUpAxis: parsed.glbUpAxis || 'Y',
-          shadowQuality: parsed.shadowQuality || 'off',
-          settingsVersion: SETTINGS_VERSION
+          ifcUpAxis: parsed.settingsVersion === SETTINGS_VERSION ? (parsed.ifcUpAxis || 'Z') : 'Z',
+          glbUpAxis: parsed.settingsVersion === SETTINGS_VERSION ? (parsed.glbUpAxis || 'Y') : 'Y',
+          shadowQuality: parsed.settingsVersion === SETTINGS_VERSION ? (parsed.shadowQuality || 'off') : 'off',
+          settingsVersion: SETTINGS_VERSION,
         };
       } catch (e) {
         return DEFAULT_VIEW_SETTINGS;
@@ -44,7 +44,7 @@ const App: React.FC = () => {
     }
     return DEFAULT_VIEW_SETTINGS;
   });
-  
+
   // Data States
   const [lastFileName, setLastFileName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -54,7 +54,6 @@ const App: React.FC = () => {
   const [measurements, setMeasurements] = useState<MeasurementResult[]>([]);
 
   useEffect(() => {
-    // Listen for measurement panel toggle
     const handleMeasurePanelOpen = () => setShowMeasurePanel(true);
     window.addEventListener('open-measure-panel', handleMeasurePanelOpen);
     return () => window.removeEventListener('open-measure-panel', handleMeasurePanelOpen);
@@ -79,244 +78,292 @@ const App: React.FC = () => {
   };
 
   const handleElementSelect = (data: IFCElementData | null) => {
-      setSelectedElement(data);
-      if (data) {
-          setShowPropertyPanel(true);
-      }
+    setSelectedElement(data);
+    if (data) setShowPropertyPanel(true);
   };
 
   const handleOpenFiles = async (files: File[]) => {
-      if (files.length === 0) return;
-      
-      for (const file of files) {
-          const lower = file.name.toLowerCase();
-          if (lower.endsWith('.ifc')) {
-             await ifcManager.loadIfc(file, true); 
-          } else if (lower.endsWith('.glb') || lower.endsWith('.gltf')) {
-             await ifcManager.loadGlb(file, true);
-          }
-      }
-      
-      const allModels = Array.from(ifcManager.models.values());
-      if (allModels.length === 0) {
-          setLastFileName(null);
-      } else if (allModels.length === 1) {
-          setLastFileName(allModels[0].group.name || "未命名模型");
-      } else {
-          setLastFileName(`${allModels.length} 个活动模型`);
-      }
-      
-      ifcManager.fitModelToFrame();
-      setModelKey(prev => prev + 1);
-  };
-  
-  const handleClearScene = () => {
-      // Note: BottomToolbar handles the confirmation, we just do the logic
-      try {
-          ifcManager.clearModels();
-          ifcManager.measurementManager?.clear();
-      } catch (e) {
-          console.warn("Failed to fully clear 3D scene:", e);
-      }
+    if (files.length === 0) return;
 
+    for (const file of files) {
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith('.ifc')) {
+        await ifcManager.loadIfc(file, true);
+      } else if (lower.endsWith('.glb') || lower.endsWith('.gltf')) {
+        await ifcManager.loadGlb(file, true);
+      }
+    }
+
+    const allModels = Array.from(ifcManager.models.values());
+    if (allModels.length === 0) {
       setLastFileName(null);
-      setSelectedElement(null);
-      setShowModelTree(false);
-      setShowPropertyPanel(false);
-      setShowMeasurePanel(false);
-      setMeasurements([]);
-      setProcessingStatus(null); 
-      setIsLoading(false);
-      setModelKey(prev => prev + 1);
+    } else if (allModels.length === 1) {
+      setLastFileName(allModels[0].group.name || '未命名模型');
+    } else {
+      setLastFileName(`${allModels.length} 个活动模型`);
+    }
+
+    ifcManager.fitModelToFrame();
+    setModelKey(prev => prev + 1);
   };
 
-  // Sync measurements
+  const handleClearScene = () => {
+    try {
+      ifcManager.clearModels();
+      ifcManager.measurementManager?.clear();
+    } catch (e) {
+      console.warn('Failed to fully clear 3D scene:', e);
+    }
+
+    setLastFileName(null);
+    setSelectedElement(null);
+    setShowModelTree(false);
+    setShowPropertyPanel(false);
+    setShowMeasurePanel(false);
+    setMeasurements([]);
+    setProcessingStatus(null);
+    setIsLoading(false);
+    setModelKey(prev => prev + 1);
+  };
+
   const onViewerReady = () => {
-      if (ifcManager.measurementManager) {
-          // Set the callback to update App state when measurements change
-          ifcManager.measurementManager.onMeasurementsChange = (results) => {
-              setMeasurements([...results]);
-              if (results.length > 0) setShowMeasurePanel(true);
-          };
-      }
+    if (ifcManager.measurementManager) {
+      ifcManager.measurementManager.onMeasurementsChange = (results) => {
+        setMeasurements([...results]);
+        if (results.length > 0) setShowMeasurePanel(true);
+      };
+    }
   };
 
   return (
-    <div className="flex flex-col w-full h-screen bg-[var(--app-bg)] text-slate-800 overflow-hidden font-sans relative">
-      
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100vh', background: 'var(--app-bg)', overflow: 'hidden', position: 'relative' }}>
+
       <TopStatusBar fileName={lastFileName} />
 
       {/* Main Content Area */}
-      <div className="flex-1 relative overflow-hidden w-full h-full">
-          
-          {/* 3D Viewer Layer */}
-          <div className="absolute inset-0 z-0">
-              <Viewer3D 
-                  file={null} 
-                  onSelectElement={handleElementSelect}
-                  onLoadingStatus={(loading, prog) => {
-                      setIsLoading(loading);
-                      setProgress(prog);
-                      if (!loading && prog === 100) {
-                          setShowModelTree(true); 
-                          setModelKey(prev => prev + 1);
-                          onViewerReady();
-                      }
-                  }}
-                  onProcessingStatus={(status) => {
-                      setProcessingStatus(status);
-                  }}
-              />
-          </div>
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', width: '100%', height: '100%' }}>
 
-          {/* Draggable Panels Layer */}
-          
-          <DraggablePanel 
-              title="模型结构" 
-              icon={Network}
-              isOpen={showModelTree} 
-              onClose={() => setShowModelTree(false)}
-              initialPosition={{ x: 20, y: 20 }}
-              initialSize={{ w: 300, h: 500 }}
-          >
-              <ModelTree 
-                key={modelKey} 
-                onLoadStructure={() => {}} 
-                selectedElement={selectedElement}
-              />
-          </DraggablePanel>
-
-          <DraggablePanel 
-              title="属性详情" 
-              icon={FileText}
-              isOpen={showPropertyPanel} 
-              onClose={() => setShowPropertyPanel(false)}
-              initialPosition={{ x: Math.max(20, window.innerWidth - 340), y: 20 }}
-              initialSize={{ w: 320, h: 500 }}
-          >
-              <PropertyPanel data={selectedElement} />
-          </DraggablePanel>
-
-          <DraggablePanel 
-              title="测量结果" 
-              icon={Ruler}
-              isOpen={showMeasurePanel} 
-              onClose={() => setShowMeasurePanel(false)}
-              initialPosition={{ x: 20, y: 400 }}
-              initialSize={{ w: 300, h: 300 }}
-          >
-              <MeasurementPanel measurements={measurements} onClear={() => setMeasurements([])} />
-          </DraggablePanel>
-
-          <DraggablePanel 
-              title="光照与阴影模拟" 
-              icon={Sun}
-              isOpen={showLightingPanel} 
-              onClose={() => setShowLightingPanel(false)}
-              initialPosition={{ x: 20, y: 380 }}
-              initialSize={{ w: 320, h: 480 }}
-          >
-              <LightingSimulationPanel 
-                  onShadowQualityChange={(quality) => {
-                      setSettings(prev => {
-                          const newSettings = { ...prev, shadowQuality: quality, settingsVersion: SETTINGS_VERSION };
-                          localStorage.setItem('bimvision_settings', JSON.stringify(newSettings));
-                          return newSettings;
-                      });
-                  }}
-                  currentShadowQuality={settings.shadowQuality}
-              />
-          </DraggablePanel>
-
-          <DraggablePanel 
-              title="视点与批注 (BCF)" 
-              icon={Bookmark}
-              isOpen={showBcfPanel} 
-              onClose={() => setShowBcfPanel(false)}
-              initialPosition={{ x: Math.max(20, window.innerWidth - 340), y: 120 }}
-              initialSize={{ w: 320, h: 480 }}
-          >
-              <BcfPanel selectedElement={selectedElement} />
-          </DraggablePanel>
-
-          {/* Floating UI Layer (Toolbar) */}
-          <BottomToolbar 
-              onOpenFile={handleOpenFiles}
-              onToggleModelTree={() => setShowModelTree(!showModelTree)}
-              onToggleRightPanel={() => setShowPropertyPanel(!showPropertyPanel)}
-              onOpenSettings={() => setIsSettingsOpen(true)}
-              onClear={() => setShowClearConfirm(true)}
-              isModelTreeOpen={showModelTree}
-              activeRightPanel={showPropertyPanel ? 'properties' : null}
-              onToggleLightingPanel={() => setShowLightingPanel(!showLightingPanel)}
-              isLightingPanelOpen={showLightingPanel}
-              onToggleBcfPanel={() => setShowBcfPanel(!showBcfPanel)}
-              isBcfPanelOpen={showBcfPanel}
+        {/* 3D Viewer */}
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+          <Viewer3D
+            file={null}
+            onSelectElement={handleElementSelect}
+            onLoadingStatus={(loading, prog) => {
+              setIsLoading(loading);
+              setProgress(prog);
+              if (!loading && prog === 100) {
+                setShowModelTree(true);
+                setModelKey(prev => prev + 1);
+                onViewerReady();
+              }
+            }}
+            onProcessingStatus={(status) => {
+              setProcessingStatus(status);
+            }}
           />
-          
-          {/* Combined Loading Overlay */}
-          {(isLoading || processingStatus) && (
-              <div className="absolute inset-0 bg-white/88 backdrop-blur-sm z-50 flex flex-col items-center justify-center pointer-events-none transition-opacity duration-300">
-                  {/* Phase 1: Reading/Loading (Determinate Progress) */}
-                  {isLoading ? (
-                      <>
-                        <Loader className="w-10 h-10 text-blue-500 animate-spin mb-4" />
-                        <h3 className="text-base font-semibold text-slate-800 mb-3">{processingStatus || "正在读取文件"}</h3>
-                        <div className="w-64 h-2 bg-slate-200 rounded-full overflow-hidden shadow-inner">
-                            <div className="h-full bg-blue-500 transition-all duration-200 ease-out" style={{ width: `${Math.max(5, progress)}%` }} />
-                        </div>
-                        <p className="text-xs text-slate-500 mt-2 font-mono">{Math.round(progress)}%</p>
-                      </>
-                  ) : (
-                  /* Phase 2: Processing (Indeterminate) */
-                      <>
-                        <div className="relative">
-                            <Cpu className="w-10 h-10 text-blue-500 animate-pulse mb-4" />
-                            <div className="absolute top-0 right-0 w-3 h-3 bg-blue-400 rounded-full animate-ping" />
-                        </div>
-                        <h3 className="text-base font-semibold text-slate-800 mb-2">{processingStatus || "处理中..."}</h3>
-                        <p className="text-xs text-slate-400">正在解析几何数据与属性</p>
-                      </>
-                  )}
-              </div>
-          )}
-          
-          {!lastFileName && !isLoading && !processingStatus && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-                  <div className="text-slate-500 text-sm bg-white/80 px-4 py-2 rounded-lg border border-slate-200">
-                      点击下方“加载”导入 IFC、GLB 或 GLTF 模型
-                  </div>
-              </div>
-          )}
-      </div>
-      
-      {showClearConfirm && (
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-50 flex items-center justify-center p-4">
-              <div className="panel-surface w-full max-w-sm overflow-hidden p-5 animate-fade-in-up">
-                  <h3 className="text-sm font-semibold text-slate-800 mb-2 font-sans">清空当前场景</h3>
-                  <p className="text-xs text-slate-500 mb-4 leading-relaxed font-sans">确定要清空当前场景吗？所有的模型和测量数据都会被清空且无法恢复。</p>
-                  <div className="flex justify-end gap-2 text-xs font-sans">
-                      <button 
-                          onClick={() => setShowClearConfirm(false)} 
-                          className="secondary-button"
-                      >
-                          取消
-                      </button>
-                      <button 
-                          onClick={() => {
-                              handleClearScene();
-                              setShowClearConfirm(false);
-                          }} 
-                          className="danger-primary-button"
-                      >
-                          确认清空
-                      </button>
-                  </div>
-              </div>
+        </div>
+
+        {/* Draggable Panels */}
+
+        <DraggablePanel
+          title="模型结构"
+          icon={Network}
+          isOpen={showModelTree}
+          onClose={() => setShowModelTree(false)}
+          initialPosition={{ x: 20, y: 20 }}
+          initialSize={{ w: 300, h: 500 }}
+        >
+          <ModelTree
+            key={modelKey}
+            onLoadStructure={() => {}}
+            selectedElement={selectedElement}
+          />
+        </DraggablePanel>
+
+        <DraggablePanel
+          title="属性详情"
+          icon={FileText}
+          isOpen={showPropertyPanel}
+          onClose={() => setShowPropertyPanel(false)}
+          initialPosition={{ x: Math.max(20, window.innerWidth - 340), y: 20 }}
+          initialSize={{ w: 320, h: 500 }}
+        >
+          <PropertyPanel data={selectedElement} />
+        </DraggablePanel>
+
+        <DraggablePanel
+          title="测量结果"
+          icon={Ruler}
+          isOpen={showMeasurePanel}
+          onClose={() => setShowMeasurePanel(false)}
+          initialPosition={{ x: 20, y: 400 }}
+          initialSize={{ w: 300, h: 300 }}
+        >
+          <MeasurementPanel measurements={measurements} onClear={() => setMeasurements([])} />
+        </DraggablePanel>
+
+        <DraggablePanel
+          title="光照与阴影"
+          icon={Sun}
+          isOpen={showLightingPanel}
+          onClose={() => setShowLightingPanel(false)}
+          initialPosition={{ x: 20, y: 380 }}
+          initialSize={{ w: 320, h: 480 }}
+        >
+          <SunPanel
+            onShadowQualityChange={(quality) => {
+              setSettings(prev => {
+                const newSettings = { ...prev, shadowQuality: quality, settingsVersion: SETTINGS_VERSION };
+                localStorage.setItem('bimvision_settings', JSON.stringify(newSettings));
+                return newSettings;
+              });
+            }}
+            currentShadowQuality={settings.shadowQuality}
+          />
+        </DraggablePanel>
+
+        <DraggablePanel
+          title="视点与批注"
+          icon={Bookmark}
+          isOpen={showBcfPanel}
+          onClose={() => setShowBcfPanel(false)}
+          initialPosition={{ x: Math.max(20, window.innerWidth - 340), y: 120 }}
+          initialSize={{ w: 320, h: 480 }}
+        >
+          <BcfPanel selectedElement={selectedElement} />
+        </DraggablePanel>
+
+        {/* Bottom Toolbar */}
+        <BottomToolbar
+          onOpenFile={handleOpenFiles}
+          onToggleModelTree={() => setShowModelTree(!showModelTree)}
+          onToggleRightPanel={() => setShowPropertyPanel(!showPropertyPanel)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onClear={() => setShowClearConfirm(true)}
+          isModelTreeOpen={showModelTree}
+          activeRightPanel={showPropertyPanel ? 'properties' : null}
+          onToggleLightingPanel={() => setShowLightingPanel(!showLightingPanel)}
+          isLightingPanelOpen={showLightingPanel}
+          onToggleBcfPanel={() => setShowBcfPanel(!showBcfPanel)}
+          isBcfPanelOpen={showBcfPanel}
+        />
+
+        {/* Loading Overlay */}
+        {(isLoading || processingStatus) && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(248, 250, 252, 0.92)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 50,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            pointerEvents: 'none',
+          }}>
+            <style>{`
+              @keyframes appSpinner { to { transform: rotate(360deg); } }
+              @keyframes appDotPulse { 0%, 80%, 100% { transform: scale(0.7); opacity: 0.5; } 40% { transform: scale(1); opacity: 1; } }
+            `}</style>
+            {isLoading ? (
+              <>
+                <div style={{
+                  width: 40, height: 40, borderRadius: '50%',
+                  border: '3px solid var(--brand-soft)', borderTopColor: 'var(--brand)',
+                  animation: 'appSpinner 0.9s linear infinite', marginBottom: 18,
+                }} />
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 14 }}>
+                  {processingStatus || '正在读取文件…'}
+                </div>
+                <div style={{ width: 220, height: 4, background: 'var(--surface-2)', borderRadius: 99, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', background: 'var(--brand)', borderRadius: 99,
+                    width: `${Math.max(4, progress)}%`, transition: 'width 0.25s ease-out',
+                  }} />
+                </div>
+                <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-muted)', marginTop: 8 }}>
+                  {Math.round(progress)}%
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', gap: 7, marginBottom: 18 }}>
+                  {[0, 1, 2].map(i => (
+                    <div key={i} style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: 'var(--brand)',
+                      animation: `appDotPulse 1.2s ease-in-out ${i * 0.2}s infinite`,
+                    }} />
+                  ))}
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+                  {processingStatus || '解析模型数据…'}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>正在构建几何体与属性索引</div>
+              </>
+            )}
           </div>
+        )}
+
+        {/* Empty State — welcome */}
+        {!lastFileName && !isLoading && !processingStatus && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            pointerEvents: 'none', zIndex: 0,
+          }}>
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+              padding: '28px 36px',
+              background: 'rgba(255, 255, 255, 0.85)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-xl)',
+              boxShadow: 'var(--shadow-sm)',
+            }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: 'var(--radius-lg)',
+                background: 'var(--brand-soft)', border: '1px solid var(--brand-border)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+              }}>
+                <Upload size={22} style={{ color: 'var(--brand)' }} />
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>打开 BIM 模型</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6 }}>
+                支持 IFC · GLB · GLTF 格式<br />
+                点击底部工具栏"加载"导入文件
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Clear Scene Confirm */}
+      {showClearConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(15, 23, 42, 0.42)',
+          backdropFilter: 'blur(3px)',
+          zIndex: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 16,
+        }}>
+          <div className="panel-surface animate-fade-in-up" style={{ width: '100%', maxWidth: 360, padding: 20 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>清空当前场景</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 18 }}>
+              此操作将清除所有已加载模型与测量记录，且无法撤销。
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setShowClearConfirm(false)} className="secondary-button">取消</button>
+              <button
+                onClick={() => { handleClearScene(); setShowClearConfirm(false); }}
+                className="danger-primary-button"
+              >
+                清空场景
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
-      <SettingsModal 
+      <SettingsModal
         isOpen={isSettingsOpen}
         settings={settings}
         onClose={() => setIsSettingsOpen(false)}

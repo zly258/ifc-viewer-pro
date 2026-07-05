@@ -36,7 +36,6 @@ export class MeasurementManager {
     private fillMaterial = new THREE.MeshBasicMaterial({ color: 0x3b82f6, side: THREE.DoubleSide, transparent: true, opacity: 0.2, depthTest: false });
 
     // Temp objects for current interaction
-    private tempMarkers: THREE.Mesh[] = [];
     private tempPreview: THREE.Object3D | null = null;
 
     constructor(scene: THREE.Scene, camera: THREE.Camera, container: HTMLElement) {
@@ -44,7 +43,6 @@ export class MeasurementManager {
         this.camera = camera;
         this.container = container;
         this.raycaster = new THREE.Raycaster();
-        // @ts-ignore
         this.raycaster.firstHitOnly = true;
 
         this.initCursorLabel();

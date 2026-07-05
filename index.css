@@ -1,29 +1,79 @@
 @import "tailwindcss";
 
+/* ============================================================
+   BIMVision Pro — Design System
+   统一设计语言，所有颜色和尺寸通过 CSS 变量控制
+   ============================================================ */
+
 :root {
-  --app-bg: #f6f8fb;
-  --panel-bg: rgba(255, 255, 255, 0.94);
-  --panel-bg-solid: #ffffff;
-  --panel-bg-muted: #f8fafc;
-  --panel-border: #dbe3ee;
-  --panel-border-soft: #e7edf5;
-  --text-main: #1e293b;
-  --text-muted: #64748b;
-  --text-subtle: #94a3b8;
-  --brand: #2563eb;
-  --brand-soft: #eff6ff;
-  --danger: #dc2626;
-  --radius-panel: 10px;
-  --radius-control: 8px;
-  --shadow-panel: 0 16px 40px rgba(15, 23, 42, 0.12);
-  --shadow-control: 0 8px 22px rgba(15, 23, 42, 0.10);
-  --font-size-body: 13px;
-  --font-size-small: 12px;
-  --font-size-caption: 11px;
-  --line-height-body: 1.5;
-  --app-font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
-  font-family: var(--app-font-family);
+  /* --- Brand Colors --- */
+  --brand:           #2563eb;
+  --brand-hover:     #1d4ed8;
+  --brand-soft:      #eff6ff;
+  --brand-border:    #bfdbfe;
+
+  /* --- Semantic Surface Colors --- */
+  --app-bg:          #f4f6f9;
+  --surface-0:       #ffffff;           /* 纯白卡片 */
+  --surface-1:       #f8fafc;           /* 浅色面板背景 */
+  --surface-2:       #f1f5f9;           /* 更深一层 hover/区段背景 */
+  --panel-bg:        rgba(255, 255, 255, 0.95);
+  --panel-bg-blur:   rgba(255, 255, 255, 0.88);
+
+  /* --- Border --- */
+  --border:          #e2e8f0;
+  --border-soft:     #eff1f5;
+  --border-focus:    var(--brand);
+
+  /* --- Text --- */
+  --text-primary:    #1e293b;
+  --text-secondary:  #475569;
+  --text-muted:      #94a3b8;
+  --text-brand:      var(--brand);
+
+  /* --- Status Colors --- */
+  --danger:          #dc2626;
+  --danger-soft:     #fef2f2;
+  --danger-border:   #fca5a5;
+  --success:         #16a34a;
+  --success-soft:    #f0fdf4;
+
+  /* --- Radius --- */
+  --radius-sm:       6px;
+  --radius-md:       8px;
+  --radius-lg:       10px;
+  --radius-xl:       12px;
+
+  /* --- Shadow --- */
+  --shadow-sm:       0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md:       0 4px 16px rgba(15, 23, 42, 0.10), 0 1px 4px rgba(15, 23, 42, 0.06);
+  --shadow-panel:    0 8px 32px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06);
+  --shadow-toolbar:  0 4px 20px rgba(15, 23, 42, 0.10), 0 1px 6px rgba(15, 23, 42, 0.06);
+
+  /* --- Spacing & Typography --- */
+  --font-size-xs:    11px;
+  --font-size-sm:    12px;
+  --font-size-base:  13px;
+  --line-height:     1.5;
+  --font-family:     Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  font-family: var(--font-family);
+
+  /* --- Z-Index Layers --- */
+  --z-panel:         30;
+  --z-toolbar:       40;
+  --z-modal:         50;
+  --z-overlay:       50;
+
+  /* --- Component Heights --- */
+  --topbar-h:        48px;
+  --toolbar-btn-w:   48px;
+  --toolbar-btn-h:   42px;
+  --icon-btn-size:   32px;
 }
+
+/* ============================================================
+   Base Reset
+   ============================================================ */
 
 html,
 body,
@@ -35,28 +85,37 @@ body,
 body {
   margin: 0;
   background: var(--app-bg);
-  color: var(--text-main);
-  font-family: var(--app-font-family);
-  font-size: var(--font-size-body);
-  line-height: var(--line-height-body);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height);
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
-.font-sans {
-  font-family: var(--app-font-family) !important;
+*, ::before, ::after {
+  font-family: var(--font-family);
+}
+
+code, kbd, samp, pre, .font-mono, [style*="font-family: monospace"], [style*="font-family:monospace"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
 }
 
 button,
 input,
 textarea,
 select {
-  font: inherit;
+  font-family: inherit;
 }
 
-/* Custom modern scrollbar */
+
+/* ============================================================
+   Scrollbar
+   ============================================================ */
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -64,49 +123,51 @@ select {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3); /* Slate 400 with opacity */
-  border-radius: 9999px;
-  border: 1px solid transparent;
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 99px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.5); /* Slate 500 with opacity */
+  background: rgba(100, 116, 139, 0.55);
 }
 
+/* ============================================================
+   Panel & Surface Components
+   ============================================================ */
+
+/* 可拖拽的浮动面板 */
 .glass-panel {
   background: var(--panel-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow-panel);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.glass-panel:hover {
-  border-color: #cbd5e1;
-}
-
+/* 通用面板容器（含圆角） */
 .panel-surface {
   background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-panel);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
+/* 面板内容区背景 */
 .panel-content {
-  background: var(--panel-bg-solid);
-  color: var(--text-main);
+  background: var(--surface-0);
+  color: var(--text-primary);
 }
 
+/* Modal 卡片 */
 .modal-card {
   width: 100%;
   max-width: 400px;
   overflow: hidden;
-  background: var(--panel-bg-solid);
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-panel);
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-panel);
   animation: fadeInSlideUp 0.18s ease-out;
 }
@@ -117,21 +178,18 @@ select {
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-  background: var(--panel-bg-muted);
-  border-bottom: 1px solid var(--panel-border-soft);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .modal-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-main);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .modal-body {
-  padding: 14px 16px;
+  padding: 16px;
 }
 
 .modal-footer {
@@ -139,95 +197,145 @@ select {
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 16px;
-  background: var(--panel-bg-muted);
-  border-top: 1px solid var(--panel-border-soft);
+  background: var(--surface-1);
+  border-top: 1px solid var(--border-soft);
 }
+
+/* ============================================================
+   Form Components
+   ============================================================ */
 
 .form-section {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 8px;
 }
 
-.section-title {
-  color: var(--text-main);
-  font-size: 13px;
+.form-label {
+  font-size: var(--font-size-sm);
   font-weight: 600;
+  color: var(--text-secondary);
 }
 
-.section-help {
+.form-help {
+  font-size: var(--font-size-xs);
   color: var(--text-muted);
-  font-size: var(--font-size-small);
   line-height: 1.55;
 }
 
-.option-button {
-  min-height: 36px;
-  padding: 8px 10px;
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-control);
-  color: var(--text-muted);
-  background: #fff;
-  font-size: var(--font-size-small);
+/* Aliases for backward compatibility */
+.section-title {
+  font-size: var(--font-size-sm);
   font-weight: 600;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  color: var(--text-secondary);
 }
 
-.option-button:hover {
-  border-color: #cbd5e1;
-  background: #f8fafc;
-  color: var(--text-main);
+.section-help {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  line-height: 1.55;
 }
 
-.option-button-active,
-.option-button-active:hover {
+.input-control {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.input-control::placeholder {
+  color: var(--text-muted);
+}
+
+.input-control:focus {
   border-color: var(--brand);
-  background: var(--brand-soft);
-  color: var(--brand);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.10);
 }
 
-.primary-button,
-.secondary-button,
-.danger-primary-button {
-  min-height: 34px;
+/* ============================================================
+   Button Variants
+   ============================================================ */
+
+/* 共享按钮基础 */
+.btn-base {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: var(--radius-control);
-  font-size: var(--font-size-small);
+  gap: 5px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .primary-button {
+  min-height: 32px;
+  padding: 6px 14px;
   color: #fff;
   background: var(--brand);
   border: 1px solid var(--brand);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
 }
 
 .primary-button:hover {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
+  background: var(--brand-hover);
+  border-color: var(--brand-hover);
 }
 
 .secondary-button {
-  color: var(--text-muted);
-  background: #fff;
-  border: 1px solid var(--panel-border);
+  min-height: 32px;
+  padding: 6px 14px;
+  color: var(--text-secondary);
+  background: var(--surface-0);
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  cursor: pointer;
 }
 
 .secondary-button:hover {
-  color: var(--text-main);
-  background: #f8fafc;
+  color: var(--text-primary);
+  background: var(--surface-1);
   border-color: #cbd5e1;
 }
 
 .danger-primary-button {
+  min-height: 32px;
+  padding: 6px 14px;
   color: #fff;
   background: var(--danger);
   border: 1px solid var(--danger);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease;
+  cursor: pointer;
 }
 
 .danger-primary-button:hover {
@@ -235,50 +343,176 @@ select {
   border-color: #b91c1c;
 }
 
-.input-control {
-  width: 100%;
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-control);
-  background: #fff;
-  color: var(--text-main);
-  font-size: var(--font-size-small);
-  font-weight: 500;
-  outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+/* Option Toggle Button (选择组按钮) */
+.option-button {
+  min-height: 34px;
+  padding: 6px 10px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  background: var(--surface-0);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  cursor: pointer;
 }
 
-.input-control::placeholder {
-  color: var(--text-subtle);
+.option-button:hover {
+  border-color: #cbd5e1;
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
 
-.input-control:focus {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
+.option-button-active,
+.option-button-active:hover {
+  border-color: var(--brand-border);
+  background: var(--brand-soft);
+  color: var(--brand);
 }
 
+/* Icon-only Button */
+.icon-button {
+  width: var(--icon-btn-size);
+  height: var(--icon-btn-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  flex-shrink: 0;
+}
+
+.icon-button:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.icon-button.danger-button:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* ============================================================
+   Toolbar
+   ============================================================ */
+
+.main-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 8px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-toolbar);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  max-width: calc(100vw - 32px);
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.sub-toolbar {
+  padding: 8px;
+  pointer-events: auto;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-toolbar);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: fadeInSlideUp 0.16s ease-out;
+}
+
+/* 主工具栏图标按钮 */
+.toolbar-button {
+  flex: 0 0 var(--toolbar-btn-w);
+  width: var(--toolbar-btn-w);
+  height: var(--toolbar-btn-h);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  flex-shrink: 0;
+}
+
+.toolbar-button span {
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 600;
+}
+
+.toolbar-button:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.toolbar-button-active,
+.toolbar-button-active:hover {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.icon-button-active,
+.icon-button-active:hover {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 22px;
+  margin: 0 3px;
+  background: var(--border-soft);
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Panel Sections & Utility Components
+   ============================================================ */
+
+/* 区段标题 */
 .panel-section-title {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--text-muted);
-  font-size: var(--font-size-small);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
   font-weight: 600;
   letter-spacing: 0.01em;
 }
 
+/* 控制卡片 */
 .control-card {
-  padding: 12px;
-  border: 1px solid var(--panel-border-soft);
-  border-radius: var(--radius-control);
-  background: var(--panel-bg-muted);
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
 }
 
+/* 状态徽章 */
 .status-badge {
   display: inline-flex;
   align-items: center;
-  min-height: 20px;
-  padding: 2px 7px;
-  border-radius: 999px;
+  min-height: 18px;
+  padding: 1px 6px;
+  border-radius: 99px;
   font-size: 10px;
   line-height: 1;
   font-weight: 600;
@@ -290,106 +524,63 @@ select {
 }
 
 .status-badge-off {
-  background: #f1f5f9;
-  color: var(--text-subtle);
+  background: var(--surface-2);
+  color: var(--text-muted);
 }
 
-.main-toolbar {
-  max-width: calc(100vw - 32px);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  pointer-events: auto;
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-control);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.sub-toolbar {
-  padding: 8px;
-  margin-bottom: 4px;
-  pointer-events: auto;
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--shadow-control);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  animation: fadeInSlideUp 0.18s ease-out;
-}
-
-.toolbar-button {
-  flex: 0 0 52px;
-  width: 52px;
-  height: 44px;
+/* 空状态 */
+.empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  border-radius: var(--radius-control);
+  gap: 6px;
+  padding: 40px 20px;
+  text-align: center;
   color: var(--text-muted);
-  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.toolbar-button span {
-  font-size: 10px;
-  line-height: 1;
+.empty-state-title {
+  font-size: var(--font-size-sm);
   font-weight: 600;
+  color: var(--text-secondary);
 }
 
-.toolbar-button:hover {
-  background: #f1f5f9;
-  color: var(--text-main);
-}
-
-.toolbar-button-active,
-.toolbar-button-active:hover,
-.icon-button-active,
-.icon-button-active:hover {
-  background: var(--brand-soft);
-  color: var(--brand);
-}
-
-.toolbar-divider {
-  width: 1px;
-  height: 24px;
-  margin: 0 4px;
-  background: var(--panel-border-soft);
-}
-
-.icon-button {
-  width: 34px;
-  height: 34px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-control);
+.empty-state-desc {
+  font-size: var(--font-size-xs);
   color: var(--text-muted);
-  transition: background 0.15s ease, color 0.15s ease;
+  line-height: 1.55;
+  max-width: 180px;
 }
 
-.icon-button:hover {
-  background: #f1f5f9;
-  color: var(--text-main);
+/* 区段分隔线 */
+.section-divider {
+  height: 1px;
+  background: var(--border-soft);
+  margin: 2px 0;
 }
 
-.danger-button:hover {
-  background: #fef2f2;
-  color: var(--danger);
+/* 骨架屏动画 */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-1) 25%, var(--surface-2) 50%, var(--surface-1) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.4s infinite ease-in-out;
+  border-radius: var(--radius-sm);
 }
 
-/* Micro-animations */
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ============================================================
+   Micro-animations
+   ============================================================ */
+
 @keyframes fadeInSlideUp {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -397,40 +588,42 @@ select {
   }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 .animate-fade-in-up {
   animation: fadeInSlideUp 0.18s ease-out forwards;
 }
 
-@keyframes pulseBorder {
-  0%, 100% {
-    border-color: var(--panel-border);
-  }
-  50% {
-    border-color: rgba(59, 130, 246, 0.5); /* Blue 500 */
-  }
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
 }
 
-.border-pulse {
-  animation: pulseBorder 2s infinite ease-in-out;
-}
+/* ============================================================
+   Three.js Viewer
+   ============================================================ */
 
-/* Three.js Viewer Canvas styling */
 .viewer-canvas-container canvas {
   outline: none;
   display: block;
 }
 
-/* CSS2D Labels styling */
+/* ============================================================
+   Measurement Labels (CSS2D)
+   ============================================================ */
+
 .measurement-label {
-  background: rgba(15, 23, 42, 0.85); /* Slate 900 */
+  background: rgba(15, 23, 42, 0.88);
   color: #f8fafc;
   padding: 3px 8px;
   border-radius: 4px;
   font-size: 11px;
   font-family: monospace;
   font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   pointer-events: none;
   white-space: nowrap;
 }
@@ -443,7 +636,7 @@ select {
   transform: translateX(-50%);
   border-width: 4px 4px 0;
   border-style: solid;
-  border-color: rgba(15, 23, 42, 0.85) transparent;
+  border-color: rgba(15, 23, 42, 0.88) transparent;
   display: block;
   width: 0;
 }

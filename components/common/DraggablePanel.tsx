@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, GripHorizontal } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface DraggablePanelProps {
   title: string;
@@ -25,7 +25,7 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
   minWidth = 250,
   minHeight = 200,
   children,
-  className = ''
+  className = '',
 }) => {
   const [position, setPosition] = useState(initialPosition);
   const [size, setSize] = useState(initialSize);
@@ -39,8 +39,8 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
   // Ensure panel is on screen on mount
   useEffect(() => {
     setPosition(prev => ({
-        x: Math.max(0, Math.min(prev.x, window.innerWidth - size.w)),
-        y: Math.max(0, Math.min(prev.y, window.innerHeight - size.h))
+      x: Math.max(0, Math.min(prev.x, window.innerWidth - size.w)),
+      y: Math.max(0, Math.min(prev.y, window.innerHeight - size.h)),
     }));
   }, []);
 
@@ -51,7 +51,7 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
         const dy = e.clientY - dragStartRef.current.y;
         setPosition({
           x: Math.max(0, Math.min(window.innerWidth - size.w, startPosRef.current.x + dx)),
-          y: Math.max(0, Math.min(window.innerHeight - size.h, startPosRef.current.y + dy))
+          y: Math.max(0, Math.min(window.innerHeight - size.h, startPosRef.current.y + dy)),
         });
       }
       if (isResizing) {
@@ -59,7 +59,7 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
         const dy = e.clientY - dragStartRef.current.y;
         setSize({
           w: Math.max(minWidth, startSizeRef.current.w + dx),
-          h: Math.max(minHeight, startSizeRef.current.h + dy)
+          h: Math.max(minHeight, startSizeRef.current.h + dy),
         });
       }
     };
@@ -75,6 +75,7 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       document.body.style.userSelect = 'none';
+      document.body.style.cursor = isDragging ? 'grabbing' : 'se-resize';
     }
 
     return () => {
@@ -95,7 +96,6 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
     setIsResizing(true);
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     startSizeRef.current = { ...size };
-    document.body.style.cursor = 'se-resize';
   };
 
   if (!isOpen) return null;
@@ -103,32 +103,45 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
   return (
     <div
       ref={panelRef}
-      className={`absolute flex flex-col glass-panel rounded-[var(--radius-panel)] overflow-hidden z-30 transition-all duration-200 ease-out animate-fade-in-up ${className}`}
+      className={`absolute flex flex-col glass-panel overflow-hidden z-30 animate-fade-in-up ${className}`}
       style={{
         left: position.x,
         top: position.y,
         width: size.w,
         height: size.h,
+        borderRadius: 'var(--radius-lg)',
       }}
     >
-      {/* Header */}
+      {/* Header — drag zone */}
       <div
-        className="flex items-center justify-between px-4 h-11 bg-slate-50/80 border-b border-slate-200 cursor-move select-none flex-shrink-0 font-sans"
+        className="flex items-center justify-between flex-shrink-0 cursor-grab select-none"
+        style={{
+          height: 40,
+          padding: '0 12px 0 14px',
+          background: 'var(--surface-1)',
+          borderBottom: '1px solid var(--border-soft)',
+        }}
         onMouseDown={handleMouseDown}
       >
-        <div className="flex items-center gap-2 text-slate-700 font-semibold text-xs tracking-wide pointer-events-none">
-          {Icon && <Icon size={15} className="text-blue-600" />}
+        {/* Title */}
+        <div
+          className="flex items-center gap-2 pointer-events-none"
+          style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}
+        >
+          {Icon && (
+            <Icon size={14} style={{ color: 'var(--brand)', flexShrink: 0 }} />
+          )}
           <span>{title}</span>
         </div>
-        <div className="flex items-center gap-1">
-            <GripHorizontal size={14} className="text-slate-300 mr-2" />
-            <button
-            onClick={onClose}
-            className="icon-button danger-button !w-7 !h-7 no-drag"
-            >
-            <X size={15} />
-            </button>
-        </div>
+
+        {/* Close */}
+        <button
+          onClick={onClose}
+          className="icon-button danger-button no-drag"
+          style={{ width: 28, height: 28 }}
+        >
+          <X size={14} />
+        </button>
       </div>
 
       {/* Content */}
@@ -138,11 +151,15 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
 
       {/* Resize Handle */}
       <div
-        className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize z-40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+        className="absolute bottom-0 right-0 z-40"
+        style={{ width: 14, height: 14, cursor: 'se-resize' }}
         onMouseDown={handleResizeStart}
       >
-        <svg viewBox="0 0 6 6" className="w-2 h-2 fill-slate-400 absolute bottom-1 right-1 pointer-events-none">
-           <path d="M6 6L6 0L0 6Z" />
+        <svg
+          viewBox="0 0 6 6"
+          style={{ width: 7, height: 7, position: 'absolute', bottom: 3, right: 3, pointerEvents: 'none' }}
+        >
+          <path d="M6 6L6 0L0 6Z" fill="var(--text-muted)" opacity="0.5" />
         </svg>
       </div>
     </div>
