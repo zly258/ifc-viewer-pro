@@ -30,7 +30,8 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
   const [position, setPosition] = useState(initialPosition);
   const [size, setSize] = useState(initialSize);
   const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
+  const [resizeDirection, setResizeDirection] = useState<string | null>(null);
+  
   const panelRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const startPosRef = useRef({ x: 0, y: 0 });
@@ -54,48 +55,74 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
           y: Math.max(0, Math.min(window.innerHeight - size.h, startPosRef.current.y + dy)),
         });
       }
-      if (isResizing) {
+      if (resizeDirection) {
         const dx = e.clientX - dragStartRef.current.x;
         const dy = e.clientY - dragStartRef.current.y;
-        setSize({
-          w: Math.max(minWidth, startSizeRef.current.w + dx),
-          h: Math.max(minHeight, startSizeRef.current.h + dy),
-        });
+        
+        let newWidth = startSizeRef.current.w;
+        let newHeight = startSizeRef.current.h;
+        let newX = startPosRef.current.x;
+
+        if (resizeDirection.includes('right')) {
+          newWidth = Math.max(minWidth, startSizeRef.current.w + dx);
+        } else if (resizeDirection.includes('left')) {
+          newWidth = Math.max(minWidth, startSizeRef.current.w - dx);
+          newX = startPosRef.current.x + (startSizeRef.current.w - newWidth);
+        }
+
+        if (resizeDirection.includes('bottom')) {
+          newHeight = Math.max(minHeight, startSizeRef.current.h + dy);
+        }
+
+        setSize({ w: newWidth, h: newHeight });
+        setPosition(prev => ({ ...prev, x: newX }));
       }
     };
 
     const handleMouseUp = () => {
       setIsDragging(false);
-      setIsResizing(false);
+      setResizeDirection(null);
       document.body.style.cursor = 'default';
       document.body.style.userSelect = 'auto';
     };
 
-    if (isDragging || isResizing) {
+    if (isDragging || resizeDirection) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       document.body.style.userSelect = 'none';
-      document.body.style.cursor = isDragging ? 'grabbing' : 'se-resize';
+      
+      if (isDragging) {
+        document.body.style.cursor = 'grabbing';
+      } else if (resizeDirection) {
+        if (resizeDirection === 'left') document.body.style.cursor = 'w-resize';
+        else if (resizeDirection === 'right') document.body.style.cursor = 'e-resize';
+        else if (resizeDirection === 'bottom') document.body.style.cursor = 's-resize';
+        else if (resizeDirection === 'bottom-right') document.body.style.cursor = 'se-resize';
+        else if (resizeDirection === 'bottom-left') document.body.style.cursor = 'sw-resize';
+      }
     }
 
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, isResizing, size.w, size.h, minWidth, minHeight]);
+  }, [isDragging, resizeDirection, minWidth, minHeight]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('.no-drag')) return;
     setIsDragging(true);
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     startPosRef.current = { ...position };
+    startSizeRef.current = { ...size };
   };
 
-  const handleResizeStart = (e: React.MouseEvent) => {
+  const handleResizeStart = (e: React.MouseEvent, dir: string) => {
     e.stopPropagation();
-    setIsResizing(true);
+    e.preventDefault();
+    setResizeDirection(dir);
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     startSizeRef.current = { ...size };
+    startPosRef.current = { ...position };
   };
 
   if (!isOpen) return null;
@@ -114,7 +141,7 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
     >
       {/* Header — drag zone */}
       <div
-        className="flex items-center justify-between flex-shrink-0 cursor-grab select-none"
+        className="flex items-center justify-between flex-shrink-0 cursor-grab select-none no-drag"
         style={{
           height: 40,
           padding: '0 12px 0 14px',
@@ -145,23 +172,36 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden relative panel-content">
+      <div className="flex-1 overflow-hidden relative panel-content no-drag">
         {children}
       </div>
 
-      {/* Resize Handle */}
+      {/* Invisible Resize Borders/Handles */}
       <div
-        className="absolute bottom-0 right-0 z-40"
-        style={{ width: 14, height: 14, cursor: 'se-resize' }}
-        onMouseDown={handleResizeStart}
-      >
-        <svg
-          viewBox="0 0 6 6"
-          style={{ width: 7, height: 7, position: 'absolute', bottom: 3, right: 3, pointerEvents: 'none' }}
-        >
-          <path d="M6 6L6 0L0 6Z" fill="var(--text-muted)" opacity="0.5" />
-        </svg>
-      </div>
+        className="absolute left-0 top-0 bottom-0 z-40 cursor-w-resize"
+        style={{ width: 6 }}
+        onMouseDown={(e) => handleResizeStart(e, 'left')}
+      />
+      <div
+        className="absolute right-0 top-0 bottom-0 z-40 cursor-e-resize"
+        style={{ width: 6 }}
+        onMouseDown={(e) => handleResizeStart(e, 'right')}
+      />
+      <div
+        className="absolute bottom-0 left-6 right-6 z-40 cursor-s-resize"
+        style={{ height: 6 }}
+        onMouseDown={(e) => handleResizeStart(e, 'bottom')}
+      />
+      <div
+        className="absolute left-0 bottom-0 z-55 cursor-sw-resize"
+        style={{ width: 10, height: 10 }}
+        onMouseDown={(e) => handleResizeStart(e, 'bottom-left')}
+      />
+      <div
+        className="absolute right-0 bottom-0 z-55 cursor-se-resize"
+        style={{ width: 10, height: 10 }}
+        onMouseDown={(e) => handleResizeStart(e, 'bottom-right')}
+      />
     </div>
   );
 };
