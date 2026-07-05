@@ -1248,7 +1248,7 @@ export class IFCManager {
         window.removeEventListener('resize', this.handleResize); 
         window.removeEventListener('keydown', this.handleKeyDown);
         if (this.renderer?.domElement) {
-            this.renderer.domElement.removeEventListener('pointerdown', this.handlePointerDown);
+            this.renderer.domElement.removeEventListener('pointerdown', this.handlePointerDown, true);
             this.renderer.domElement.removeEventListener('mousemove', this.handleMouseMove);
             this.renderer.domElement.removeEventListener('click', this.handleClick);
             this.renderer.domElement.removeEventListener('dblclick', this.handleDoubleClick);
