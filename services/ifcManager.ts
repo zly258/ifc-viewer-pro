@@ -779,13 +779,17 @@ export class IFCManager {
         this.camera.position.copy(newPos);
         this.camera.lookAt(center);
         
-        const frustumHeight = (this.camera.top - this.camera.bottom);
-        const frustumWidth = (this.camera.right - this.camera.left);
-        
-        this.camera.zoom = Math.min(
-            frustumWidth / (maxDim * padding),
-            frustumHeight / (maxDim * padding)
-        );
+        if (this.camera instanceof THREE.OrthographicCamera) {
+            const frustumHeight = (this.camera.top - this.camera.bottom);
+            const frustumWidth = (this.camera.right - this.camera.left);
+            
+            this.camera.zoom = Math.min(
+                frustumWidth / (maxDim * padding),
+                frustumHeight / (maxDim * padding)
+            );
+        } else {
+            this.camera.zoom = 1;
+        }
 
         this.camera.updateProjectionMatrix();
         this.controls.target.copy(center);
@@ -1129,7 +1133,7 @@ export class IFCManager {
 
     // Removed highlightHover usage
 
-    private clearSelection() { 
+    public clearSelection() { 
         if (this.highlightModel) { 
             this.scene.remove(this.highlightModel); 
             if (this.highlightModel.geometry) this.highlightModel.geometry.dispose();
@@ -1237,11 +1241,11 @@ export class IFCManager {
             } 
         });
 
-        if (modelID >= 0) {
+        if (modelID >= 0 && this.worker) {
             try {
-                this.ifcApi.CloseModel(modelID);
+                this.worker.postMessage({ type: 'CLEAR_MODEL', data: { modelID } });
             } catch(e) {
-                console.warn(`WebIFC CloseModel(${modelID}) failed`, e);
+                console.warn(`WebIFC CloseModel(${modelID}) via worker failed`, e);
             }
         }
         this.models.delete(modelID);

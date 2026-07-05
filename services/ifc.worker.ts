@@ -120,7 +120,7 @@ self.onmessage = async (e: MessageEvent) => {
                     };
                     
                     // Transfer array buffer objects directly (zero-copy)
-                    self.postMessage({ type: 'GEOMETRY_STREAM', data: geomMsg }, [pos.buffer, norm.buffer, indices.buffer]);
+                    (self as any).postMessage({ type: 'GEOMETRY_STREAM', data: geomMsg }, [pos.buffer, norm.buffer, indices.buffer]);
                     streamedCount++;
                 }
             });
@@ -313,7 +313,7 @@ self.onmessage = async (e: MessageEvent) => {
             }
             
             const transferables = geometries.flatMap(g => [g.pos, g.indices]);
-            self.postMessage({
+            (self as any).postMessage({
                 type: 'HIGHLIGHT_GEOMETRY_RESULT',
                 data: { modelID, expressID, geometries }
             }, transferables);

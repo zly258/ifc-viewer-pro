@@ -37,6 +37,7 @@ export class MeasurementManager {
 
     // Temp objects for current interaction
     private tempPreview: THREE.Object3D | null = null;
+    private tempMarkers: THREE.Object3D[] = [];
 
     constructor(scene: THREE.Scene, camera: THREE.Camera, container: HTMLElement) {
         this.scene = scene;
@@ -468,7 +469,7 @@ export class MeasurementManager {
         div.textContent = text;
         // Small arrow visual could be added with pseudo-element class in CSS
 
-        const label = new CSS2DObject(div);
+        const label = new CSS2DObject(div) as any;
         label.position.copy(pos);
         this.scene.add(label);
         return label;

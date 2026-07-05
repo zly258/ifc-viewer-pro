@@ -6,16 +6,16 @@ interface PropertyPanelProps {
   data: IFCElementData | null;
 }
 
-const PropertyGroup = ({
-    name,
-    props,
-    defaultOpen = false,
-    forceOpen = false,
-}: {
+const PropertyGroup: React.FC<{
     name: string;
     props: any[];
     defaultOpen?: boolean;
     forceOpen?: boolean;
+}> = ({
+    name,
+    props,
+    defaultOpen = false,
+    forceOpen = false,
 }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
     const showContent = forceOpen || isOpen;

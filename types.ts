@@ -71,7 +71,7 @@ export enum ViewerTool {
 }
 
 // Removed ELEVATION
-export type MeasurementMode = 'DISTANCE' | 'ANGLE' | 'COORDINATE';
+export type MeasurementMode = 'DISTANCE' | 'ANGLE' | 'COORDINATE' | 'AREA' | 'VOLUME';
 
 export interface MeasurementResult {
     id: string;

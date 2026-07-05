@@ -1,10 +1,6 @@
-/**
- * Type declarations for three-mesh-bvh.
- * Augments THREE.BufferGeometry and THREE.Raycaster with BVH properties.
- */
-declare module 'three-mesh-bvh' {
-    import type { BufferGeometry, Raycaster } from 'three';
+import type { BufferGeometry, Raycaster } from 'three';
 
+declare module 'three-mesh-bvh' {
     /** Builds a BVH acceleration structure on the geometry. */
     export function computeBoundsTree(this: BufferGeometry): void;
 
