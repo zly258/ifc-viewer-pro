@@ -141,7 +141,7 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
     >
       {/* Header — drag zone */}
       <div
-        className="flex items-center justify-between flex-shrink-0 cursor-grab select-none no-drag"
+        className="flex items-center justify-between flex-shrink-0 cursor-grab select-none"
         style={{
           height: 40,
           padding: '0 12px 0 14px',

@@ -55,7 +55,10 @@ export class IFCManager {
     public onError: (msg: string) => void = () => {};
     public ifcUpAxis: 'Y' | 'Z' = 'Z';
     public glbUpAxis: 'Y' | 'Z' = 'Y';
-    private dirLight!: THREE.DirectionalLight;
+    public ambientLight!: THREE.AmbientLight;
+    public dirLight!: THREE.DirectionalLight;
+    public ambientIntensity: number = 0.7;
+    public sunIntensity: number = 1.3;
     public shadowQuality: 'high' | 'low' | 'off' = 'off';
 
     private raycaster = new THREE.Raycaster();
@@ -82,8 +85,8 @@ export class IFCManager {
         this.scene.background = new THREE.Color(0xf8fafc); 
 
         // Lighting (Updated for Y-up)
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-        this.scene.add(ambientLight);
+        this.ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        this.scene.add(this.ambientLight);
 
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
         hemiLight.position.set(0, 200, 0); // Y-up
@@ -174,6 +177,18 @@ export class IFCManager {
             this.setOrientations('Y', 'Y');
         }
     }
+
+    public setAmbientIntensity(val: number) {
+        this.ambientIntensity = val;
+        if (this.ambientLight) this.ambientLight.intensity = val;
+        this.renderScene();
+    }
+
+    public setSunIntensity(val: number) {
+        this.sunIntensity = val;
+        this.renderScene();
+    }
+
 
     public setShadowQuality(quality: 'high' | 'low' | 'off') {
         this.shadowQuality = quality;
@@ -331,7 +346,10 @@ export class IFCManager {
             intensityFactor = Math.sin(angle);
         }
         
-        this.dirLight.intensity = 1.3 * intensityFactor;
+        this.dirLight.intensity = this.sunIntensity * intensityFactor;
+        if (this.ambientLight) {
+            this.ambientLight.intensity = this.ambientIntensity * (timeOfDay < 6 || timeOfDay > 18 ? 0.35 : 1.0);
+        }
 
         // Warm temperature shifts for sunset/sunrise
         if (timeOfDay >= 6 && timeOfDay < 8.5) {
@@ -391,7 +409,7 @@ export class IFCManager {
 
             window.addEventListener('resize', this.handleResize);
             window.addEventListener('keydown', this.handleKeyDown);
-            this.renderer.domElement.addEventListener('pointerdown', this.handlePointerDown);
+            this.renderer.domElement.addEventListener('pointerdown', this.handlePointerDown, true);
             this.renderer.domElement.addEventListener('mousemove', this.handleMouseMove);
             this.renderer.domElement.addEventListener('click', this.handleClick);
             this.renderer.domElement.addEventListener('dblclick', this.handleDoubleClick);
@@ -455,7 +473,9 @@ export class IFCManager {
     }
 
     private handlePointerDown = (event: PointerEvent) => {
+        if (event.button !== 0) return; // Only track left click
         this.pointerDownPosition = { x: event.clientX, y: event.clientY };
+        console.log("[IFCManager] pointerdown registered position:", this.pointerDownPosition);
     }
 
     private readFileWithProgress(file: File): Promise<Uint8Array> {
@@ -874,25 +894,36 @@ export class IFCManager {
     }
 
     private hasClickMoved(event: MouseEvent, threshold = 10): boolean {
-        if (!this.pointerDownPosition) return false;
+        if (!this.pointerDownPosition) {
+            console.log("[IFCManager] hasClickMoved: pointerDownPosition is null, returning false");
+            return false;
+        }
         const dx = event.clientX - this.pointerDownPosition.x;
         const dy = event.clientY - this.pointerDownPosition.y;
-        return Math.hypot(dx, dy) > threshold;
+        const dist = Math.hypot(dx, dy);
+        console.log("[IFCManager] hasClickMoved check:", { dx, dy, dist, threshold });
+        return dist > threshold;
     }
 
     private async selectFromPointer(event: MouseEvent) {
+        console.log("[IFCManager] selectFromPointer called");
         const hit = this.castRay(event);
+        console.log("[IFCManager] castRay hit result:", hit);
 
         if (hit) {
             const { modelID, expressID, mesh } = hit;
+            console.log("[IFCManager] Hit details:", { modelID, expressID, meshName: mesh.name });
             if (expressID !== -1 && modelID !== undefined) {
+                console.log("[IFCManager] Requesting select and highlight for IFC element:", { modelID, expressID });
                 await this.highlightElement(modelID, expressID, mesh);
                 await this.selectElement(modelID, expressID);
             } else if (mesh.userData.isGLB) {
+                console.log("[IFCManager] Selecting GLB node:", mesh.name);
                 this.highlightElement(modelID, -1, mesh);
                 this.onSelect({ expressID: -1, modelID, type: 'GLB', name: mesh.name, properties: mesh.userData.properties || [] });
             }
         } else {
+            console.log("[IFCManager] click on empty space, clearing selection");
             this.clearSelection();
             this.onSelect(null);
         }
@@ -900,6 +931,7 @@ export class IFCManager {
 
     // Click handler
     private handleClick = async (event: MouseEvent) => {
+        console.log("[IFCManager] handleClick triggered, activeTool:", this.activeTool);
         if (!this.container) return;
         
         if (this.activeTool === ViewerTool.MEASURE) {
@@ -914,7 +946,9 @@ export class IFCManager {
         }
 
         if (this.activeTool === ViewerTool.SELECT || this.activeTool === ViewerTool.NONE) {
-            if (this.hasClickMoved(event)) return;
+            const hasMoved = this.hasClickMoved(event);
+            console.log("[IFCManager] handleClick SELECT. hasMoved:", hasMoved);
+            if (hasMoved) return;
             event.preventDefault();
             event.stopPropagation();
             await this.selectFromPointer(event);

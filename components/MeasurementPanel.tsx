@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { MeasurementResult } from '../types';
-import { Trash2, Ruler, DraftingCompass, MapPin } from 'lucide-react';
+import { Trash2, Ruler, DraftingCompass, MapPin, Square } from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
 
 interface MeasurementPanelProps {
@@ -20,7 +20,6 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
         if (ifcManager.measurementManager) {
             ifcManager.measurementManager.clear();
             ifcManager.renderScene();
-            // Force UI update via callback if provided
             if (onClear) onClear();
         }
     };
@@ -30,58 +29,166 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
             case 'DISTANCE': return <Ruler size={14} />;
             case 'ANGLE': return <DraftingCompass size={14} />;
             case 'COORDINATE': return <MapPin size={14} />;
+            case 'AREA': return <Square size={14} />;
             default: return <Ruler size={14} />;
         }
     };
 
     const getLabel = (type: string) => {
         switch (type) {
-            case 'DISTANCE': return '距离 (长度)';
-            case 'ANGLE': return '角度';
-            case 'COORDINATE': return '坐标';
+            case 'DISTANCE': return '距离测距';
+            case 'ANGLE': return '角度测量';
+            case 'COORDINATE': return '坐标拾取';
+            case 'AREA': return '面积测量';
             default: return type;
         }
     };
 
     if (measurements.length === 0) {
         return (
-            <div className="h-full flex flex-col items-center justify-center text-slate-400 p-6 panel-content">
-                <Ruler size={32} className="mb-3 opacity-20" />
-                <p className="text-xs">暂无测量结果</p>
-                <p className="text-[10px] opacity-70 mt-1">请使用底部工具栏进行测量</p>
+            <div className="h-full flex flex-col panel-content">
+                <div className="empty-state h-full">
+                    <div style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 'var(--radius-lg)',
+                        background: 'var(--surface-2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: 8,
+                    }}>
+                        <Ruler size={18} style={{ color: 'var(--text-muted)' }} />
+                    </div>
+                    <span className="empty-state-title">暂无测量记录</span>
+                    <span className="empty-state-desc">在下方工具栏中选择测量工具，并在模型表面单击取点进行测量。</span>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="h-full flex flex-col panel-content">
-            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+        <div className="h-full flex flex-col panel-content select-none">
+            {/* Header / Summary */}
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 12px',
+                borderBottom: '1px solid var(--border-soft)',
+                background: 'var(--surface-1)',
+            }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    测量结果列表
+                </span>
+                <span style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: 'var(--brand)',
+                    background: 'var(--brand-soft)',
+                    border: '1px solid var(--brand-border)',
+                    borderRadius: 99,
+                    padding: '0 6px',
+                    lineHeight: '18px',
+                }}>
+                    {measurements.length}
+                </span>
+            </div>
+
+            {/* List */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {measurements.map(m => (
-                    <div key={m.id} className="bg-slate-50 border border-slate-100 rounded-lg p-3 flex items-start justify-between group hover:border-blue-200 transition-all">
-                        <div className="flex gap-3">
-                            <div className="mt-0.5 text-blue-500 bg-blue-50 p-1.5 rounded">
-                                {getIcon(m.type)}
-                            </div>
-                            <div>
-                                <div className="text-xs font-semibold text-slate-700 mb-0.5">{getLabel(m.type)}</div>
-                                <div className="text-sm font-mono text-slate-900 whitespace-pre-wrap">{m.value}</div>
-                            </div>
+                    <div
+                        key={m.id}
+                        style={{
+                            display: 'flex',
+                            gap: 10,
+                            padding: '10px 12px',
+                            background: 'var(--surface-0)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 'var(--radius-md)',
+                            position: 'relative',
+                            transition: 'border-color 0.15s, box-shadow 0.15s',
+                        }}
+                        onMouseEnter={e => {
+                            (e.currentTarget as HTMLElement).style.borderColor = 'var(--brand-border)';
+                            (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-sm)';
+                        }}
+                        onMouseLeave={e => {
+                            (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
+                            (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+                        }}
+                    >
+                        {/* Icon */}
+                        <div style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 'var(--radius-sm)',
+                            background: 'var(--brand-soft)',
+                            border: '1px solid var(--brand-border)',
+                            color: 'var(--brand)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                        }}>
+                            {getIcon(m.type)}
                         </div>
-                        <button 
+
+                        {/* Text */}
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>
+                                {getLabel(m.type)}
+                            </span>
+                            <span style={{
+                                fontSize: 13,
+                                fontFamily: 'monospace',
+                                fontWeight: 700,
+                                color: 'var(--text-primary)',
+                                whiteSpace: 'pre-wrap',
+                            }}>
+                                {m.value}
+                            </span>
+                        </div>
+
+                        {/* Delete btn */}
+                        <button
                             onClick={() => handleDelete(m.id)}
-                            className="text-slate-300 hover:text-red-500 p-1 rounded hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                            className="icon-button danger-button"
+                            title="删除单条测量"
+                            style={{
+                                alignSelf: 'center',
+                                width: 24,
+                                height: 24,
+                            }}
                         >
-                            <Trash2 size={14} />
+                            <Trash2 size={12} />
                         </button>
                     </div>
                 ))}
             </div>
-            <div className="p-3 border-t border-slate-100 bg-slate-50">
-                 <button 
+
+            {/* Footer Clear btn */}
+            <div style={{
+                padding: '10px 12px',
+                borderTop: '1px solid var(--border)',
+                background: 'var(--surface-1)',
+            }}>
+                 <button
                     onClick={handleClearAll}
-                    className="w-full py-2 text-xs text-red-500 hover:bg-red-50 border border-red-100 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="danger-primary-button"
+                    style={{
+                        width: '100%',
+                        minHeight: 30,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        fontSize: 11,
+                    }}
                  >
-                     <Trash2 size={14} /> 清空所有测量
+                     <Trash2 size={13} />
+                     <span>清空所有测量记录</span>
                  </button>
             </div>
         </div>

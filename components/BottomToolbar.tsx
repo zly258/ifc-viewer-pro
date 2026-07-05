@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import {
   FolderTree, FileText, Maximize, Settings, MousePointer2,
   Ruler, Scissors, Trash2, Plus, DraftingCompass, MapPin,
-  List, Sun, Navigation, Bookmark, LayoutGrid,
+  List, Sun, Navigation, Bookmark, LayoutGrid, Square,
 } from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
 import { CameraView, ViewerTool, MeasurementMode } from '../types';
@@ -175,6 +175,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
         <div className="sub-toolbar flex items-center gap-1">
           <SubBtn icon={Ruler} onClick={() => handleMeasureMode('DISTANCE')} active={measureMode === 'DISTANCE'} title="距离测量" />
           <SubBtn icon={DraftingCompass} onClick={() => handleMeasureMode('ANGLE')} active={measureMode === 'ANGLE'} title="角度测量" />
+          <SubBtn icon={Square} onClick={() => handleMeasureMode('AREA')} active={measureMode === 'AREA'} title="面积测量" />
           <SubBtn icon={MapPin} onClick={() => handleMeasureMode('COORDINATE')} active={measureMode === 'COORDINATE'} title="坐标拾取" />
           <div className="toolbar-divider" />
           <SubBtn icon={List} onClick={() => window.dispatchEvent(new Event('open-measure-panel'))} title="测量结果列表" />
