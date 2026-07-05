@@ -16,6 +16,27 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        chunkSizeWarningLimit: 1200,
+        rollupOptions: {
+          output: {
+            manualChunks(id) {
+              if (id.includes('node_modules')) {
+                if (id.includes('three') || id.includes('@three') || id.includes('three-mesh-bvh')) {
+                  return 'three-vendor';
+                }
+                if (id.includes('lucide-react')) {
+                  return 'lucide-vendor';
+                }
+                if (id.includes('web-ifc')) {
+                  return 'web-ifc-vendor';
+                }
+                return 'vendor';
+              }
+            }
+          }
+        }
       }
     };
 });

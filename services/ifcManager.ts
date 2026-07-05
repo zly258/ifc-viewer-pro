@@ -448,13 +448,18 @@ export class IFCManager {
         const width = this.container.clientWidth;
         const height = this.container.clientHeight;
         const aspect = width / height;
-        const frustumSize = 100;
         
-        this.camera.left = -frustumSize * aspect / 2;
-        this.camera.right = frustumSize * aspect / 2;
-        this.camera.top = frustumSize / 2;
-        this.camera.bottom = -frustumSize / 2;
-        this.camera.updateProjectionMatrix();
+        if (this.camera instanceof THREE.OrthographicCamera) {
+            const frustumSize = 100;
+            this.camera.left = -frustumSize * aspect / 2;
+            this.camera.right = frustumSize * aspect / 2;
+            this.camera.top = frustumSize / 2;
+            this.camera.bottom = -frustumSize / 2;
+            this.camera.updateProjectionMatrix();
+        } else if (this.camera instanceof THREE.PerspectiveCamera) {
+            this.camera.aspect = aspect;
+            this.camera.updateProjectionMatrix();
+        }
     }
 
     private handleResize = () => {
@@ -502,8 +507,12 @@ export class IFCManager {
 
     // --- GLB Loading ---
     loadGlb = async (file: File, fitToFrame = true) => {
-        this.onProcessing("读取 GLB 文件...");
         this.onLoading(0, 100);
+        this.onProcessing("读取 GLB/GLTF 文件...");
+        
+        // Force layout canvas size adjustment to prevent 0x0 rendering bugs
+        this.handleResize();
+        
         const url = URL.createObjectURL(file);
         
         return new Promise<void>((resolve, reject) => {
@@ -633,6 +642,9 @@ export class IFCManager {
                 
                 this.savedStructures.set(modelID, structure);
                 
+                // Force size synchronization with the client container bounding area
+                this.handleResize();
+                
                 if (this.currentFitToFrame) this.fitModelToFrame();
                 this.onLoading(100, 100);
                 this.onProcessing(null);
@@ -664,6 +676,9 @@ export class IFCManager {
         if (!this.worker) {
             this.initWorker();
         }
+        
+        // Force layout canvas size adjustment to prevent 0x0 rendering bugs
+        this.handleResize();
         
         this.onProcessing("读取 IFC 文件...");
         this.onLoading(0, 100);
@@ -1253,7 +1268,13 @@ export class IFCManager {
             this.renderer.domElement.removeEventListener('click', this.handleClick);
             this.renderer.domElement.removeEventListener('dblclick', this.handleDoubleClick);
         }
-        this.renderer.dispose(); 
+        if (this.renderer?.domElement?.parentNode) {
+            this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
+        }
+        if (this.labelRenderer?.domElement?.parentNode) {
+            this.labelRenderer.domElement.parentNode.removeChild(this.labelRenderer.domElement);
+        }
+        this.isInitialized = false;
         this.clearModels(); 
     }
     
