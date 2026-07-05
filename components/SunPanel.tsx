@@ -28,6 +28,8 @@ const SunPanel: React.FC<SunPanelProps> = ({
     const [azimuth, setAzimuth] = useState<number>(135);
     const [altitude, setAltitude] = useState<number>(45);
     const [shadowQuality, setShadowQuality] = useState<'high' | 'low' | 'off'>(currentShadowQuality);
+    const [ambientIntensity, setAmbientIntensity] = useState<number>(ifcManager.ambientIntensity);
+    const [sunIntensity, setSunIntensity] = useState<number>(ifcManager.sunIntensity);
 
     useEffect(() => {
         setShadowQuality(currentShadowQuality);
@@ -36,6 +38,14 @@ const SunPanel: React.FC<SunPanelProps> = ({
     useEffect(() => {
         ifcManager.updateLighting(timeOfDay, azimuth, altitude);
     }, [timeOfDay, azimuth, altitude]);
+
+    useEffect(() => {
+        ifcManager.setAmbientIntensity(ambientIntensity);
+    }, [ambientIntensity]);
+
+    useEffect(() => {
+        ifcManager.setSunIntensity(sunIntensity);
+    }, [sunIntensity]);
 
     const applyPreset = (preset: 'sunrise' | 'noon' | 'sunset' | 'night') => {
         switch (preset) {
@@ -200,6 +210,39 @@ const SunPanel: React.FC<SunPanelProps> = ({
                                 {label}
                             </button>
                         ))}
+                    </div>
+                </div>
+
+                {/* 5. Light Intensity */}
+                <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <SectionLabel label="亮度调节" />
+                    
+                    {/* Ambient Intensity */}
+                    <div className="control-card" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>环境光亮度</span>
+                            <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: 'var(--brand)' }}>{ambientIntensity.toFixed(1)}</span>
+                        </div>
+                        <input
+                            type="range" min="0" max="2" step="0.1"
+                            value={ambientIntensity}
+                            onChange={(e) => setAmbientIntensity(parseFloat(e.target.value))}
+                            style={rangeStyle}
+                        />
+                    </div>
+
+                    {/* Sunlight Intensity */}
+                    <div className="control-card" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>太阳光强度</span>
+                            <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: 'var(--brand)' }}>{sunIntensity.toFixed(1)}</span>
+                        </div>
+                        <input
+                            type="range" min="0" max="3" step="0.1"
+                            value={sunIntensity}
+                            onChange={(e) => setSunIntensity(parseFloat(e.target.value))}
+                            style={rangeStyle}
+                        />
                     </div>
                 </div>
             </div>

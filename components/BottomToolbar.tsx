@@ -116,6 +116,14 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
     ifcManager.renderScene();
   };
 
+  const disableAllSectionPlanes = () => {
+    setActivePlanes({ X: false, Y: false, Z: false });
+    ifcManager.sectionManager?.togglePlane('X', false, 0, 0);
+    ifcManager.sectionManager?.togglePlane('Y', false, 0, 0);
+    ifcManager.sectionManager?.togglePlane('Z', false, 0, 0);
+    ifcManager.renderScene();
+  };
+
   const handleSectionOffsetMin = (axis: 'X' | 'Y' | 'Z', e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
     setPlaneRangeOffsets(prev => ({ ...prev, [axis]: { ...prev[axis], min: Math.min(val, prev[axis].max - 0.1) } }));
@@ -244,6 +252,36 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
               </div>
             </div>
           ))}
+          <button
+            type="button"
+            onClick={disableAllSectionPlanes}
+            style={{
+              padding: '6px 12px',
+              fontSize: 10,
+              fontWeight: 700,
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)',
+              cursor: 'pointer',
+              marginTop: 4,
+              textAlign: 'center',
+              width: '100%',
+              background: 'var(--surface-1)',
+              color: 'var(--text-secondary)',
+              transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = 'var(--danger-soft)';
+              (e.currentTarget as HTMLElement).style.color = 'var(--danger)';
+              (e.currentTarget as HTMLElement).style.borderColor = 'var(--danger-border)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = 'var(--surface-1)';
+              (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
+              (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
+            }}
+          >
+            重置并关闭所有剖切面
+          </button>
         </div>
       )}
 
