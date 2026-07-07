@@ -10,6 +10,7 @@ import { IFCElementData, ViewerTool, MeasurementMode, CameraView, IFCProperty, I
 import { MeasurementManager } from './MeasurementManager';
 import { SectionManager } from './SectionManager';
 import { IfcBatcher } from './IfcBatcher';
+import { PostProcessingManager } from './PostProcessing';
 
 // 启用 BVH 加速
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -56,6 +57,7 @@ export class IFCManager {
     
     public measurementManager: MeasurementManager | null = null;
     public sectionManager: SectionManager | null = null;
+    public postProcessing: PostProcessingManager | null = null;
     
     public onSelect: (data: IFCElementData | null) => void = () => {};
     public onMultiSelect?: (items: Array<{ modelID: number; expressID: number }>) => void;
@@ -423,7 +425,11 @@ export class IFCManager {
         const recentInteraction = (now - this.lastUserInteraction) < 200;
         
         if (this.isDirty || recentInteraction) {
-            this.renderer.render(this.scene, this.camera);
+            if (this.postProcessing) {
+                this.postProcessing.render();
+            } else {
+                this.renderer.render(this.scene, this.camera);
+            }
             if (this.measurementManager) this.labelRenderer.render(this.scene, this.camera);
             this.isDirty = false;
         }
@@ -451,6 +457,7 @@ export class IFCManager {
             
             this.sectionManager = new SectionManager(this.renderer, this.scene);
             this.measurementManager = new MeasurementManager(this.scene, this.camera, container);
+            this.postProcessing = new PostProcessingManager(this.renderer, this.scene, this.camera);
 
             window.addEventListener('resize', this.handleResize);
             window.addEventListener('keydown', this.handleKeyDown);
@@ -520,6 +527,7 @@ export class IFCManager {
         
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
         this.labelRenderer.setSize(this.container.clientWidth, this.container.clientHeight);
+        this.postProcessing?.handleResize();
     };
 
     private handleKeyDown = (e: KeyboardEvent) => {
@@ -1285,6 +1293,7 @@ export class IFCManager {
                     this.highlightModel = null;
                 }
                 
+                this.postProcessing?.setSelection(this.multiHighlightMeshes);
                 this.isDirty = true;
                 return;
             }
@@ -1333,6 +1342,7 @@ export class IFCManager {
                             } else {
                                 this.selectedElements.push({ modelID, expressID });
                             }
+                            this.postProcessing?.setSelection(this.multiHighlightMeshes);
                             this.isDirty = true;
                         }
                     }
@@ -1365,6 +1375,7 @@ export class IFCManager {
              } else {
                  this.selectedElements.push({ modelID, expressID });
              }
+             this.postProcessing?.setSelection(this.multiHighlightMeshes);
              this.isDirty = true;
         }
     }
@@ -1384,6 +1395,7 @@ export class IFCManager {
             if (this.highlightModel.geometry) this.highlightModel.geometry.dispose();
             this.highlightModel = null; 
         } 
+        this.postProcessing?.setSelection([]);
         this.isDirty = true;
     }
 
@@ -1655,6 +1667,7 @@ export class IFCManager {
         // 1. Switch active camera to PerspectiveCamera
         this.camera = this.persCamera;
         this.controls.object = this.persCamera;
+        this.postProcessing?.setCamera(this.persCamera);
         
         // 2. Position the PerspectiveCamera nicely relative to the scene center
         const { center, size } = this.getModelBoundingBox();
@@ -1709,6 +1722,7 @@ export class IFCManager {
         // 2. Switch back to OrthographicCamera
         this.camera = this.orthoCamera;
         this.controls.object = this.orthoCamera;
+        this.postProcessing?.setCamera(this.orthoCamera);
         this.controls.enabled = true;
         this.controls.update();
         
