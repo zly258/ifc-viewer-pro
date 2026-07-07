@@ -189,17 +189,17 @@ export class IFCManager {
             model.group.updateMatrixWorld(true);
         });
 
-        // Sync highlight if selection exists
-        if (this.highlightModel) {
-            const hModelID = this.highlightModel.userData.modelID;
+        // Sync highlights if selection exists
+        this.multiHighlightMeshes.forEach(mesh => {
+            const hModelID = mesh.userData.modelID;
             if (hModelID !== undefined) {
                 const model = this.models.get(hModelID);
                 if (model) {
-                    this.highlightModel.rotation.copy(model.group.rotation);
-                    this.highlightModel.updateMatrixWorld(true);
+                    mesh.rotation.copy(model.group.rotation);
+                    mesh.updateMatrixWorld(true);
                 }
             }
-        }
+        });
         
         this.camera.up.set(0, 1, 0); // Always standard Y-up globally
         this.camera.updateProjectionMatrix();
@@ -969,7 +969,7 @@ export class IFCManager {
         const meshes: THREE.Mesh[] = [];
         this.models.forEach(m => {
             if (m.group.visible !== false) {
-                m.group.traverse(c => { if(c instanceof THREE.Mesh && c.visible && c !== this.highlightModel) meshes.push(c) });
+                m.group.traverse(c => { if(c instanceof THREE.Mesh && c.visible && !this.multiHighlightMeshes.includes(c)) meshes.push(c) });
             }
         });
         const intersects = this.raycaster.intersectObjects(meshes, false);
@@ -1086,8 +1086,8 @@ export class IFCManager {
             if (expressID !== -1 && modelID !== undefined) {
                 this.clearHover();
                 this.lastHoverID = -1;
-                await this.highlightElement(modelID, expressID, mesh);
-                await this.selectElement(modelID, expressID);
+                await this.highlightElement(modelID, expressID, mesh, shiftKey);
+                await this.selectElement(modelID, expressID, shiftKey);
             } else if (mesh.userData.isGLB) {
                 this.highlightElement(modelID, -1, mesh);
                 this.onSelect({ expressID: -1, modelID, type: 'GLB', name: mesh.name, properties: mesh.userData.properties || [] });
@@ -1159,12 +1159,28 @@ export class IFCManager {
         }
     }
 
-    private async selectElement(modelID: number, expressID: number) {
+    private async selectElement(modelID: number, expressID: number, addToSelection = false) {
         if (!this.worker) return;
         
+        const isStillSelected = this.selectedElements.some(e => e.modelID === modelID && e.expressID === expressID);
+        if (addToSelection && !isStillSelected) {
+            if (this.selectedElements.length > 0) {
+                const last = this.selectedElements[this.selectedElements.length - 1];
+                return this.selectElement(last.modelID, last.expressID, false);
+            } else {
+                this.onSelect(null);
+                if (this.onMultiSelect) this.onMultiSelect([]);
+                return;
+            }
+        }
+
         return new Promise<void>((resolve) => {
             this.propertyResolver = (propertiesData: any) => {
-                this.onSelect(propertiesData.data);
+                const elementData = propertiesData.data;
+                if (this.onMultiSelect) {
+                    this.onMultiSelect(this.selectedElements);
+                }
+                this.onSelect(elementData);
                 resolve();
             };
             this.worker!.postMessage({
@@ -1211,9 +1227,21 @@ export class IFCManager {
     }
 
     private zoomToHighlight() {
-        if (!this.highlightModel) return;
+        if (this.multiHighlightMeshes.length === 0) {
+            if (!this.highlightModel) return;
+            const box = new THREE.Box3().setFromObject(this.highlightModel);
+            this.zoomToBox(box);
+            return;
+        }
         
-        const box = new THREE.Box3().setFromObject(this.highlightModel);
+        const box = new THREE.Box3();
+        this.multiHighlightMeshes.forEach(mesh => {
+            box.expandByObject(mesh);
+        });
+        this.zoomToBox(box);
+    }
+
+    private zoomToBox(box: THREE.Box3) {
         if (box.isEmpty()) return;
 
         const center = box.getCenter(new THREE.Vector3());
@@ -1233,8 +1261,34 @@ export class IFCManager {
     }
 
     // Generic Highlight Logic
-    private async highlightElement(modelID: number, expressID: number, targetMesh?: THREE.Mesh) {
-        this.clearSelection();
+    private async highlightElement(modelID: number, expressID: number, targetMesh?: THREE.Mesh, addToSelection = false) {
+        if (!addToSelection) {
+            this.clearSelection();
+        } else {
+            // Toggle behavior: check if element is already highlighted
+            const index = this.selectedElements.findIndex(e => e.modelID === modelID && e.expressID === expressID);
+            if (index !== -1) {
+                // Deselect
+                this.selectedElements.splice(index, 1);
+                const meshIndex = this.multiHighlightMeshes.findIndex(m => m.userData.modelID === modelID && m.userData.expressID === expressID);
+                if (meshIndex !== -1) {
+                    const m = this.multiHighlightMeshes[meshIndex];
+                    this.scene.remove(m);
+                    if (m.geometry) m.geometry.dispose();
+                    this.multiHighlightMeshes.splice(meshIndex, 1);
+                }
+                
+                // Fallback highlightModel to the last mesh in list
+                if (this.multiHighlightMeshes.length > 0) {
+                    this.highlightModel = this.multiHighlightMeshes[this.multiHighlightMeshes.length - 1];
+                } else {
+                    this.highlightModel = null;
+                }
+                
+                this.isDirty = true;
+                return;
+            }
+        }
         
         if (modelID >= 0 && expressID >= 0) {
             if (!this.worker) return;
@@ -1268,10 +1322,17 @@ export class IFCManager {
                                 mesh.updateMatrixWorld(true);
                             }
                             
+                            mesh.renderOrder = 999;
+                            mesh.userData = { modelID, expressID };
+                            this.scene.add(mesh);
+                            
                             this.highlightModel = mesh;
-                            this.highlightModel.renderOrder = 999;
-                            this.highlightModel.userData = { modelID };
-                            this.scene.add(this.highlightModel);
+                            this.multiHighlightMeshes.push(mesh);
+                            if (!addToSelection) {
+                                this.selectedElements = [{ modelID, expressID }];
+                            } else {
+                                this.selectedElements.push({ modelID, expressID });
+                            }
                             this.isDirty = true;
                         }
                     }
@@ -1293,11 +1354,17 @@ export class IFCManager {
              mesh.rotation.set(0, 0, 0);
              mesh.scale.set(1, 1, 1);
              mesh.updateMatrixWorld(true);
+             mesh.renderOrder = 999;
+             mesh.userData = { modelID, expressID };
+             this.scene.add(mesh);
              
              this.highlightModel = mesh;
-             this.highlightModel.renderOrder = 999;
-             this.highlightModel.userData = { modelID };
-             this.scene.add(this.highlightModel);
+             this.multiHighlightMeshes.push(mesh);
+             if (!addToSelection) {
+                 this.selectedElements = [{ modelID, expressID }];
+             } else {
+                 this.selectedElements.push({ modelID, expressID });
+             }
              this.isDirty = true;
         }
     }
@@ -1305,12 +1372,19 @@ export class IFCManager {
     // Removed highlightHover usage
 
     public clearSelection() { 
+        this.multiHighlightMeshes.forEach(mesh => {
+            this.scene.remove(mesh);
+            if (mesh.geometry) mesh.geometry.dispose();
+        });
+        this.multiHighlightMeshes = [];
+        this.selectedElements = [];
+        
         if (this.highlightModel) { 
             this.scene.remove(this.highlightModel); 
             if (this.highlightModel.geometry) this.highlightModel.geometry.dispose();
-            this.highlightModel = null;
-            this.isDirty = true;
+            this.highlightModel = null; 
         } 
+        this.isDirty = true;
     }
 
     private clearHover() {
@@ -1817,7 +1891,7 @@ export class IFCManager {
         const meshes: THREE.Mesh[] = [];
         this.models.forEach(m => {
             if (m.group.visible !== false) {
-                m.group.traverse(c => { if(c instanceof THREE.Mesh && c.visible && c !== this.highlightModel) meshes.push(c) });
+                m.group.traverse(c => { if(c instanceof THREE.Mesh && c.visible && !this.multiHighlightMeshes.includes(c)) meshes.push(c) });
             }
         });
         
@@ -1869,7 +1943,7 @@ export class IFCManager {
         const meshes: THREE.Mesh[] = [];
         this.models.forEach(m => {
             if (m.group.visible !== false) {
-                m.group.traverse(c => { if(c instanceof THREE.Mesh && c.visible && c !== this.highlightModel) meshes.push(c) });
+                m.group.traverse(c => { if(c instanceof THREE.Mesh && c.visible && !this.multiHighlightMeshes.includes(c)) meshes.push(c) });
             }
         });
         if (meshes.length === 0) return;
@@ -1903,10 +1977,12 @@ export class IFCManager {
             m.group.updateMatrixWorld(true);
             
             // Sync highlight if exists
-            if (this.highlightModel && this.highlightModel.userData.modelID === id) {
-                this.highlightModel.rotation.copy(m.group.rotation);
-                this.highlightModel.updateMatrixWorld(true);
-            }
+            this.multiHighlightMeshes.forEach(mesh => {
+                if (mesh.userData.modelID === id) {
+                    mesh.rotation.copy(m.group.rotation);
+                    mesh.updateMatrixWorld(true);
+                }
+            });
             this.renderScene();
         } 
     }

@@ -51,6 +51,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
     const [parentMap, setParentMap] = useState<Map<string, string>>(new Map());
     const [visibleModels, setVisibleModels] = useState<Set<number>>(new Set());
     const [searchQuery, setSearchQuery] = useState('');
+    const [activeTypeFilter, setActiveTypeFilter] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [modelToRemove, setModelToRemove] = useState<number | null>(null);
     const listRef = useRef<any>(null);
@@ -121,17 +122,42 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
         const result: FlatNode[] = [];
         let selectedIndex = -1;
         const q = searchQuery.trim().toLowerCase();
+        const hasFilter = q || activeTypeFilter;
 
-        if (q) {
+        if (hasFilter) {
             fileStructures.forEach(file => {
                 const rootId = `root_${file.modelID}`;
-                if (file.fileName.toLowerCase().includes(q)) {
-                    result.push({ id: rootId, label: file.fileName, type: 'IFC Model', depth: 0, hasChildren: false, isExpanded: false, isRootFile: true, modelID: file.modelID });
-                }
+                result.push({ id: rootId, label: file.fileName, type: 'IFC Model', depth: 0, hasChildren: false, isExpanded: false, isRootFile: true, modelID: file.modelID });
+                
                 const traverseAll = (node: IFCSpatialStructure, depth: number) => {
                     const nodeId = `${file.modelID}_${node.expressID}`;
                     const displayName = node.name || node.type;
-                    if (displayName.toLowerCase().includes(q) || node.type.toLowerCase().includes(q) || `#${node.expressID}`.includes(q)) {
+                    
+                    let matches = true;
+                    if (q) {
+                        matches = displayName.toLowerCase().includes(q) || 
+                                  node.type.toLowerCase().includes(q) || 
+                                  `#${node.expressID}`.includes(q);
+                    }
+                    
+                    if (matches && activeTypeFilter) {
+                        const t = node.type.toLowerCase();
+                        if (activeTypeFilter === 'wall') matches = t.includes('wall');
+                        else if (activeTypeFilter === 'slab') matches = t.includes('slab') || t.includes('plate');
+                        else if (activeTypeFilter === 'column') matches = t.includes('column') || t.includes('pillar');
+                        else if (activeTypeFilter === 'beam') matches = t.includes('beam');
+                        else if (activeTypeFilter === 'door_window') matches = t.includes('door') || t.includes('window');
+                        else if (activeTypeFilter === 'space') matches = t.includes('space');
+                        else if (activeTypeFilter === 'furnishing') matches = t.includes('furnishing') || t.includes('element') && !t.includes('structural') || t.includes('covering') || t.includes('flow');
+                    }
+                    
+                    // Filter out project structure container nodes from leaves when activeTypeFilter is on
+                    if (matches && !node.type.toLowerCase().includes('spatial') && 
+                        !node.type.toLowerCase().includes('project') && 
+                        !node.type.toLowerCase().includes('site') && 
+                        !node.type.toLowerCase().includes('building') && 
+                        !node.type.toLowerCase().includes('storey')) {
+                        
                         const isSelected = selectedElement?.expressID === node.expressID && selectedElement?.modelID === file.modelID;
                         if (isSelected) selectedIndex = result.length;
                         result.push({ id: nodeId, label: displayName, type: node.type, depth: 1, hasChildren: false, isExpanded: false, modelID: file.modelID, expressID: node.expressID, isSelected });
@@ -163,7 +189,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
         }
 
         return { list: result, selectedIndex };
-    }, [fileStructures, expandedIds, selectedElement, searchQuery]);
+    }, [fileStructures, expandedIds, selectedElement, searchQuery, activeTypeFilter]);
 
     useEffect(() => {
         if (flatList.selectedIndex !== -1 && listRef.current) {
@@ -360,9 +386,39 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
 
     return (
         <div className="h-full flex flex-col panel-content">
+            {/* Type Filters */}
+            <div style={{
+                padding: '6px 10px 4px',
+                borderBottom: '1px solid var(--border-soft)',
+                background: 'var(--surface-1)',
+                display: 'flex',
+                gap: 5,
+                overflowX: 'auto',
+                WebkitOverflowScrolling: 'touch',
+            }} className="scrollbar-none">
+                {[
+                    { id: null, label: '全部' },
+                    { id: 'wall', label: '墙体' },
+                    { id: 'slab', label: '楼板' },
+                    { id: 'column', label: '柱子' },
+                    { id: 'beam', label: '梁' },
+                    { id: 'door_window', label: '门窗' },
+                    { id: 'space', label: '空间' },
+                    { id: 'furnishing', label: '构配件' },
+                ].map(pill => (
+                    <div
+                        key={pill.label}
+                        className={`type-filter-pill ${activeTypeFilter === pill.id ? 'active' : ''}`}
+                        onClick={() => setActiveTypeFilter(pill.id)}
+                    >
+                        {pill.label}
+                    </div>
+                ))}
+            </div>
+
             {/* Search */}
             <div style={{
-                padding: '7px 10px',
+                padding: '6px 10px',
                 borderBottom: '1px solid var(--border-soft)',
                 background: 'var(--surface-1)',
             }}>

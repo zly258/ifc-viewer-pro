@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Search } from 'lucide-react';
 
 interface PropertyPanelProps {
   data: IFCElementData | null;
+  selectedCount?: number;
 }
 
 const PropertyGroup: React.FC<{
@@ -120,7 +121,7 @@ const PropertyGroup: React.FC<{
     );
 };
 
-const PropertyPanel: React.FC<PropertyPanelProps> = ({ data }) => {
+const PropertyPanel: React.FC<PropertyPanelProps> = ({ data, selectedCount = 1 }) => {
     const [searchQuery, setSearchQuery] = useState('');
 
     if (!data) {
@@ -179,24 +180,41 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ data }) => {
                 borderBottom: '1px solid var(--border)',
                 background: 'var(--surface-0)',
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <div style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        background: 'var(--brand)',
-                        flexShrink: 0,
-                    }} />
-                    <span style={{
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: 'var(--text-primary)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                    }} title={data.name || data.type}>
-                        {data.name || data.type}
-                    </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                        <div style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            background: 'var(--brand)',
+                            flexShrink: 0,
+                        }} />
+                        <span style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: 'var(--text-primary)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                        }} title={data.name || data.type}>
+                            {data.name || data.type}
+                        </span>
+                    </div>
+                    {selectedCount > 1 && (
+                        <span style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: 'var(--brand)',
+                            background: 'var(--brand-soft)',
+                            border: '1px solid var(--brand-border)',
+                            borderRadius: 99,
+                            padding: '1px 6px',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                        }}>
+                            多选 ({selectedCount})
+                        </span>
+                    )}
                 </div>
                 <div style={{ display: 'flex', gap: 6, paddingLeft: 16 }}>
                     <span style={{

@@ -17,6 +17,7 @@ import BcfPanel from './components/BcfPanel';
 
 const App: React.FC = () => {
   const [selectedElement, setSelectedElement] = useState<IFCElementData | null>(null);
+  const [selectedElements, setSelectedElements] = useState<Array<{ modelID: number; expressID: number }>>([]);
 
   // Panel Visibility States
   const [showModelTree, setShowModelTree] = useState(false);
@@ -188,6 +189,7 @@ const App: React.FC = () => {
 
     setLastFileName(null);
     setSelectedElement(null);
+    setSelectedElements([]);
     setShowModelTree(false);
     setShowPropertyPanel(false);
     setShowMeasurePanel(false);
@@ -204,6 +206,9 @@ const App: React.FC = () => {
         if (results.length > 0) setShowMeasurePanel(true);
       };
     }
+    ifcManager.onMultiSelect = (items) => {
+      setSelectedElements([...items]);
+    };
   };
 
   return (
@@ -269,7 +274,7 @@ const App: React.FC = () => {
           initialPosition={{ x: Math.max(20, window.innerWidth - 340), y: 20 }}
           initialSize={{ w: 320, h: 500 }}
         >
-          <PropertyPanel data={selectedElement} />
+          <PropertyPanel data={selectedElement} selectedCount={selectedElements.length} />
         </DraggablePanel>
 
         <DraggablePanel
