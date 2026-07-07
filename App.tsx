@@ -69,6 +69,7 @@ const App: React.FC = () => {
 
   // Isolation state
   const [isIsolated, setIsIsolated] = useState(false);
+  const [hasHiddenElements, setHasHiddenElements] = useState(false);
 
   // Data States
   const [lastFileName, setLastFileName] = useState<string | null>(null);
@@ -92,6 +93,23 @@ const App: React.FC = () => {
     };
     window.addEventListener('viewer-contextmenu', handleContextMenu);
     return () => window.removeEventListener('viewer-contextmenu', handleContextMenu);
+  }, []);
+
+  // Listen to isolation & element visibility events
+  useEffect(() => {
+    const handleIsolationChange = (e: Event) => {
+      const isIso = (e as CustomEvent).detail?.isIsolated;
+      setIsIsolated(!!isIso);
+    };
+    const handleElementsChanged = () => {
+      setHasHiddenElements(ifcManager.hasHiddenElements);
+    };
+    window.addEventListener('viewer-isolation-changed', handleIsolationChange);
+    window.addEventListener('viewer-elements-changed', handleElementsChanged);
+    return () => {
+      window.removeEventListener('viewer-isolation-changed', handleIsolationChange);
+      window.removeEventListener('viewer-elements-changed', handleElementsChanged);
+    };
   }, []);
 
   useEffect(() => {
@@ -190,6 +208,7 @@ const App: React.FC = () => {
     setLastFileName(null);
     setSelectedElement(null);
     setSelectedElements([]);
+    setHasHiddenElements(false);
     setShowModelTree(false);
     setShowPropertyPanel(false);
     setShowMeasurePanel(false);
@@ -451,6 +470,25 @@ const App: React.FC = () => {
             <XIcon size={12} />
           </div>
         )}
+
+        {/* Hidden Elements banner */}
+        {hasHiddenElements && (
+          <div 
+            className="isolation-banner" 
+            style={{ 
+              background: isDarkTheme ? 'rgba(30,41,59,0.9)' : 'rgba(255,255,255,0.9)', 
+              borderColor: 'var(--border)',
+              color: 'var(--text-secondary)',
+              bottom: isIsolated ? 56 : 20 
+            }} 
+            onClick={() => { ifcManager.showAllElements(); setHasHiddenElements(false); }}
+            title="点击恢复所有隐藏构件"
+          >
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: 'var(--brand)' }} />
+            有隐藏构件 — 点击全部恢复
+            <XIcon size={12} />
+          </div>
+        )}
       </div>
 
       {/* Context Menu */}
@@ -464,6 +502,10 @@ const App: React.FC = () => {
           onSelect={handleContextMenuSelect}
           onAddAnnotation={(mID, eID) => {
             setShowBcfPanel(true);
+          }}
+          onHideElement={() => {
+            setSelectedElement(null);
+            setHasHiddenElements(ifcManager.hasHiddenElements);
           }}
         />
       )}

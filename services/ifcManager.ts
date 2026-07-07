@@ -54,6 +54,7 @@ export class IFCManager {
     private propertyMaps: Map<number, Map<number, number[]>> = new Map();
     private modelMeshExpressIDs: Map<number, Set<number>> = new Map();
     public parentMap: Map<string, string> = new Map();
+    private hiddenElementPositions: Map<string, { mesh: THREE.Mesh; indices: number[]; originalPositions: Float32Array }> = new Map();
     
     public measurementManager: MeasurementManager | null = null;
     public sectionManager: SectionManager | null = null;
@@ -531,9 +532,42 @@ export class IFCManager {
     };
 
     private handleKeyDown = (e: KeyboardEvent) => {
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.getAttribute('contenteditable') === 'true')) {
+            return;
+        }
+
+        const key = e.key.toLowerCase();
+
         if (e.key === 'Escape') {
             this.clearSelection();
             this.onSelect(null);
+            if (this.onMultiSelect) this.onMultiSelect([]);
+        } else if (key === 'f') {
+            if (this.multiHighlightMeshes.length > 0) {
+                this.zoomToHighlight();
+            }
+        } else if (key === 'h') {
+            if (this.selectedElements.length > 0) {
+                const toHide = [...this.selectedElements];
+                toHide.forEach(el => {
+                    this.hideElement(el.modelID, el.expressID);
+                });
+                this.onSelect(null);
+                if (this.onMultiSelect) this.onMultiSelect([]);
+                window.dispatchEvent(new CustomEvent('viewer-elements-changed'));
+            }
+        } else if (key === 'i') {
+            if (this.selectedElements.length > 0) {
+                const first = this.selectedElements[0];
+                this.isolateElement(first.modelID, first.expressID);
+                window.dispatchEvent(new CustomEvent('viewer-isolation-changed', { detail: { isIsolated: true } }));
+            }
+        } else if (key === 'u') {
+            this.unisolateAll();
+            this.showAllElements();
+            window.dispatchEvent(new CustomEvent('viewer-isolation-changed', { detail: { isIsolated: false } }));
+            window.dispatchEvent(new CustomEvent('viewer-elements-changed'));
         }
     }
 
@@ -1473,6 +1507,7 @@ export class IFCManager {
         this.propertyMaps.clear();
         this.modelMeshExpressIDs.clear();
         this.parentMap.clear();
+        this.hiddenElementPositions.clear();
         this.clearSelection();
         
         this.renderer.clear();
@@ -1510,6 +1545,13 @@ export class IFCManager {
                 console.warn(`WebIFC CloseModel(${modelID}) via worker failed`, e);
             }
         }
+        // Clear hidden element positions cache of this model
+        this.hiddenElementPositions.forEach((val, key) => {
+            if (key.startsWith(`${modelID}_`)) {
+                this.hiddenElementPositions.delete(key);
+            }
+        });
+        
         this.models.delete(modelID);
         
         // Clear selection if it belonged to this model
@@ -2052,6 +2094,7 @@ export class IFCManager {
         
         // Highlight the isolated element
         await this.highlightElement(modelID, expressID);
+        window.dispatchEvent(new CustomEvent('viewer-isolation-changed', { detail: { isIsolated: true } }));
         this.isDirty = true;
     }
     
@@ -2064,6 +2107,7 @@ export class IFCManager {
             if (mesh.parent) mesh.material = mat;
         });
         this.originalMaterials.clear();
+        window.dispatchEvent(new CustomEvent('viewer-isolation-changed', { detail: { isIsolated: false } }));
         this.isDirty = true;
     }
     
@@ -2071,6 +2115,136 @@ export class IFCManager {
      * Check whether isolation is currently active.
      */
     get isIsolated() { return this.isolatedIDs !== null; }
+
+    /**
+     * Hide a single element inside a model.
+     */
+    hideElement(modelID: number, expressID: number) {
+        const key = `${modelID}_${expressID}`;
+        if (this.hiddenElementPositions.has(key)) return;
+
+        const model = this.models.get(modelID);
+        if (!model) return;
+
+        model.group.traverse(obj => {
+            if (!(obj instanceof THREE.Mesh)) return;
+            const geom = obj.geometry;
+            if (!geom.attributes.expressID || !geom.attributes.position) return;
+
+            const expressIDAttr = geom.attributes.expressID;
+            const positionAttr = geom.attributes.position;
+            const vertexCount = positionAttr.count;
+
+            const indices: number[] = [];
+            for (let i = 0; i < vertexCount; i++) {
+                if (expressIDAttr.getX(i) === expressID) {
+                    indices.push(i);
+                }
+            }
+
+            if (indices.length > 0) {
+                // Copy original positions
+                const originalPositions = new Float32Array(indices.length * 3);
+                indices.forEach((vIdx, i) => {
+                    originalPositions[i * 3] = positionAttr.getX(vIdx);
+                    originalPositions[i * 3 + 1] = positionAttr.getY(vIdx);
+                    originalPositions[i * 3 + 2] = positionAttr.getZ(vIdx);
+
+                    // Set position to 0,0,0 to collapse the vertex
+                    positionAttr.setXYZ(vIdx, 0, 0, 0);
+                });
+
+                positionAttr.needsUpdate = true;
+                
+                // Save to cache
+                this.hiddenElementPositions.set(key, {
+                    mesh: obj,
+                    indices,
+                    originalPositions
+                });
+
+                // Recompute bounds
+                geom.computeBoundingBox();
+                geom.computeBoundingSphere();
+                if ((geom as any).computeBoundsTree) {
+                    (geom as any).computeBoundsTree();
+                }
+            }
+        });
+
+        // Clear selection/highlights
+        this.clearSelection();
+        this.onSelect(null);
+        this.isDirty = true;
+    }
+
+    /**
+     * Show a hidden element.
+     */
+    showElement(modelID: number, expressID: number) {
+        const key = `${modelID}_${expressID}`;
+        const cache = this.hiddenElementPositions.get(key);
+        if (!cache) return;
+
+        const { mesh, indices, originalPositions } = cache;
+        const geom = mesh.geometry;
+        const positionAttr = geom.attributes.position;
+
+        indices.forEach((vIdx, i) => {
+            positionAttr.setXYZ(
+                vIdx,
+                originalPositions[i * 3],
+                originalPositions[i * 3 + 1],
+                originalPositions[i * 3 + 2]
+            );
+        });
+
+        positionAttr.needsUpdate = true;
+        this.hiddenElementPositions.delete(key);
+
+        geom.computeBoundingBox();
+        geom.computeBoundingSphere();
+        if ((geom as any).computeBoundsTree) {
+            (geom as any).computeBoundsTree();
+        }
+
+        this.isDirty = true;
+    }
+
+    /**
+     * Restore all hidden elements.
+     */
+    showAllElements() {
+        this.hiddenElementPositions.forEach((cache) => {
+            const { mesh, indices, originalPositions } = cache;
+            const geom = mesh.geometry;
+            const positionAttr = geom.attributes.position;
+
+            indices.forEach((vIdx, i) => {
+                positionAttr.setXYZ(
+                    vIdx,
+                    originalPositions[i * 3],
+                    originalPositions[i * 3 + 1],
+                    originalPositions[i * 3 + 2]
+                );
+            });
+
+            positionAttr.needsUpdate = true;
+            geom.computeBoundingBox();
+            geom.computeBoundingSphere();
+            if ((geom as any).computeBoundsTree) {
+                (geom as any).computeBoundsTree();
+            }
+        });
+
+        this.hiddenElementPositions.clear();
+        this.isDirty = true;
+    }
+
+    /**
+     * Check whether there are currently hidden elements.
+     */
+    get hasHiddenElements() { return this.hiddenElementPositions.size > 0; }
 }
 
 export const ifcManager = new IFCManager();
