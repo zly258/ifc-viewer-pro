@@ -14,6 +14,7 @@ import { Network, FileText, Ruler, Sun, Bookmark, Upload, Moon, Camera, X as XIc
 import { ifcManager } from './services/ifcManager';
 import SunPanel from './components/SunPanel';
 import BcfPanel from './components/BcfPanel';
+import ViewCube from './components/ViewCube';
 
 const App: React.FC = () => {
   const [selectedElement, setSelectedElement] = useState<IFCElementData | null>(null);
@@ -249,6 +250,7 @@ const App: React.FC = () => {
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', width: '100%', height: '100%' }}>
 
         {/* 3D Viewer */}
+        <ViewCube />
         <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
           <Viewer3D
             file={null}
