@@ -14,7 +14,6 @@ import { Network, FileText, Ruler, Sun, Bookmark, Upload, Moon, Camera, X as XIc
 import { ifcManager } from './services/ifcManager';
 import SunPanel from './components/SunPanel';
 import BcfPanel from './components/BcfPanel';
-import ViewCube from './components/ViewCube';
 
 const App: React.FC = () => {
   const [selectedElement, setSelectedElement] = useState<IFCElementData | null>(null);
@@ -250,7 +249,6 @@ const App: React.FC = () => {
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', width: '100%', height: '100%' }}>
 
         {/* 3D Viewer */}
-        <ViewCube />
         <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
           <Viewer3D
             file={null}
@@ -473,24 +471,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Hidden Elements banner */}
-        {hasHiddenElements && (
-          <div 
-            className="isolation-banner" 
-            style={{ 
-              background: isDarkTheme ? 'rgba(30,41,59,0.9)' : 'rgba(255,255,255,0.9)', 
-              borderColor: 'var(--border)',
-              color: 'var(--text-secondary)',
-              bottom: isIsolated ? 56 : 20 
-            }} 
-            onClick={() => { ifcManager.showAllElements(); setHasHiddenElements(false); }}
-            title="点击恢复所有隐藏构件"
-          >
-            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: 'var(--brand)' }} />
-            有隐藏构件 — 点击全部恢复
-            <XIcon size={12} />
-          </div>
-        )}
+
       </div>
 
       {/* Context Menu */}

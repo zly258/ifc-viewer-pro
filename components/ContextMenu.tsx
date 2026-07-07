@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Focus, EyeOff, Eye, Copy, MessageSquarePlus, X, Expand } from "lucide-react";
+import { EyeOff, Eye, Copy, MessageSquarePlus, X, Expand } from "lucide-react";
 import { ifcManager } from "../services/ifcManager";
 
 interface ContextMenuProps {
@@ -31,10 +31,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, hit, onClose, onAddAnno
         };
     }, [onClose]);
 
-    const handleFocus = () => {
-        if (hit) { onSelect(hit.modelID, hit.expressID); setTimeout(() => ifcManager.zoomToHighlight(), 100); }
-        onClose();
-    };
+
     const handleIsolate = async () => {
         if (hit) { await ifcManager.isolateElement(hit.modelID, hit.expressID); onSelect(hit.modelID, hit.expressID); }
         onClose();
@@ -59,9 +56,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, hit, onClose, onAddAnno
             {hit ? (
                 <>
                     <div className="context-menu-header">构件操作</div>
-                    <button className="context-menu-item" onClick={handleFocus}>
-                        <Focus size={13} /> 聚焦此构件
-                    </button>
+
                     <button className="context-menu-item" onClick={handleIsolate}>
                         <Eye size={13} /> 隔离此构件
                     </button>

@@ -1212,7 +1212,7 @@ export class IFCManager {
 
         return new Promise<void>((resolve) => {
             this.propertyResolver = (propertiesData: any) => {
-                const elementData = propertiesData.data;
+                const elementData = propertiesData;
                 if (this.onMultiSelect) {
                     this.onMultiSelect(this.selectedElements);
                 }
