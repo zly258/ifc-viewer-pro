@@ -107,7 +107,7 @@ const SunPanel: React.FC<SunPanelProps> = ({
                                 style={{ minHeight: 46, padding: '6px 4px', gap: 2 }}
                             >
                                 <span style={{ fontSize: 12, fontWeight: 600 }}>{label}</span>
-                                <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{time}</span>
+                                <span style={{ fontSize: 10, color: 'var(--text-muted)',  }}>{time}</span>
                             </button>
                         ))}
                     </div>
@@ -122,7 +122,7 @@ const SunPanel: React.FC<SunPanelProps> = ({
                             alignItems: 'center',
                             gap: 4,
                             fontSize: 12,
-                            fontFamily: 'monospace',
+                            
                             fontWeight: 700,
                             color: 'var(--brand)',
                             background: 'var(--brand-soft)',
@@ -143,7 +143,7 @@ const SunPanel: React.FC<SunPanelProps> = ({
                         onChange={(e) => setTimeOfDay(parseFloat(e.target.value))}
                         style={rangeStyle}
                     />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace', marginTop: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)',  marginTop: 4 }}>
                         <span>00:00</span>
                         <span>06:00</span>
                         <span>12:00</span>
@@ -160,7 +160,7 @@ const SunPanel: React.FC<SunPanelProps> = ({
                     <div className="control-card" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>方位角</span>
-                            <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: 'var(--brand)' }}>{Math.round(azimuth)}°</span>
+                            <span style={{ fontSize: 12,  fontWeight: 700, color: 'var(--brand)' }}>{Math.round(azimuth)}°</span>
                         </div>
                         <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>0° 北 · 90° 东 · 180° 南 · 270° 西</p>
                         <input
@@ -175,7 +175,7 @@ const SunPanel: React.FC<SunPanelProps> = ({
                     <div className="control-card" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>仰角</span>
-                            <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: 'var(--brand)' }}>{Math.round(altitude)}°</span>
+                            <span style={{ fontSize: 12,  fontWeight: 700, color: 'var(--brand)' }}>{Math.round(altitude)}°</span>
                         </div>
                         <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>0° 地平 · 90° 头顶</p>
                         <input
@@ -221,7 +221,7 @@ const SunPanel: React.FC<SunPanelProps> = ({
                     <div className="control-card" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>环境光亮度</span>
-                            <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: 'var(--brand)' }}>{ambientIntensity.toFixed(1)}</span>
+                            <span style={{ fontSize: 12,  fontWeight: 700, color: 'var(--brand)' }}>{ambientIntensity.toFixed(1)}</span>
                         </div>
                         <input
                             type="range" min="0" max="2" step="0.1"
@@ -235,7 +235,7 @@ const SunPanel: React.FC<SunPanelProps> = ({
                     <div className="control-card" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>太阳光强度</span>
-                            <span style={{ fontSize: 12, fontFamily: 'monospace', fontWeight: 700, color: 'var(--brand)' }}>{sunIntensity.toFixed(1)}</span>
+                            <span style={{ fontSize: 12,  fontWeight: 700, color: 'var(--brand)' }}>{sunIntensity.toFixed(1)}</span>
                         </div>
                         <input
                             type="range" min="0" max="3" step="0.1"

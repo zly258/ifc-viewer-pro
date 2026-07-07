@@ -202,7 +202,7 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
                     {selectedElement && (
                         <div style={{
                             fontSize: 10,
-                            fontFamily: 'monospace',
+                            
                             color: 'var(--brand)',
                             background: 'var(--brand-soft)',
                             border: '1px solid var(--brand-border)',
@@ -343,7 +343,7 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
                                         </div>
                                     )}
                                 </div>
-                                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace', marginTop: 4 }}>
+                                <div style={{ fontSize: 10, color: 'var(--text-muted)',  marginTop: 4 }}>
                                     {formatDate(vp.timestamp)}
                                 </div>
                             </div>

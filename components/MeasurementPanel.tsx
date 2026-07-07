@@ -54,7 +54,7 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
         table { width: 100%; border-collapse: collapse; margin-bottom: 28px; font-size: 13px; }
         th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid #e2e8f0; }
         th { background: #f8fafc; color: #475569; font-weight: 700; border-top: 1px solid #e2e8f0; }
-        .value-text { font-family: monospace; font-weight: 700; color: #0f172a; }
+        .value-text {  font-weight: 700; color: #0f172a; }
         .screenshot-container { width: 100%; border-radius: 10px; overflow: hidden; border: 1px solid #cbd5e1; background: #0f172a; margin-top: 14px; text-align: center; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
         .screenshot { max-width: 100%; max-height: 420px; display: block; margin: 0 auto; }
         .footer { margin-top: 40px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 20px; }
@@ -258,7 +258,7 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
                             </span>
                             <span style={{
                                 fontSize: 13,
-                                fontFamily: 'monospace',
+                                
                                 fontWeight: 700,
                                 color: 'var(--text-primary)',
                                 whiteSpace: 'pre-wrap',

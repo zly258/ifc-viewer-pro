@@ -102,7 +102,6 @@ const PropertyGroup: React.FC<{
                                     flex: 1,
                                     padding: '6px 12px',
                                     color: 'var(--text-primary)',
-                                    fontFamily: 'monospace',
                                     fontWeight: 500,
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
@@ -191,8 +190,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ data, selectedCount = 1 }
                         }} />
                         <span style={{
                             fontSize: 13,
-                            fontWeight: 700,
-                            color: 'var(--text-primary)',
+                            color: 'var(--text-secondary)',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
@@ -219,7 +217,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ data, selectedCount = 1 }
                 <div style={{ display: 'flex', gap: 6, paddingLeft: 16 }}>
                     <span style={{
                         fontSize: 10,
-                        fontFamily: 'monospace',
+                        
                         fontWeight: 600,
                         color: 'var(--text-muted)',
                         background: 'var(--surface-2)',

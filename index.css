@@ -97,9 +97,7 @@ body {
   font-family: var(--font-family);
 }
 
-code, kbd, samp, pre, .font-mono, [style*="font-family: monospace"], [style*="font-family:monospace"] {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
-}
+
 
 button,
 input,
@@ -620,7 +618,6 @@ select {
   padding: 3px 8px;
   border-radius: 4px;
   font-size: 11px;
-  font-family: monospace;
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
@@ -763,7 +760,7 @@ select {
 .camera-mode-badge.walk  { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3); color: #d97706; }
 
 /* FPS badge */
-.fps-badge { font-size: 10px; font-weight: 700; font-family: monospace; padding: 1px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-1); color: var(--text-muted); }
+.fps-badge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-1); color: var(--text-muted); }
 .fps-badge.good { color: #16a34a; border-color: rgba(22,163,74,0.3); background: rgba(22,163,74,0.08); }
 .fps-badge.ok   { color: #d97706; border-color: rgba(217,119,6,0.3);  background: rgba(217,119,6,0.08); }
 .fps-badge.poor { color: #dc2626; border-color: rgba(220,38,38,0.3);  background: rgba(220,38,38,0.08); }

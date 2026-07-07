@@ -76,7 +76,7 @@ export class IFCManager {
     private raycaster = new THREE.Raycaster();
     private mouse = new THREE.Vector2();
     private activeTool: ViewerTool = ViewerTool.SELECT;
-    private pointerDownPosition: { x: number; y: number } | null = null;
+    private wasDraggingControls = false;
 
     private materialCache: Record<string, THREE.MeshStandardMaterial> = {};
     
@@ -163,6 +163,16 @@ export class IFCManager {
         this.controls.enableDamping = false;
         this.controls.screenSpacePanning = true; 
         
+        this.controls.addEventListener('start', () => {
+             this.wasDraggingControls = false;
+        });
+        this.controls.addEventListener('change', () => {
+             this.wasDraggingControls = true;
+        });
+        this.controls.addEventListener('end', () => {
+             setTimeout(() => { this.wasDraggingControls = false; }, 150);
+        });
+
         this.batcher = new IfcBatcher();
 
         // Loaders
@@ -462,7 +472,6 @@ export class IFCManager {
 
             window.addEventListener('resize', this.handleResize);
             window.addEventListener('keydown', this.handleKeyDown);
-            this.renderer.domElement.addEventListener('pointerdown', this.handlePointerDown, true);
             this.renderer.domElement.addEventListener('mousemove', this.handleMouseMove);
             this.renderer.domElement.addEventListener('click', this.handleClick);
             this.renderer.domElement.addEventListener('dblclick', this.handleDoubleClick);
@@ -569,12 +578,6 @@ export class IFCManager {
             window.dispatchEvent(new CustomEvent('viewer-isolation-changed', { detail: { isIsolated: false } }));
             window.dispatchEvent(new CustomEvent('viewer-elements-changed'));
         }
-    }
-
-    private handlePointerDown = (event: PointerEvent) => {
-        if (event.button !== 0) return; // Only track left click
-        this.pointerDownPosition = { x: event.clientX, y: event.clientY };
-        console.log("[IFCManager] pointerdown registered position:", this.pointerDownPosition);
     }
 
     private readFileWithProgress(file: File): Promise<Uint8Array> {
@@ -1108,16 +1111,8 @@ export class IFCManager {
         this.isDirty = true;
     }
 
-    private hasClickMoved(event: MouseEvent, threshold = 10): boolean {
-        if (!this.pointerDownPosition) {
-            console.log("[IFCManager] hasClickMoved: pointerDownPosition is null, returning false");
-            return false;
-        }
-        const dx = event.clientX - this.pointerDownPosition.x;
-        const dy = event.clientY - this.pointerDownPosition.y;
-        const dist = Math.hypot(dx, dy);
-        console.log("[IFCManager] hasClickMoved check:", { dx, dy, dist, threshold });
-        return dist > threshold;
+    private hasClickMoved(): boolean {
+        return this.wasDraggingControls;
     }
 
     private async selectFromPointer(event: MouseEvent, shiftKey = false) {
@@ -1174,8 +1169,7 @@ export class IFCManager {
         }
 
         if (this.activeTool === ViewerTool.SELECT || this.activeTool === ViewerTool.NONE) {
-            const hasMoved = this.hasClickMoved(event);
-            if (hasMoved) return;
+            if (this.hasClickMoved()) return;
             event.preventDefault();
             event.stopPropagation();
             await this.selectFromPointer(event, event.shiftKey);
@@ -1571,7 +1565,7 @@ export class IFCManager {
         window.removeEventListener('resize', this.handleResize); 
         window.removeEventListener('keydown', this.handleKeyDown);
         if (this.renderer?.domElement) {
-            this.renderer.domElement.removeEventListener('pointerdown', this.handlePointerDown, true);
+
             this.renderer.domElement.removeEventListener('mousemove', this.handleMouseMove);
             this.renderer.domElement.removeEventListener('click', this.handleClick);
             this.renderer.domElement.removeEventListener('dblclick', this.handleDoubleClick);

@@ -51,7 +51,6 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
     const [parentMap, setParentMap] = useState<Map<string, string>>(new Map());
     const [visibleModels, setVisibleModels] = useState<Set<number>>(new Set());
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTypeFilter, setActiveTypeFilter] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [modelToRemove, setModelToRemove] = useState<number | null>(null);
     const listRef = useRef<any>(null);
@@ -122,7 +121,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
         const result: FlatNode[] = [];
         let selectedIndex = -1;
         const q = searchQuery.trim().toLowerCase();
-        const hasFilter = q || activeTypeFilter;
+        const hasFilter = !!q;
 
         if (hasFilter) {
             fileStructures.forEach(file => {
@@ -133,25 +132,11 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
                     const nodeId = `${file.modelID}_${node.expressID}`;
                     const displayName = node.name || node.type;
                     
-                    let matches = true;
-                    if (q) {
-                        matches = displayName.toLowerCase().includes(q) || 
+                    let matches = displayName.toLowerCase().includes(q) || 
                                   node.type.toLowerCase().includes(q) || 
                                   `#${node.expressID}`.includes(q);
-                    }
                     
-                    if (matches && activeTypeFilter) {
-                        const t = node.type.toLowerCase();
-                        if (activeTypeFilter === 'wall') matches = t.includes('wall');
-                        else if (activeTypeFilter === 'slab') matches = t.includes('slab') || t.includes('plate');
-                        else if (activeTypeFilter === 'column') matches = t.includes('column') || t.includes('pillar');
-                        else if (activeTypeFilter === 'beam') matches = t.includes('beam');
-                        else if (activeTypeFilter === 'door_window') matches = t.includes('door') || t.includes('window');
-                        else if (activeTypeFilter === 'space') matches = t.includes('space');
-                        else if (activeTypeFilter === 'furnishing') matches = t.includes('furnishing') || t.includes('element') && !t.includes('structural') || t.includes('covering') || t.includes('flow');
-                    }
-                    
-                    // Filter out project structure container nodes from leaves when activeTypeFilter is on
+                    // Filter out project structure container nodes from leaves when filter is active
                     if (matches && !node.type.toLowerCase().includes('spatial') && 
                         !node.type.toLowerCase().includes('project') && 
                         !node.type.toLowerCase().includes('site') && 
@@ -189,7 +174,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
         }
 
         return { list: result, selectedIndex };
-    }, [fileStructures, expandedIds, selectedElement, searchQuery, activeTypeFilter]);
+    }, [fileStructures, expandedIds, selectedElement, searchQuery]);
 
     useEffect(() => {
         if (flatList.selectedIndex !== -1 && listRef.current) {
@@ -321,7 +306,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
                             {!isRootFile && modelID !== undefined && modelID >= 0 && expressID !== undefined && expressID > 0 && (
                                 <span style={{
                                     fontSize: 10,
-                                    fontFamily: 'monospace',
+                                    
                                     marginLeft: 5,
                                     color: isSelected ? 'var(--brand)' : 'var(--text-muted)',
                                     fontWeight: 400,
@@ -386,36 +371,6 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
 
     return (
         <div className="h-full flex flex-col panel-content">
-            {/* Type Filters */}
-            <div style={{
-                padding: '6px 10px 4px',
-                borderBottom: '1px solid var(--border-soft)',
-                background: 'var(--surface-1)',
-                display: 'flex',
-                gap: 5,
-                overflowX: 'auto',
-                WebkitOverflowScrolling: 'touch',
-            }} className="scrollbar-none">
-                {[
-                    { id: null, label: '全部' },
-                    { id: 'wall', label: '墙体' },
-                    { id: 'slab', label: '楼板' },
-                    { id: 'column', label: '柱子' },
-                    { id: 'beam', label: '梁' },
-                    { id: 'door_window', label: '门窗' },
-                    { id: 'space', label: '空间' },
-                    { id: 'furnishing', label: '构配件' },
-                ].map(pill => (
-                    <div
-                        key={pill.label}
-                        className={`type-filter-pill ${activeTypeFilter === pill.id ? 'active' : ''}`}
-                        onClick={() => setActiveTypeFilter(pill.id)}
-                    >
-                        {pill.label}
-                    </div>
-                ))}
-            </div>
-
             {/* Search */}
             <div style={{
                 padding: '6px 10px',

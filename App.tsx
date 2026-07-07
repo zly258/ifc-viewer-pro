@@ -382,7 +382,7 @@ const App: React.FC = () => {
                 <div className="loading-bar-container" style={{ marginBottom: 8 }}>
                   <div className="loading-bar-fill" style={{ width: `${Math.max(4, progress)}%` }} />
                 </div>
-                <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--brand)', fontWeight: 700 }}>
+                <div style={{ fontSize: 11,  color: 'var(--brand)', fontWeight: 700 }}>
                   {Math.round(progress)}%
                 </div>
               </>
