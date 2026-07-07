@@ -178,7 +178,7 @@ const App: React.FC = () => {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOver(false);
-    const files = Array.from(e.dataTransfer.files).filter(f => {
+    const files = (Array.from(e.dataTransfer.files) as File[]).filter(f => {
       const lower = f.name.toLowerCase();
       return lower.endsWith('.ifc') || lower.endsWith('.glb') || lower.endsWith('.gltf');
     });

@@ -23,7 +23,7 @@ export class IFCManager {
     public camera: THREE.OrthographicCamera | THREE.PerspectiveCamera;
     public orthoCamera: THREE.OrthographicCamera;
     public persCamera: THREE.PerspectiveCamera;
-    private renderer: THREE.WebGLRenderer;
+    public renderer: THREE.WebGLRenderer;
     private labelRenderer: CSS2DRenderer;
     private controls: OrbitControls;
     
@@ -1268,7 +1268,7 @@ export class IFCManager {
         }
     }
 
-    private zoomToHighlight() {
+    public zoomToHighlight() {
         if (this.multiHighlightMeshes.length === 0) {
             if (!this.highlightModel) return;
             const box = new THREE.Box3().setFromObject(this.highlightModel);
