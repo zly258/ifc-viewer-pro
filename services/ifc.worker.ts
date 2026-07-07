@@ -70,9 +70,18 @@ self.onmessage = async (e: MessageEvent) => {
             self.postMessage({ type: 'PROCESSING', message: '解析模型属性映射关系...' });
             await buildPropertyMap(openedModelID, meta);
             
-            // Stream geometries
-            self.postMessage({ type: 'PROCESSING', message: '生成几何体数据...' });
-            let streamedCount = 0;
+            // --- Pre-count total mesh elements for accurate progress ---
+            self.postMessage({ type: 'PROCESSING', message: '统计模型构件数量...' });
+            let totalMeshCount = 0;
+            ifcApi.StreamAllMeshes(openedModelID, () => { totalMeshCount++; });
+            
+            // Stream geometries with progress reporting
+            self.postMessage({ type: 'PROGRESS', progress: 82, message: `正在生成几何体 (共 ${totalMeshCount} 个构件)...` });
+            let streamedMeshCount = 0;
+            let pendingFlush: any[] = [];
+            let pendingTransfers: ArrayBuffer[] = [];
+            const FLUSH_EVERY = 150; // flush every N elements for incremental display
+            let lastProgressReport = 0;
             
             ifcApi.StreamAllMeshes(openedModelID, (flatMesh: WebIFC.FlatMesh) => {
                 const expressID = flatMesh.expressID;
@@ -119,11 +128,42 @@ self.onmessage = async (e: MessageEvent) => {
                         indices: indices.buffer
                     };
                     
-                    // Transfer array buffer objects directly (zero-copy)
-                    (self as any).postMessage({ type: 'GEOMETRY_STREAM', data: geomMsg }, [pos.buffer, norm.buffer, indices.buffer]);
-                    streamedCount++;
+                    pendingFlush.push(geomMsg);
+                    pendingTransfers.push(pos.buffer, norm.buffer, indices.buffer);
+                }
+                
+                streamedMeshCount++;
+                
+                // Incremental flush — emit a batch so the main thread can render progressively
+                if (pendingFlush.length >= FLUSH_EVERY) {
+                    (self as any).postMessage(
+                        { type: 'GEOMETRY_BATCH', data: { modelID: openedModelID, geometries: pendingFlush } },
+                        pendingTransfers
+                    );
+                    pendingFlush = [];
+                    pendingTransfers = [];
+                }
+                
+                // Progress update every 5% of total
+                if (totalMeshCount > 0) {
+                    const pct = Math.round((streamedMeshCount / totalMeshCount) * 100);
+                    if (pct - lastProgressReport >= 5) {
+                        lastProgressReport = pct;
+                        const scaled = 82 + Math.round(pct * 0.13); // 82-95% range
+                        self.postMessage({ type: 'PROGRESS', progress: scaled, message: `几何体生成 ${pct}%…` });
+                    }
                 }
             });
+            
+            // Flush remaining
+            if (pendingFlush.length > 0) {
+                (self as any).postMessage(
+                    { type: 'GEOMETRY_BATCH', data: { modelID: openedModelID, geometries: pendingFlush } },
+                    pendingTransfers
+                );
+                pendingFlush = [];
+                pendingTransfers = [];
+            }
             
             // Build spatial structure
             self.postMessage({ type: 'PROCESSING', message: '构建空间树结构...' });

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Viewer3D from './components/Viewer3D';
 import PropertyPanel from './components/PropertyPanel';
 import ModelTree from './components/ModelTree';
@@ -8,8 +8,9 @@ import BottomToolbar from './components/BottomToolbar';
 import SettingsModal, { ViewSettings, DEFAULT_VIEW_SETTINGS, SETTINGS_VERSION } from './components/SettingsModal';
 import DraggablePanel from './components/common/DraggablePanel';
 import { TopStatusBar } from './components/TopStatusBar';
+import ContextMenu from './components/ContextMenu';
 import { IFCElementData, MeasurementResult } from './types';
-import { Network, FileText, Ruler, Sun, Bookmark, Upload } from 'lucide-react';
+import { Network, FileText, Ruler, Sun, Bookmark, Upload, Moon, Camera, X as XIcon } from 'lucide-react';
 import { ifcManager } from './services/ifcManager';
 import SunPanel from './components/SunPanel';
 import BcfPanel from './components/BcfPanel';
@@ -45,6 +46,29 @@ const App: React.FC = () => {
     return DEFAULT_VIEW_SETTINGS;
   });
 
+  // Dark Theme
+  const [isDarkTheme, setIsDarkTheme] = useState(() => {
+    return localStorage.getItem('bimvision_theme') === 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDarkTheme ? 'dark' : 'light');
+    localStorage.setItem('bimvision_theme', isDarkTheme ? 'dark' : 'light');
+    // Update Three.js scene background color
+    ifcManager.scene && (ifcManager.scene as any).background?.set && 
+      (ifcManager.scene as any).background.set(isDarkTheme ? 0x111827 : 0xf8fafc);
+    ifcManager.renderScene();
+  }, [isDarkTheme]);
+
+  // Drag & Drop state
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+
+  // Context Menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; hit: { modelID: number; expressID: number } | null } | null>(null);
+
+  // Isolation state
+  const [isIsolated, setIsIsolated] = useState(false);
+
   // Data States
   const [lastFileName, setLastFileName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,6 +81,16 @@ const App: React.FC = () => {
     const handleMeasurePanelOpen = () => setShowMeasurePanel(true);
     window.addEventListener('open-measure-panel', handleMeasurePanelOpen);
     return () => window.removeEventListener('open-measure-panel', handleMeasurePanelOpen);
+  }, []);
+
+  // Context menu from viewer
+  useEffect(() => {
+    const handleContextMenu = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setContextMenu({ x: detail.x, y: detail.y, hit: detail.hit });
+    };
+    window.addEventListener('viewer-contextmenu', handleContextMenu);
+    return () => window.removeEventListener('viewer-contextmenu', handleContextMenu);
   }, []);
 
   useEffect(() => {
@@ -107,6 +141,43 @@ const App: React.FC = () => {
     setModelKey(prev => prev + 1);
   };
 
+  // Drag & Drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    // Only hide if leaving the root element
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDraggingOver(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    const files = Array.from(e.dataTransfer.files).filter(f => {
+      const lower = f.name.toLowerCase();
+      return lower.endsWith('.ifc') || lower.endsWith('.glb') || lower.endsWith('.gltf');
+    });
+    if (files.length > 0) {
+      await handleOpenFiles(files);
+    }
+  }, []);
+
+  const handleContextMenuSelect = async (modelID: number, expressID: number) => {
+    // Trigger property fetch
+    setShowPropertyPanel(true);
+  };
+
+  const handleScreenshot = () => {
+    const name = lastFileName ? `${lastFileName.replace(/\.[^/.]+$/, '')}-screenshot.png` : 'bimvision-screenshot.png';
+    ifcManager.captureScreenshot(name);
+  };
+
   const handleClearScene = () => {
     try {
       ifcManager.clearModels();
@@ -136,9 +207,19 @@ const App: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100vh', background: 'var(--app-bg)', overflow: 'hidden', position: 'relative' }}>
+    <div
+      style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100vh', background: 'var(--app-bg)', overflow: 'hidden', position: 'relative' }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
 
-      <TopStatusBar fileName={lastFileName} />
+      <TopStatusBar
+        fileName={lastFileName}
+        isDarkTheme={isDarkTheme}
+        onToggleTheme={() => setIsDarkTheme(d => !d)}
+        onScreenshot={lastFileName ? handleScreenshot : undefined}
+      />
 
       {/* Main Content Area */}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', width: '100%', height: '100%' }}>
@@ -252,11 +333,11 @@ const App: React.FC = () => {
         {(isLoading || processingStatus) && (
           <div style={{
             position: 'absolute', inset: 0,
-            background: 'rgba(248, 250, 252, 0.92)',
-            backdropFilter: 'blur(6px)',
+            background: isDarkTheme ? 'rgba(15,23,42,0.92)' : 'rgba(248, 250, 252, 0.92)',
+            backdropFilter: 'blur(8px)',
             zIndex: 50,
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            pointerEvents: 'none',
+            pointerEvents: 'none', gap: 0,
           }}>
             <style>{`
               @keyframes appSpinner { to { transform: rotate(360deg); } }
@@ -264,36 +345,35 @@ const App: React.FC = () => {
             `}</style>
             {isLoading ? (
               <>
+                {/* Animated spinner */}
                 <div style={{
-                  width: 40, height: 40, borderRadius: '50%',
+                  width: 44, height: 44, borderRadius: '50%',
                   border: '3px solid var(--brand-soft)', borderTopColor: 'var(--brand)',
-                  animation: 'appSpinner 0.9s linear infinite', marginBottom: 18,
+                  animation: 'appSpinner 0.8s linear infinite', marginBottom: 20,
                 }} />
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 14 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
                   {processingStatus || '正在读取文件…'}
                 </div>
-                <div style={{ width: 220, height: 4, background: 'var(--surface-2)', borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%', background: 'var(--brand)', borderRadius: 99,
-                    width: `${Math.max(4, progress)}%`, transition: 'width 0.25s ease-out',
-                  }} />
+                {/* Gradient progress bar */}
+                <div className="loading-bar-container" style={{ marginBottom: 8 }}>
+                  <div className="loading-bar-fill" style={{ width: `${Math.max(4, progress)}%` }} />
                 </div>
-                <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-muted)', marginTop: 8 }}>
+                <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--brand)', fontWeight: 700 }}>
                   {Math.round(progress)}%
                 </div>
               </>
             ) : (
               <>
-                <div style={{ display: 'flex', gap: 7, marginBottom: 18 }}>
+                <div style={{ display: 'flex', gap: 7, marginBottom: 20 }}>
                   {[0, 1, 2].map(i => (
                     <div key={i} style={{
-                      width: 8, height: 8, borderRadius: '50%',
+                      width: 9, height: 9, borderRadius: '50%',
                       background: 'var(--brand)',
-                      animation: `appDotPulse 1.2s ease-in-out ${i * 0.2}s infinite`,
+                      animation: `appDotPulse 1.2s ease-in-out ${i * 0.22}s infinite`,
                     }} />
                   ))}
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
                   {processingStatus || '解析模型数据…'}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>正在构建几何体与属性索引</div>
@@ -302,7 +382,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Empty State — welcome */}
+        {/* Empty State */}
         {!lastFileName && !isLoading && !processingStatus && (
           <div style={{
             position: 'absolute', inset: 0,
@@ -310,30 +390,78 @@ const App: React.FC = () => {
             pointerEvents: 'none', zIndex: 0,
           }}>
             <div style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-              padding: '28px 36px',
-              background: 'rgba(255, 255, 255, 0.85)',
-              backdropFilter: 'blur(8px)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+              padding: '32px 44px',
+              background: isDarkTheme ? 'rgba(22,27,39,0.9)' : 'rgba(255,255,255,0.88)',
+              backdropFilter: 'blur(12px)',
               border: '1px solid var(--border)',
               borderRadius: 'var(--radius-xl)',
-              boxShadow: 'var(--shadow-sm)',
+              boxShadow: 'var(--shadow-panel)',
             }}>
               <div style={{
-                width: 48, height: 48, borderRadius: 'var(--radius-lg)',
+                width: 56, height: 56, borderRadius: 'var(--radius-lg)',
                 background: 'var(--brand-soft)', border: '1px solid var(--brand-border)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4,
               }}>
-                <Upload size={22} style={{ color: 'var(--brand)' }} />
+                <Upload size={26} style={{ color: 'var(--brand)' }} />
               </div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>打开 BIM 模型</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>打开 BIM 模型</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.7 }}>
                 支持 IFC · GLB · GLTF 格式<br />
-                点击底部工具栏"加载"导入文件
+                点击底部工具栏「加载」导入，或直接<strong style={{ color: 'var(--brand)' }}>拖放文件</strong>到此处
+              </div>
+              {/* Format badges */}
+              <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                {['IFC', 'GLB', 'GLTF'].map(fmt => (
+                  <span key={fmt} style={{
+                    padding: '2px 8px', borderRadius: 99,
+                    fontSize: 10, fontWeight: 700,
+                    background: 'var(--surface-1)', border: '1px solid var(--border)',
+                    color: 'var(--text-muted)',
+                  }}>{fmt}</span>
+                ))}
               </div>
             </div>
           </div>
         )}
+
+        {/* Drag & Drop Overlay */}
+        {isDraggingOver && (
+          <div className="drop-overlay">
+            <div className="drop-overlay-inner">
+              <div className="drop-overlay-icon">
+                <Upload size={28} />
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>释放以加载模型</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>支持 IFC · GLB · GLTF</div>
+            </div>
+          </div>
+        )}
+
+        {/* Isolation banner */}
+        {isIsolated && (
+          <div className="isolation-banner" onClick={() => { ifcManager.unisolateAll(); setIsIsolated(false); }}>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#d97706' }} />
+            隔离模式激活 — 点击退出
+            <XIcon size={12} />
+          </div>
+        )}
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          hit={contextMenu.hit}
+          isIsolated={isIsolated}
+          onClose={() => setContextMenu(null)}
+          onSelect={handleContextMenuSelect}
+          onAddAnnotation={(mID, eID) => {
+            setShowBcfPanel(true);
+          }}
+        />
+      )}
 
       {/* Clear Scene Confirm */}
       {showClearConfirm && (

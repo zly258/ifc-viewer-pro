@@ -33,6 +33,37 @@ export class IfcBatcher {
         });
     }
 
+    /**
+     * Add a raw geometry message batch from the worker (GEOMETRY_BATCH).
+     * Returns true so the caller knows data was added.
+     */
+    addFromWorkerBatch(
+        geometries: Array<{
+            expressID: number;
+            geometryExpressID: number;
+            color: { x: number; y: number; z: number; w: number } | null;
+            flatTransformation: number[];
+            pos: ArrayBuffer;
+            norm: ArrayBuffer;
+            indices: ArrayBuffer;
+        }>,
+        getMaterialFn: (color: number, opacity: number) => THREE.MeshStandardMaterial
+    ): void {
+        for (const g of geometries) {
+            const geom = new THREE.BufferGeometry();
+            geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(g.pos), 3));
+            geom.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(g.norm), 3));
+            geom.setIndex(new THREE.BufferAttribute(new Uint32Array(g.indices), 1));
+
+            const colorHex = g.color ? new THREE.Color(g.color.x, g.color.y, g.color.z).getHex() : 0xcccccc;
+            const opacity = g.color ? g.color.w : 1.0;
+            const mat = getMaterialFn(colorHex, opacity);
+
+            const matrix = new THREE.Matrix4().fromArray(g.flatTransformation);
+            this.add(geom, mat, matrix, g.expressID, g.geometryExpressID);
+        }
+    }
+
     build(): THREE.Object3D[] {
         const meshes: THREE.Object3D[] = [];
 

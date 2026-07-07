@@ -18,7 +18,7 @@ THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
 export class IFCManager {
     private container: HTMLElement | null = null;
-    private scene: THREE.Scene;
+    public scene: THREE.Scene;
     public camera: THREE.OrthographicCamera | THREE.PerspectiveCamera;
     public orthoCamera: THREE.OrthographicCamera;
     public persCamera: THREE.PerspectiveCamera;
@@ -30,15 +30,23 @@ export class IFCManager {
     private modelIdCounter = 1;
     private savedStructures: Map<number, IFCSpatialStructure> = new Map();
     private currentLoadingFileName: string = "";
+    private currentLoadingModelID: number = -1;
     private currentFitToFrame: boolean = true;
     private loadResolver: (() => void) | null = null;
     private propertyResolver: ((props: any) => void) | null = null;
     private highlightResolver: ((geoms: any[]) => void) | null = null;
+    
+    // Incremental loading: partial group accumulates batched meshes before LOAD_COMPLETE
+    private partialGroups: Map<number, THREE.Group> = new Map();
 
     private gltfLoader: GLTFLoader;
     private batcher: IfcBatcher;
     
     private isInitialized: boolean = false;
+    
+    // Demand rendering — only render when scene changes
+    private isDirty: boolean = true;
+    private lastUserInteraction: number = 0;
 
     // 模型存储
     public models: Map<number, { group: THREE.Group, modelID: number, name: string }> = new Map();
@@ -50,6 +58,7 @@ export class IFCManager {
     public sectionManager: SectionManager | null = null;
     
     public onSelect: (data: IFCElementData | null) => void = () => {};
+    public onMultiSelect?: (items: Array<{ modelID: number; expressID: number }>) => void;
     public onLoading: (progress: number, total: number) => void = () => {};
     public onProcessing: (message: string | null) => void = () => {};
     public onError: (msg: string) => void = () => {};
@@ -71,14 +80,42 @@ export class IFCManager {
     // Highlight - Selection
     private highlightModel: THREE.Mesh | null = null;
     private highlightMaterial = new THREE.MeshStandardMaterial({
-        color: 0x3b82f6, // Blue
+        color: 0x3b82f6,
         transparent: true,
-        opacity: 0.6,
+        opacity: 0.55,
         depthTest: false,
         side: THREE.DoubleSide,
-        emissive: 0x1d4ed8,
-        emissiveIntensity: 0.4
+        emissive: 0x60a5fa,
+        emissiveIntensity: 0.5
     });
+    
+    // Hover highlight
+    private hoverModel: THREE.Mesh | null = null;
+    private hoverMaterial = new THREE.MeshStandardMaterial({
+        color: 0x64748b,
+        transparent: true,
+        opacity: 0.3,
+        depthTest: false,
+        side: THREE.DoubleSide,
+        emissive: 0x94a3b8,
+        emissiveIntensity: 0.25
+    });
+    private lastHoverID: number = -1;
+    
+    // Isolation — list of expressIDs to show, rest are dimmed
+    private isolatedIDs: Set<number> | null = null;
+    private isolationDimMaterial = new THREE.MeshStandardMaterial({
+        color: 0xd1d5db,
+        transparent: true,
+        opacity: 0.08,
+        depthTest: true,
+        side: THREE.DoubleSide,
+    });
+    private originalMaterials: Map<THREE.Mesh, THREE.Material | THREE.Material[]> = new Map();
+    
+    // Multi-selection
+    private selectedElements: Array<{ modelID: number; expressID: number }> = [];
+    private multiHighlightMeshes: THREE.Mesh[] = [];
 
     constructor() {
         this.scene = new THREE.Scene();
@@ -376,12 +413,20 @@ export class IFCManager {
         
         if (this.isWalking) {
             this.updateWalkPosition();
+            this.isDirty = true;
         } else {
-            this.controls.update(); // only required if controls.enableDamping or controls.autoRotate are set
+            this.controls.update();
         }
         
-        this.renderer.render(this.scene, this.camera);
-        if (this.measurementManager) this.labelRenderer.render(this.scene, this.camera);
+        // Demand rendering: only render when dirty or recent interaction (within 200ms)
+        const now = performance.now();
+        const recentInteraction = (now - this.lastUserInteraction) < 200;
+        
+        if (this.isDirty || recentInteraction) {
+            this.renderer.render(this.scene, this.camera);
+            if (this.measurementManager) this.labelRenderer.render(this.scene, this.camera);
+            this.isDirty = false;
+        }
     }
 
     async init(container: HTMLElement) {
@@ -413,6 +458,13 @@ export class IFCManager {
             this.renderer.domElement.addEventListener('mousemove', this.handleMouseMove);
             this.renderer.domElement.addEventListener('click', this.handleClick);
             this.renderer.domElement.addEventListener('dblclick', this.handleDoubleClick);
+            this.renderer.domElement.addEventListener('contextmenu', this.handleContextMenu);
+            
+            // Mark dirty on any user interaction with controls
+            this.controls.addEventListener('change', () => {
+                this.isDirty = true;
+                this.lastUserInteraction = performance.now();
+            });
         } else {
             // Re-mounting
             this.renderer.setSize(container.clientWidth, container.clientHeight);
@@ -585,6 +637,13 @@ export class IFCManager {
             else if (type === 'PROCESSING') {
                 this.onProcessing(data || e.data.message);
             }
+            else if (type === 'PROGRESS') {
+                // Precise progress from worker geometry phase (82-95%)
+                const prog = (data?.progress ?? e.data.progress) as number;
+                const msg = (data?.message ?? e.data.message) as string;
+                if (prog !== undefined) this.onLoading(prog, 100);
+                if (msg) this.onProcessing(msg);
+            }
             else if (type === 'ERROR') {
                 console.error("[Worker Error]", data || e.data.message);
                 this.onError(data || e.data.message);
@@ -594,7 +653,39 @@ export class IFCManager {
                     this.loadResolver = null;
                 }
             }
+            else if (type === 'GEOMETRY_BATCH') {
+                // Progressive incremental loading — add batch to batcher then do partial build
+                const { modelID, geometries } = data;
+                this.batcher.addFromWorkerBatch(geometries, this.getMaterial.bind(this));
+                
+                // Build partial mesh group and add/merge to partial scene group
+                const partialMeshes = this.batcher.build();
+                
+                if (partialMeshes.length > 0) {
+                    let rootGroup = this.partialGroups.get(modelID);
+                    if (!rootGroup) {
+                        rootGroup = new THREE.Group();
+                        rootGroup.name = this.currentLoadingFileName || "Model";
+                        rootGroup.userData.modelID = modelID;
+                        if (this.ifcUpAxis === 'Z') rootGroup.rotateX(-Math.PI / 2);
+                        rootGroup.updateMatrixWorld(true);
+                        this.partialGroups.set(modelID, rootGroup);
+                        this.scene.add(rootGroup);
+                    }
+                    
+                    partialMeshes.forEach(mesh => {
+                        mesh.userData.modelID = modelID;
+                        mesh.userData.isBatch = true;
+                        mesh.castShadow = (this.shadowQuality !== 'off');
+                        mesh.receiveShadow = (this.shadowQuality !== 'off');
+                        rootGroup!.add(mesh);
+                    });
+                    
+                    this.isDirty = true;
+                }
+            }
             else if (type === 'GEOMETRY_STREAM') {
+                // Legacy single-stream fallback (kept for compatibility)
                 const { modelID, expressID, geometryExpressID, color, flatTransformation, pos, norm, indices } = data;
                 
                 const geom = new THREE.BufferGeometry();
@@ -613,26 +704,33 @@ export class IFCManager {
             else if (type === 'LOAD_COMPLETE') {
                 const { modelID, structure, parentMap } = data;
                 
-                const mergedMeshes = this.batcher.build();
+                // Flush any remaining data in batcher
+                const remainingMeshes = this.batcher.build();
                 
-                const rootGroup = new THREE.Group();
-                rootGroup.name = this.currentLoadingFileName || "Model";
-                rootGroup.userData.modelID = modelID;
+                // Get or create the group (may already exist from incremental batches)
+                let rootGroup = this.partialGroups.get(modelID);
+                if (!rootGroup) {
+                    rootGroup = new THREE.Group();
+                    rootGroup.name = this.currentLoadingFileName || "Model";
+                    rootGroup.userData.modelID = modelID;
+                    if (this.ifcUpAxis === 'Z') rootGroup.rotateX(-Math.PI / 2);
+                    rootGroup.updateMatrixWorld(true);
+                    this.scene.add(rootGroup);
+                } else {
+                    rootGroup.name = this.currentLoadingFileName || rootGroup.name;
+                }
+                this.partialGroups.delete(modelID);
                 
-                mergedMeshes.forEach(mesh => {
+                // Append any remaining meshes
+                remainingMeshes.forEach(mesh => {
                     mesh.userData.modelID = modelID;
                     mesh.userData.isBatch = true;
                     mesh.castShadow = (this.shadowQuality !== 'off');
                     mesh.receiveShadow = (this.shadowQuality !== 'off');
-                    rootGroup.add(mesh);
+                    rootGroup!.add(mesh);
                 });
                 
-                if (this.ifcUpAxis === 'Z') {
-                    rootGroup.rotateX(-Math.PI / 2);
-                }
                 rootGroup.updateMatrixWorld(true);
-                
-                this.scene.add(rootGroup);
                 this.models.set(modelID, { group: rootGroup, modelID, name: rootGroup.name });
                 
                 // Merge parentMap entries
@@ -642,12 +740,13 @@ export class IFCManager {
                 
                 this.savedStructures.set(modelID, structure);
                 
-                // Force size synchronization with the client container bounding area
+                // Force size synchronization
                 this.handleResize();
                 
                 if (this.currentFitToFrame) this.fitModelToFrame();
                 this.onLoading(100, 100);
                 this.onProcessing(null);
+                this.isDirty = true;
                 
                 if (this.loadResolver) {
                     this.loadResolver();
@@ -906,10 +1005,65 @@ export class IFCManager {
             return;
         }
 
-        // Disabled Hover Highlight for Select tool
-        if (this.activeTool === ViewerTool.SELECT) {
-             this.container!.style.cursor = 'default';
+        // Hover highlight for SELECT tool
+        if (this.activeTool === ViewerTool.SELECT || this.activeTool === ViewerTool.NONE) {
+            this.container!.style.cursor = 'default';
+            const hit = this.castRay(event);
+            if (hit && hit.expressID !== -1) {
+                if (hit.expressID !== this.lastHoverID) {
+                    this.clearHover();
+                    this.lastHoverID = hit.expressID;
+                    // Build hover overlay async
+                    if (this.worker && hit.modelID >= 0) {
+                        this.worker.postMessage({
+                            type: 'GET_HIGHLIGHT_GEOMETRY',
+                            data: { modelID: hit.modelID, expressID: hit.expressID }
+                        });
+                        // Use a one-shot resolver for hover
+                        const prevResolver = this.highlightResolver;
+                        this.highlightResolver = (geometries: any[]) => {
+                            // Restore previous resolver if there was one (selection)
+                            if (prevResolver) prevResolver(geometries);
+                            else this.buildHoverMesh(geometries, hit.modelID);
+                        };
+                    }
+                    this.container!.style.cursor = 'pointer';
+                }
+            } else {
+                this.clearHover();
+                this.lastHoverID = -1;
+            }
         }
+    }
+
+    private buildHoverMesh(geometries: any[], modelID: number) {
+        this.clearHover();
+        if (geometries.length === 0) return;
+        const threeGeometries: THREE.BufferGeometry[] = [];
+        geometries.forEach((g: any) => {
+            const geom = new THREE.BufferGeometry();
+            geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(g.pos), 3));
+            geom.setIndex(new THREE.BufferAttribute(new Uint32Array(g.indices), 1));
+            geom.computeVertexNormals();
+            const matrix = new THREE.Matrix4().fromArray(g.flatTransformation);
+            geom.applyMatrix4(matrix);
+            threeGeometries.push(geom);
+        });
+        const merged = BufferGeometryUtils.mergeGeometries(threeGeometries);
+        threeGeometries.forEach(g => g.dispose());
+        if (!merged) return;
+        const mesh = new THREE.Mesh(merged, this.hoverMaterial);
+        const rootGroup = this.models.get(modelID)?.group;
+        if (rootGroup) {
+            mesh.rotation.copy(rootGroup.rotation);
+            mesh.position.copy(rootGroup.position);
+            mesh.scale.copy(rootGroup.scale);
+        }
+        mesh.renderOrder = 998;
+        mesh.userData = { modelID, isHover: true };
+        this.hoverModel = mesh;
+        this.scene.add(mesh);
+        this.isDirty = true;
     }
 
     private hasClickMoved(event: MouseEvent, threshold = 10): boolean {
@@ -924,37 +1078,50 @@ export class IFCManager {
         return dist > threshold;
     }
 
-    private async selectFromPointer(event: MouseEvent) {
-        console.log("[IFCManager] selectFromPointer called");
+    private async selectFromPointer(event: MouseEvent, shiftKey = false) {
         const hit = this.castRay(event);
-        console.log("[IFCManager] castRay hit result:", hit);
 
         if (hit) {
             const { modelID, expressID, mesh } = hit;
-            console.log("[IFCManager] Hit details:", { modelID, expressID, meshName: mesh.name });
             if (expressID !== -1 && modelID !== undefined) {
-                console.log("[IFCManager] Requesting select and highlight for IFC element:", { modelID, expressID });
+                this.clearHover();
+                this.lastHoverID = -1;
                 await this.highlightElement(modelID, expressID, mesh);
                 await this.selectElement(modelID, expressID);
             } else if (mesh.userData.isGLB) {
-                console.log("[IFCManager] Selecting GLB node:", mesh.name);
                 this.highlightElement(modelID, -1, mesh);
                 this.onSelect({ expressID: -1, modelID, type: 'GLB', name: mesh.name, properties: mesh.userData.properties || [] });
             }
         } else {
-            console.log("[IFCManager] click on empty space, clearing selection");
             this.clearSelection();
             this.onSelect(null);
         }
     }
 
+    // Context menu handler (right-click)
+    private handleContextMenu = (event: MouseEvent) => {
+        if (!this.container) return;
+        event.preventDefault();
+        event.stopPropagation();
+        
+        const hit = this.castRay(event);
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        
+        window.dispatchEvent(new CustomEvent('viewer-contextmenu', {
+            detail: {
+                x: event.clientX,
+                y: event.clientY,
+                hit: hit ? { modelID: hit.modelID, expressID: hit.expressID } : null
+            }
+        }));
+    }
+
     // Click handler
     private handleClick = async (event: MouseEvent) => {
-        console.log("[IFCManager] handleClick triggered, activeTool:", this.activeTool);
         if (!this.container) return;
         
         if (this.activeTool === ViewerTool.MEASURE) {
-             const m: THREE.Object3D[]=[]; 
+             const m: THREE.Object3D[] = []; 
              this.models.forEach(mod => {
                  if (mod.group.visible !== false) {
                      mod.group.traverse(c => { if(c instanceof THREE.Mesh) m.push(c) });
@@ -966,15 +1133,14 @@ export class IFCManager {
 
         if (this.activeTool === ViewerTool.SELECT || this.activeTool === ViewerTool.NONE) {
             const hasMoved = this.hasClickMoved(event);
-            console.log("[IFCManager] handleClick SELECT. hasMoved:", hasMoved);
             if (hasMoved) return;
             event.preventDefault();
             event.stopPropagation();
-            await this.selectFromPointer(event);
+            await this.selectFromPointer(event, event.shiftKey);
         }
     }
 
-    // Double click keeps legacy zoom/selection behavior; normal selection is handled by single click.
+    // Double click: zoom to selection
     private handleDoubleClick = async (event: MouseEvent) => {
         if (!this.container) return;
 
@@ -985,7 +1151,12 @@ export class IFCManager {
         event.preventDefault();
         event.stopPropagation();
 
-        await this.selectFromPointer(event);
+        const hit = this.castRay(event);
+        if (hit && hit.expressID !== -1) {
+            await this.highlightElement(hit.modelID, hit.expressID, hit.mesh);
+            await this.selectElement(hit.modelID, hit.expressID);
+            if (this.highlightModel) this.zoomToHighlight();
+        }
     }
 
     private async selectElement(modelID: number, expressID: number) {
@@ -1101,7 +1272,7 @@ export class IFCManager {
                             this.highlightModel.renderOrder = 999;
                             this.highlightModel.userData = { modelID };
                             this.scene.add(this.highlightModel);
-                            this.renderScene();
+                            this.isDirty = true;
                         }
                     }
                     resolve();
@@ -1127,7 +1298,7 @@ export class IFCManager {
              this.highlightModel.renderOrder = 999;
              this.highlightModel.userData = { modelID };
              this.scene.add(this.highlightModel);
-             this.renderScene();
+             this.isDirty = true;
         }
     }
 
@@ -1137,13 +1308,18 @@ export class IFCManager {
         if (this.highlightModel) { 
             this.scene.remove(this.highlightModel); 
             if (this.highlightModel.geometry) this.highlightModel.geometry.dispose();
-            this.highlightModel = null; 
-            this.renderScene();
+            this.highlightModel = null;
+            this.isDirty = true;
         } 
     }
 
     private clearHover() {
-        // Disabled
+        if (this.hoverModel) {
+            this.scene.remove(this.hoverModel);
+            if (this.hoverModel.geometry) this.hoverModel.geometry.dispose();
+            this.hoverModel = null;
+            this.isDirty = true;
+        }
     }
     
     getStatistics() { 
@@ -1736,9 +1912,75 @@ export class IFCManager {
     }
     
     renderScene() { 
-        // No-op. The animation loop handles rendering via requestAnimationFrame, 
-        // calling this synchronously causes redundant layout/paint and stutters the UI.
+        // Mark dirty so the animate loop renders on next frame (demand rendering)
+        this.isDirty = true;
     }
+    
+    /**
+     * Capture the current viewport as a PNG and trigger download.
+     */
+    captureScreenshot(filename = 'bimvision-screenshot.png') {
+        // Force a synchronous render for capture
+        this.renderer.render(this.scene, this.camera);
+        const dataURL = this.renderer.domElement.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = dataURL;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+    
+    /**
+     * Isolate one element — all others are dimmed/hidden.
+     */
+    async isolateElement(modelID: number, expressID: number) {
+        // First unisolate any previous isolation
+        this.unisolateAll();
+        
+        if (modelID < 0) return; // GLB models not supported for isolation yet
+        
+        this.isolatedIDs = new Set([expressID]);
+        
+        // Dim all IFC meshes that don't match
+        this.models.forEach((m, mID) => {
+            if (mID < 0) return; // skip GLB
+            m.group.traverse(obj => {
+                if (!(obj instanceof THREE.Mesh)) return;
+                if (obj.userData.isHover || obj === this.highlightModel || obj === this.hoverModel) return;
+                
+                // Try to determine this mesh's expressID
+                // For batch meshes we dim the whole thing; in future could do per-element
+                if (obj.userData.isBatch) {
+                    if (!this.originalMaterials.has(obj)) {
+                        this.originalMaterials.set(obj, obj.material);
+                    }
+                    obj.material = this.isolationDimMaterial;
+                }
+            });
+        });
+        
+        // Highlight the isolated element
+        await this.highlightElement(modelID, expressID);
+        this.isDirty = true;
+    }
+    
+    /**
+     * Remove isolation and restore all materials.
+     */
+    unisolateAll() {
+        this.isolatedIDs = null;
+        this.originalMaterials.forEach((mat, mesh) => {
+            if (mesh.parent) mesh.material = mat;
+        });
+        this.originalMaterials.clear();
+        this.isDirty = true;
+    }
+    
+    /**
+     * Check whether isolation is currently active.
+     */
+    get isIsolated() { return this.isolatedIDs !== null; }
 }
 
 export const ifcManager = new IFCManager();
