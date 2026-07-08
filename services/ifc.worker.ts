@@ -129,7 +129,7 @@ self.onmessage = async (e: MessageEvent) => {
                     };
                     
                     pendingFlush.push(geomMsg);
-                    pendingTransfers.push(pos.buffer, norm.buffer, indices.buffer);
+                    pendingTransfers.push(pos.buffer as ArrayBuffer, norm.buffer as ArrayBuffer, indices.buffer as ArrayBuffer);
                 }
                 
                 streamedMeshCount++;
@@ -347,8 +347,8 @@ self.onmessage = async (e: MessageEvent) => {
                 
                 geometries.push({
                     flatTransformation: Array.from(placedGeom.flatTransformation),
-                    pos: pos.buffer,
-                    indices: indices.buffer
+                    pos: pos.buffer as ArrayBuffer,
+                    indices: indices.buffer as ArrayBuffer
                 });
             }
             

@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import {
   FolderTree, FileText, Maximize, Settings, MousePointer2,
   Ruler, Scissors, Trash2, Plus, DraftingCompass, MapPin,
-  List, Sun, Navigation, Bookmark, LayoutGrid, Square,
+  List, Sun, Navigation, Bookmark, LayoutGrid, Square, RefreshCcw,
 } from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
 import { CameraView, ViewerTool, MeasurementMode } from '../types';
@@ -320,6 +320,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
 
         {/* View Group */}
         <ToolButton icon={Maximize} label="充满" onClick={() => ifcManager.fitModelToFrame()} />
+        <ToolButton icon={RefreshCcw} label="复位" onClick={() => { ifcManager.setCameraView(CameraView.ISO_NE); ifcManager.fitModelToFrame(); }} />
 
         <div className="relative" ref={viewMenuRef}>
           {viewMenuOpen && (

@@ -51,9 +51,17 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
     const [parentMap, setParentMap] = useState<Map<string, string>>(new Map());
     const [visibleModels, setVisibleModels] = useState<Set<number>>(new Set());
     const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedQuery, setDebouncedQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [modelToRemove, setModelToRemove] = useState<number | null>(null);
     const listRef = useRef<any>(null);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedQuery(searchQuery);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     useEffect(() => {
         const load = async () => {
@@ -120,7 +128,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
     const flatList = useMemo(() => {
         const result: FlatNode[] = [];
         let selectedIndex = -1;
-        const q = searchQuery.trim().toLowerCase();
+        const q = debouncedQuery.trim().toLowerCase();
         const hasFilter = !!q;
 
         if (hasFilter) {
@@ -174,7 +182,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
         }
 
         return { list: result, selectedIndex };
-    }, [fileStructures, expandedIds, selectedElement, searchQuery]);
+    }, [fileStructures, expandedIds, selectedElement, debouncedQuery]);
 
     useEffect(() => {
         if (flatList.selectedIndex !== -1 && listRef.current) {
@@ -222,6 +230,17 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
             }
         };
 
+        const handleContextMenu = (e: React.MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!isRootFile && modelID !== undefined && expressID !== undefined) {
+                ifcManager.selectByID(modelID, expressID, true);
+                window.dispatchEvent(new CustomEvent('viewer-contextmenu', {
+                    detail: { x: e.clientX, y: e.clientY, hit: { modelID, expressID } }
+                }));
+            }
+        };
+
         return (
             <div
                 style={{
@@ -240,6 +259,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
                 }}
                 onClick={handleClick}
                 onDoubleClick={handleDoubleClick}
+                onContextMenu={handleContextMenu}
                 onMouseEnter={e => {
                     if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--surface-1)';
                 }}
