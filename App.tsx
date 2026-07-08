@@ -10,9 +10,8 @@ import DraggablePanel from './components/common/DraggablePanel';
 import { TopStatusBar } from './components/TopStatusBar';
 import ContextMenu from './components/ContextMenu';
 import { IFCElementData, MeasurementResult } from './types';
-import { Network, FileText, Ruler, Sun, Bookmark, Upload, Moon, Camera, X as XIcon } from 'lucide-react';
+import { Network, FileText, Ruler, Bookmark, Upload, Moon, Camera, X as XIcon } from 'lucide-react';
 import { ifcManager } from './services/ifcManager';
-import SunPanel from './components/SunPanel';
 import BcfPanel from './components/BcfPanel';
 
 const App: React.FC = () => {
@@ -23,7 +22,6 @@ const App: React.FC = () => {
   const [showModelTree, setShowModelTree] = useState(false);
   const [showPropertyPanel, setShowPropertyPanel] = useState(false);
   const [showMeasurePanel, setShowMeasurePanel] = useState(false);
-  const [showLightingPanel, setShowLightingPanel] = useState(false);
   const [showBcfPanel, setShowBcfPanel] = useState(false);
 
   // Modal States
@@ -305,25 +303,7 @@ const App: React.FC = () => {
           <MeasurementPanel measurements={measurements} onClear={() => setMeasurements([])} />
         </DraggablePanel>
 
-        <DraggablePanel
-          title="光照与阴影"
-          icon={Sun}
-          isOpen={showLightingPanel}
-          onClose={() => setShowLightingPanel(false)}
-          initialPosition={{ x: 20, y: 380 }}
-          initialSize={{ w: 320, h: 480 }}
-        >
-          <SunPanel
-            onShadowQualityChange={(quality) => {
-              setSettings(prev => {
-                const newSettings = { ...prev, shadowQuality: quality, settingsVersion: SETTINGS_VERSION };
-                localStorage.setItem('bimvision_settings', JSON.stringify(newSettings));
-                return newSettings;
-              });
-            }}
-            currentShadowQuality={settings.shadowQuality}
-          />
-        </DraggablePanel>
+
 
         <DraggablePanel
           title="视点与批注"
@@ -345,8 +325,6 @@ const App: React.FC = () => {
           onClear={() => setShowClearConfirm(true)}
           isModelTreeOpen={showModelTree}
           activeRightPanel={showPropertyPanel ? 'properties' : null}
-          onToggleLightingPanel={() => setShowLightingPanel(!showLightingPanel)}
-          isLightingPanelOpen={showLightingPanel}
           onToggleBcfPanel={() => setShowBcfPanel(!showBcfPanel)}
           isBcfPanelOpen={showBcfPanel}
         />

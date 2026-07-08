@@ -23,9 +23,8 @@ export class MeasurementManager {
     private points: THREE.Vector3[] = [];
     private measurements: MeasureItem[] = []; // Store completed measurements
     
-    // Interactive cursor
-    private cursorLabel: CSS2DObject | null = null;
-    private cursorLabelDiv: HTMLDivElement | null = null;
+    // Interactive cursor tip
+    private tipElement: HTMLDivElement | null = null;
     
     // Callbacks
     public onMeasurementsChange?: (results: MeasurementResult[]) => void;
@@ -51,21 +50,62 @@ export class MeasurementManager {
 
     public updateContainer(container: HTMLElement) {
         this.container = container;
+        if (this.tipElement && this.tipElement.parentNode) {
+            this.tipElement.parentNode.removeChild(this.tipElement);
+        }
+        if (this.tipElement) {
+            this.container.appendChild(this.tipElement);
+        }
     }
 
     private initCursorLabel() {
+        if (getComputedStyle(this.container).position === 'static') {
+            this.container.style.position = 'relative';
+        }
+
         const div = document.createElement('div');
-        div.className = 'bg-white/90 text-slate-800 px-2 py-1 rounded text-[10px] shadow-sm border border-slate-200 pointer-events-none whitespace-nowrap transform translate-x-4 translate-y-4 font-sans font-medium hidden';
+        div.id = 'viewer-tip-overlay';
+        div.style.position = 'absolute';
+        div.style.top = '16px';
+        div.style.left = '50%';
+        div.style.transform = 'translateX(-50%) scale(0.95)';
+        div.style.backgroundColor = 'rgba(15, 23, 42, 0.88)';
+        div.style.color = '#ffffff';
+        div.style.padding = '8px 16px';
+        div.style.borderRadius = '8px';
+        div.style.fontSize = '12px';
+        div.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15)';
+        div.style.pointerEvents = 'none';
+        div.style.zIndex = '999';
+        div.style.fontFamily = 'sans-serif';
+        div.style.fontWeight = '500';
+        div.style.transition = 'all 0.15s ease-out';
+        div.style.opacity = '0';
+        div.style.display = 'none';
+        
         div.textContent = '起点';
-        this.cursorLabelDiv = div;
-        this.cursorLabel = new CSS2DObject(div);
-        this.scene.add(this.cursorLabel);
+        this.container.appendChild(div);
+        this.tipElement = div;
     }
 
     private updateCursorText(text: string, visible: boolean = true) {
-        if (this.cursorLabelDiv) {
-             this.cursorLabelDiv.textContent = text;
-             this.cursorLabelDiv.style.display = visible ? 'block' : 'none';
+        if (this.tipElement) {
+             if (visible && text) {
+                 this.tipElement.textContent = text;
+                 this.tipElement.style.display = 'block';
+                 // Force reflow
+                 this.tipElement.offsetHeight;
+                 this.tipElement.style.opacity = '1';
+                 this.tipElement.style.transform = 'translateX(-50%) scale(1)';
+             } else {
+                 this.tipElement.style.opacity = '0';
+                 this.tipElement.style.transform = 'translateX(-50%) scale(0.95)';
+                 setTimeout(() => {
+                     if (this.tipElement && this.tipElement.style.opacity === '0') {
+                         this.tipElement.style.display = 'none';
+                     }
+                 }, 150);
+             }
         }
     }
 
@@ -223,9 +263,6 @@ export class MeasurementManager {
         const point = this.getIntersects(event, models);
         
         if (point) {
-            // Update Cursor Label Position
-            if (this.cursorLabel) this.cursorLabel.position.copy(point);
-            
             // Preview handling
             if (this.points.length > 0) {
                 this.updatePreview(point);

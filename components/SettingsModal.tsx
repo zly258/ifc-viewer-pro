@@ -116,27 +116,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                         </div>
                     </SettingSection>
 
-                    <SettingSection
-                        label="阴影渲染质量"
-                        help="高质量阴影使用 2K 贴图，性能消耗较高；建议在高端设备上开启。"
-                    >
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                            {[
-                                { val: 'high', label: '高质量' },
-                                { val: 'low',  label: '低质量' },
-                                { val: 'off',  label: '关闭' },
-                            ].map(({ val, label }) => (
-                                <button
-                                    key={val}
-                                    type="button"
-                                    onClick={() => update('shadowQuality', val)}
-                                    className={`option-button ${localSettings.shadowQuality === val ? 'option-button-active' : ''}`}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-                    </SettingSection>
+
                 </div>
 
                 {/* Footer */}

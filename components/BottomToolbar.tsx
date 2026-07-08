@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import {
   FolderTree, FileText, Maximize, Settings, MousePointer2,
   Ruler, Scissors, Trash2, Plus, DraftingCompass, MapPin,
-  List, Sun, Navigation, Bookmark, LayoutGrid, Square, RefreshCcw,
+  List, Navigation, Bookmark, LayoutGrid, Square, RefreshCcw,
 } from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
 import { CameraView, ViewerTool, MeasurementMode } from '../types';
@@ -15,8 +15,6 @@ interface BottomToolbarProps {
   onClear: () => void;
   isModelTreeOpen: boolean;
   activeRightPanel: 'properties' | null;
-  onToggleLightingPanel: () => void;
-  isLightingPanelOpen: boolean;
   onToggleBcfPanel: () => void;
   isBcfPanelOpen: boolean;
 }
@@ -43,8 +41,6 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
     onClear,
     isModelTreeOpen,
     activeRightPanel,
-    onToggleLightingPanel,
-    isLightingPanelOpen,
     onToggleBcfPanel,
     isBcfPanelOpen,
 }) => {
@@ -313,7 +309,6 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
         <ToolButton icon={Navigation} label="漫游" active={activeTool === ViewerTool.WALK} onClick={() => handleToolChange(ViewerTool.WALK)} />
         <ToolButton icon={Ruler} label="测量" active={activeTool === ViewerTool.MEASURE} onClick={() => handleToolChange(ViewerTool.MEASURE)} />
         <ToolButton icon={Scissors} label="剖切" active={activeTool === ViewerTool.SECTION} onClick={() => handleToolChange(ViewerTool.SECTION)} />
-        <ToolButton icon={Sun} label="光照" active={isLightingPanelOpen} onClick={onToggleLightingPanel} />
         <ToolButton icon={Settings} label="设置" onClick={onOpenSettings} />
 
         <div className="toolbar-divider" />

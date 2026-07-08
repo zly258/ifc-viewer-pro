@@ -97,7 +97,7 @@ const PropertyGroup: React.FC<{
                             <div
                                 style={{
                                     width: '42%',
-                                    padding: '6px 12px',
+                                    padding: '6px 12px 6px 24px',
                                     color: 'var(--text-muted)',
                                     fontWeight: 500,
                                     overflow: 'hidden',
