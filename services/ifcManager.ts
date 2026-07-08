@@ -1242,6 +1242,92 @@ export class IFCManager {
         this.renderScene();
     }
 
+    private findMeshByExpressID(modelID: number, expressID: number): { mesh: THREE.Mesh | THREE.InstancedMesh; instanceId?: number } | null {
+        const model = this.models.get(modelID);
+        if (!model) return null;
+        
+        let found: { mesh: THREE.Mesh | THREE.InstancedMesh; instanceId?: number } | null = null;
+        model.group.traverse(c => {
+            if (found) return;
+            if (c instanceof THREE.InstancedMesh) {
+                const ids = c.userData.instanceExpressIDs as number[];
+                if (ids) {
+                    const idx = ids.indexOf(expressID);
+                    if (idx !== -1) {
+                        found = { mesh: c, instanceId: idx };
+                    }
+                }
+            } else if (c instanceof THREE.Mesh && c.userData.isBatch) {
+                const attr = c.geometry.getAttribute('expressID');
+                if (attr) {
+                    const arr = attr.array;
+                    const len = arr.length;
+                    for (let i = 0; i < len; i++) {
+                        if (arr[i] === expressID) {
+                            found = { mesh: c };
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+        return found;
+    }
+
+    private extractGeometryByExpressID(mergedGeometry: THREE.BufferGeometry, targetExpressID: number): THREE.BufferGeometry | null {
+        const expressIDAttr = mergedGeometry.getAttribute('expressID');
+        const positionAttr = mergedGeometry.getAttribute('position');
+        const normalAttr = mergedGeometry.getAttribute('normal');
+        const indexAttr = mergedGeometry.index;
+        
+        if (!expressIDAttr || !positionAttr || !indexAttr) return null;
+        
+        const indexArray = indexAttr.array;
+        const expressIDArray = expressIDAttr.array;
+        const positionArray = positionAttr.array;
+        const normalArray = normalAttr ? normalAttr.array : null;
+        
+        const newPositions: number[] = [];
+        const newNormals: number[] = [];
+        const newIndices: number[] = [];
+        const vertexMap = new Map<number, number>();
+        
+        const faceCount = indexArray.length / 3;
+        for (let i = 0; i < faceCount; i++) {
+            const a = indexArray[i * 3];
+            const b = indexArray[i * 3 + 1];
+            const c = indexArray[i * 3 + 2];
+            
+            const idA = expressIDArray[a];
+            
+            if (idA === targetExpressID) {
+                [a, b, c].forEach(oldIdx => {
+                    let newIdx = vertexMap.get(oldIdx);
+                    if (newIdx === undefined) {
+                        newIdx = newPositions.length / 3;
+                        vertexMap.set(oldIdx, newIdx);
+                        
+                        newPositions.push(positionArray[oldIdx * 3], positionArray[oldIdx * 3 + 1], positionArray[oldIdx * 3 + 2]);
+                        if (normalArray) {
+                            newNormals.push(normalArray[oldIdx * 3], normalArray[oldIdx * 3 + 1], normalArray[oldIdx * 3 + 2]);
+                        }
+                    }
+                    newIndices.push(newIdx);
+                });
+            }
+        }
+        
+        if (newIndices.length === 0) return null;
+        
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.Float32BufferAttribute(newPositions, 3));
+        if (newNormals.length > 0) {
+            geom.setAttribute('normal', new THREE.Float32BufferAttribute(newNormals, 3));
+        }
+        geom.setIndex(newIndices);
+        return geom;
+    }
+
     // Generic Highlight Logic
     private async highlightElement(modelID: number, expressID: number, targetMesh?: THREE.Mesh, addToSelection = false) {
         if (!addToSelection) {
@@ -1273,6 +1359,70 @@ export class IFCManager {
             }
         }
         
+        // Try to resolve the mesh locally first
+        let localMeshInfo: { mesh: THREE.Mesh | THREE.InstancedMesh; instanceId?: number } | null = targetMesh ? { mesh: targetMesh } : null;
+        if (targetMesh instanceof THREE.InstancedMesh) {
+            const instanceExpressIDs = targetMesh.userData.instanceExpressIDs as number[];
+            const instanceId = instanceExpressIDs.indexOf(expressID);
+            if (instanceId !== -1) {
+                localMeshInfo = { mesh: targetMesh, instanceId };
+            }
+        }
+        
+        if (!localMeshInfo) {
+            localMeshInfo = this.findMeshByExpressID(modelID, expressID) as any;
+        }
+
+        if (localMeshInfo) {
+            const { mesh: tMesh, instanceId } = localMeshInfo;
+            let geom: THREE.BufferGeometry | null = null;
+            
+            if (tMesh instanceof THREE.InstancedMesh && instanceId !== undefined) {
+                geom = tMesh.geometry.clone();
+                const instMatrix = new THREE.Matrix4();
+                tMesh.getMatrixAt(instanceId, instMatrix);
+                
+                tMesh.updateMatrixWorld(true);
+                const combinedMatrix = tMesh.matrixWorld.clone().multiply(instMatrix);
+                geom.applyMatrix4(combinedMatrix);
+            } else if (tMesh instanceof THREE.Mesh && tMesh.userData.isBatch) {
+                geom = this.extractGeometryByExpressID(tMesh.geometry, expressID);
+                if (geom) {
+                    tMesh.updateMatrixWorld(true);
+                    geom.applyMatrix4(tMesh.matrixWorld);
+                }
+            } else if (tMesh instanceof THREE.Mesh) {
+                geom = tMesh.geometry.clone();
+                tMesh.updateMatrixWorld(true);
+                geom.applyMatrix4(tMesh.matrixWorld);
+            }
+            
+            if (geom) {
+                const mesh = new THREE.Mesh(geom, this.highlightMaterial);
+                mesh.position.set(0, 0, 0);
+                mesh.rotation.set(0, 0, 0);
+                mesh.scale.set(1, 1, 1);
+                mesh.updateMatrixWorld(true);
+                mesh.renderOrder = 999;
+                mesh.userData = { modelID, expressID };
+                
+                this.scene.add(mesh);
+                
+                this.highlightModel = mesh;
+                this.multiHighlightMeshes.push(mesh);
+                if (!addToSelection) {
+                    this.selectedElements = [{ modelID, expressID }];
+                } else {
+                    this.selectedElements.push({ modelID, expressID });
+                }
+                
+                this.postProcessing?.setSelection(this.multiHighlightMeshes);
+                this.isDirty = true;
+                return;
+            }
+        }
+
+        // Fallback to worker if local generation is not available
         if (modelID >= 0 && expressID >= 0) {
             if (!this.worker) return;
             
@@ -1328,29 +1478,6 @@ export class IFCManager {
                     data: { modelID, expressID }
                 });
             });
-        } else if (targetMesh) {
-             const geom = targetMesh.geometry.clone();
-             targetMesh.updateMatrixWorld(true);
-             geom.applyMatrix4(targetMesh.matrixWorld);
-             
-             const mesh = new THREE.Mesh(geom, this.highlightMaterial);
-             mesh.position.set(0, 0, 0);
-             mesh.rotation.set(0, 0, 0);
-             mesh.scale.set(1, 1, 1);
-             mesh.updateMatrixWorld(true);
-             mesh.renderOrder = 999;
-             mesh.userData = { modelID, expressID };
-             this.scene.add(mesh);
-             
-             this.highlightModel = mesh;
-             this.multiHighlightMeshes.push(mesh);
-             if (!addToSelection) {
-                 this.selectedElements = [{ modelID, expressID }];
-             } else {
-                 this.selectedElements.push({ modelID, expressID });
-             }
-             this.postProcessing?.setSelection(this.multiHighlightMeshes);
-             this.isDirty = true;
         }
     }
 

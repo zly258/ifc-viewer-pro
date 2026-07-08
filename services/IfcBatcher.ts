@@ -15,7 +15,7 @@ interface MaterialGroup {
 
 export class IfcBatcher {
     private groups: Map<string, MaterialGroup> = new Map();
-    private readonly enableInstancing = false;
+    private readonly enableInstancing = true;
 
     constructor() {}
 

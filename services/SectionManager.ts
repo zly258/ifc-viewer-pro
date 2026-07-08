@@ -151,6 +151,9 @@ export class SectionManager {
                 opacity: 0.15,
                 side: THREE.DoubleSide,
                 depthWrite: false,
+                polygonOffset: true,
+                polygonOffsetFactor: 1, // Push transparent planes back
+                polygonOffsetUnits: 1,
                 clippingPlanes: [] // Do not clip the helper itself
             });
 
@@ -175,6 +178,9 @@ export class SectionManager {
                 color: color, 
                 linewidth: 2, 
                 depthWrite: false,
+                polygonOffset: true,
+                polygonOffsetFactor: -1, // Pull wireframe outline forward
+                polygonOffsetUnits: -1,
                 clippingPlanes: [] 
             });
             const line = new THREE.LineSegments(edges, lineMat);
