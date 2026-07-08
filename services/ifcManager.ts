@@ -173,6 +173,13 @@ export class IFCManager {
         this.controls.enableDamping = false;
         this.controls.screenSpacePanning = true; 
         
+        // Map mouse buttons: Left = Rotate, Middle = Pan, Right = disabled (avoids conflict with context menu)
+        this.controls.mouseButtons = {
+            LEFT: THREE.MOUSE.ROTATE,
+            MIDDLE: THREE.MOUSE.PAN,
+            RIGHT: undefined as any
+        }; 
+        
         this.controls.addEventListener('start', () => {
              this.wasDraggingControls = false;
              this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
@@ -1672,7 +1679,29 @@ export class IFCManager {
     getModelBoundingBox() { 
         this.models.forEach(m => m.group.updateMatrixWorld(true));
         const box = new THREE.Box3();
-        this.models.forEach(m => m.group.traverse(c => { if(c instanceof THREE.Mesh) { if(!c.geometry.boundingBox) c.geometry.computeBoundingBox(); const b = c.geometry.boundingBox!.clone(); b.applyMatrix4(c.matrixWorld); box.union(b); } }));
+        this.models.forEach(m => m.group.traverse(c => { 
+            if (c instanceof THREE.Mesh) { 
+                if (c instanceof THREE.InstancedMesh) {
+                    if (!c.geometry.boundingBox) c.geometry.computeBoundingBox();
+                    if (c.geometry.boundingBox) {
+                        const count = c.count;
+                        const instanceMatrix = new THREE.Matrix4();
+                        for (let i = 0; i < count; i++) {
+                            c.getMatrixAt(i, instanceMatrix);
+                            const b = c.geometry.boundingBox.clone();
+                            const combined = c.matrixWorld.clone().multiply(instanceMatrix);
+                            b.applyMatrix4(combined);
+                            box.union(b);
+                        }
+                    }
+                } else {
+                    if (!c.geometry.boundingBox) c.geometry.computeBoundingBox(); 
+                    const b = c.geometry.boundingBox!.clone(); 
+                    b.applyMatrix4(c.matrixWorld); 
+                    box.union(b); 
+                }
+            } 
+        }));
         if(box.isEmpty()) return { min: new THREE.Vector3(), max: new THREE.Vector3(), center: new THREE.Vector3(), size: 0};
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());

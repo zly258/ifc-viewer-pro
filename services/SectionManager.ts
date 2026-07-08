@@ -86,13 +86,28 @@ export class SectionManager {
     private getModelBounds(): THREE.Box3 {
         const box = new THREE.Box3();
         this.scene.traverse(c => {
-            if (c instanceof THREE.Mesh && !c.userData.isSectionHelper) {
-                if (!c.geometry.boundingBox) c.geometry.computeBoundingBox();
-                if (c.geometry.boundingBox) {
-                    const b = c.geometry.boundingBox.clone();
-                    c.updateMatrixWorld(true);
-                    b.applyMatrix4(c.matrixWorld);
-                    box.union(b);
+            if (c instanceof THREE.Mesh && !c.userData.isSectionHelper && !c.userData.isHover && !c.userData.expressID) {
+                if (c instanceof THREE.InstancedMesh) {
+                    if (!c.geometry.boundingBox) c.geometry.computeBoundingBox();
+                    if (c.geometry.boundingBox) {
+                        const count = c.count;
+                        const instanceMatrix = new THREE.Matrix4();
+                        for (let i = 0; i < count; i++) {
+                            c.getMatrixAt(i, instanceMatrix);
+                            const b = c.geometry.boundingBox.clone();
+                            const combined = c.matrixWorld.clone().multiply(instanceMatrix);
+                            b.applyMatrix4(combined);
+                            box.union(b);
+                        }
+                    }
+                } else {
+                    if (!c.geometry.boundingBox) c.geometry.computeBoundingBox();
+                    if (c.geometry.boundingBox) {
+                        const b = c.geometry.boundingBox.clone();
+                        c.updateMatrixWorld(true);
+                        b.applyMatrix4(c.matrixWorld);
+                        box.union(b);
+                    }
                 }
             }
         });

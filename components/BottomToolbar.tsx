@@ -218,31 +218,48 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
               </button>
               <div
                 className="flex-1 flex flex-col gap-1"
-                style={{ opacity: activePlanes[axis] ? 1 : 0.35, transition: 'opacity 0.2s' }}
+                style={{ opacity: activePlanes[axis] ? 1 : 0.35, transition: 'opacity 0.2s', padding: '4px 0' }}
               >
-                <div className="relative h-2 w-full">
+                {/* Numeric readout */}
+                <div className="flex justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 px-0.5" style={{ pointerEvents: 'none' }}>
+                  <span>{planeRangeOffsets[axis].min.toFixed(1)}m</span>
+                  <span>{planeRangeOffsets[axis].max.toFixed(1)}m</span>
+                </div>
+                
+                {/* Dual Thumb Slider Container */}
+                <div className="relative h-6 w-full flex items-center">
+                  {/* Background Track */}
+                  <div className="absolute left-0 right-0 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 z-0" style={{ pointerEvents: 'none' }} />
+                  
+                  {/* Active highlight fill range */}
+                  <div 
+                    className="absolute h-1.5 rounded-full bg-blue-500 dark:bg-blue-600 z-10" 
+                    style={{
+                      pointerEvents: 'none',
+                      left: `${Math.max(0, Math.min(100, ((planeRangeOffsets[axis].min - planeRangeOffsets[axis].defaultMin) / Math.max(1, planeRangeOffsets[axis].defaultMax - planeRangeOffsets[axis].defaultMin)) * 100))}%`,
+                      right: `${Math.max(0, Math.min(100, 100 - ((planeRangeOffsets[axis].max - planeRangeOffsets[axis].defaultMin) / Math.max(1, planeRangeOffsets[axis].defaultMax - planeRangeOffsets[axis].defaultMin)) * 100))}%`
+                    }}
+                  />
+                  
                   <input
                     type="range"
                     min={planeRangeOffsets[axis].defaultMin}
                     max={planeRangeOffsets[axis].defaultMax}
-                    step={(planeRangeOffsets[axis].defaultMax - planeRangeOffsets[axis].defaultMin) / 500}
+                    step={Math.max(0.01, (planeRangeOffsets[axis].defaultMax - planeRangeOffsets[axis].defaultMin) / 500)}
                     value={planeRangeOffsets[axis].min}
                     onChange={(e) => handleSectionOffsetMin(axis, e)}
                     disabled={!activePlanes[axis]}
-                    className="absolute w-full top-0 bg-transparent rounded-lg appearance-none cursor-pointer accent-blue-600 z-20 pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto"
-                    style={{ height: '6px' }}
+                    className="dual-range-input min-range-input"
                   />
-                  <div className="absolute w-full top-0 rounded-lg z-0" style={{ height: 6, background: 'var(--surface-2)' }} />
                   <input
                     type="range"
                     min={planeRangeOffsets[axis].defaultMin}
                     max={planeRangeOffsets[axis].defaultMax}
-                    step={(planeRangeOffsets[axis].defaultMax - planeRangeOffsets[axis].defaultMin) / 500}
+                    step={Math.max(0.01, (planeRangeOffsets[axis].defaultMax - planeRangeOffsets[axis].defaultMin) / 500)}
                     value={planeRangeOffsets[axis].max}
                     onChange={(e) => handleSectionOffsetMax(axis, e)}
                     disabled={!activePlanes[axis]}
-                    className="absolute w-full top-0 bg-transparent rounded-lg appearance-none cursor-pointer accent-blue-600 z-10 pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto"
-                    style={{ height: '6px' }}
+                    className="dual-range-input max-range-input"
                   />
                 </div>
               </div>
