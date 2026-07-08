@@ -142,8 +142,6 @@ const App: React.FC = () => {
       const lower = file.name.toLowerCase();
       if (lower.endsWith('.ifc')) {
         await ifcManager.loadIfc(file, true);
-      } else if (lower.endsWith('.glb') || lower.endsWith('.gltf')) {
-        await ifcManager.loadGlb(file, true);
       }
     }
 
@@ -180,7 +178,7 @@ const App: React.FC = () => {
     setIsDraggingOver(false);
     const files = (Array.from(e.dataTransfer.files) as File[]).filter(f => {
       const lower = f.name.toLowerCase();
-      return lower.endsWith('.ifc') || lower.endsWith('.glb') || lower.endsWith('.gltf');
+      return lower.endsWith('.ifc');
     });
     if (files.length > 0) {
       await handleOpenFiles(files);

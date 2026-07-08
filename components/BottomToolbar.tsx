@@ -291,7 +291,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
-          accept=".ifc,.glb,.gltf"
+          accept=".ifc"
           multiple
           className="hidden"
         />

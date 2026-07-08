@@ -19,7 +19,15 @@ const PropertyGroup: React.FC<{
     forceOpen = false,
 }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
+    const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const showContent = forceOpen || isOpen;
+
+    const handleContextMenu = (e: React.MouseEvent, prop: any, idx: number) => {
+        e.preventDefault();
+        navigator.clipboard.writeText(String(prop.value)).catch(() => {});
+        setCopiedIndex(idx);
+        setTimeout(() => setCopiedIndex(null), 1200);
+    };
 
     return (
         <div style={{ borderBottom: '1px solid var(--border-soft)' }}>
@@ -79,7 +87,12 @@ const PropertyGroup: React.FC<{
                                 display: 'flex',
                                 fontSize: 11,
                                 borderBottom: '1px solid var(--border-soft)',
+                                cursor: 'context-menu',
+                                background: copiedIndex === idx ? 'var(--brand-soft)' : 'transparent',
+                                transition: 'background 0.2s',
                             }}
+                            onContextMenu={(e) => handleContextMenu(e, prop, idx)}
+                            title="右键复制该属性值"
                         >
                             <div
                                 style={{
@@ -110,7 +123,7 @@ const PropertyGroup: React.FC<{
                                 }}
                                 title={String(prop.value)}
                             >
-                                {String(prop.value)}
+                                {copiedIndex === idx ? <span style={{color: 'var(--brand)', fontWeight: 600}}>已复制!</span> : String(prop.value)}
                             </div>
                         </div>
                     ))}
@@ -125,7 +138,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ data, selectedCount = 1 }
 
     if (!data) {
         return (
-            <div className="h-full flex flex-col panel-content">
+            <div className="h-full flex flex-col panel-content" onContextMenu={(e) => e.preventDefault()}>
                 <div className="empty-state h-full">
                     <div style={{
                         width: 40,
@@ -171,7 +184,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ data, selectedCount = 1 }
     });
 
     return (
-        <div className="h-full flex flex-col panel-content">
+        <div className="h-full flex flex-col panel-content" onContextMenu={(e) => e.preventDefault()}>
 
             {/* Element Header */}
             <div style={{

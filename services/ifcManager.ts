@@ -2117,10 +2117,13 @@ export class IFCManager {
         const key = `${modelID}_${expressID}`;
         if (this.hiddenElementPositions.has(key)) return;
 
-        const model = this.models.get(modelID);
-        if (!model) return;
+        let modelGroup = this.models.get(modelID)?.group;
+        if (!modelGroup) {
+            modelGroup = this.partialGroups.get(modelID);
+        }
+        if (!modelGroup) return;
 
-        model.group.traverse(obj => {
+        modelGroup.traverse(obj => {
             if (!(obj instanceof THREE.Mesh)) return;
             const geom = obj.geometry;
             if (!geom.attributes.expressID || !geom.attributes.position) return;

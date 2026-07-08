@@ -48,7 +48,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, hit, onClose, onAddAnno
         onClose();
     };
     const handleUnisolate = () => { ifcManager.unisolateAll(); onClose(); };
-    const handleCopyID = () => { if (hit) { navigator.clipboard.writeText(String(hit.expressID)).catch(() => {}); } onClose(); };
+
     const handleAnnotation = () => { if (hit && onAddAnnotation) onAddAnnotation(hit.modelID, hit.expressID); onClose(); };
 
     return (
@@ -68,9 +68,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, hit, onClose, onAddAnno
                             <EyeOff size={13} /> 取消隔离
                         </button>
                     )}
-                    <button className="context-menu-item" onClick={handleCopyID}>
-                        <Copy size={13} /> 复制 Express ID
-                    </button>
+
                     {onAddAnnotation && (
                         <button className="context-menu-item" onClick={handleAnnotation}>
                             <MessageSquarePlus size={13} /> 添加批注
