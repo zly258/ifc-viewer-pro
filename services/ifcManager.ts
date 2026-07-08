@@ -164,7 +164,9 @@ export class IFCManager {
             antialias: true, 
             alpha: true, 
             preserveDrawingBuffer: true,
-            logarithmicDepthBuffer: true
+            logarithmicDepthBuffer: true,
+            powerPreference: 'high-performance',
+            stencil: false
         });
         this.labelRenderer = new CSS2DRenderer();
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -173,11 +175,15 @@ export class IFCManager {
         
         this.controls.addEventListener('start', () => {
              this.wasDraggingControls = false;
+             this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
+             this.isDirty = true;
         });
         this.controls.addEventListener('change', () => {
              this.wasDraggingControls = true;
         });
         this.controls.addEventListener('end', () => {
+             this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+             this.isDirty = true;
              setTimeout(() => { this.wasDraggingControls = false; }, 150);
         });
 
@@ -482,12 +488,11 @@ export class IFCManager {
                             // BVH for interaction
                             if (obj.geometry.computeBoundsTree) obj.geometry.computeBoundsTree();
                         }
-                        if (obj.material) {
-                            obj.material.side = THREE.DoubleSide; 
-                            obj.material.needsUpdate = true;
-                        }
                         obj.castShadow = (this.shadowQuality !== 'off');
                         obj.receiveShadow = (this.shadowQuality !== 'off');
+                        
+                        obj.matrixAutoUpdate = false;
+                        obj.updateMatrix();
                     }
                 });
                 
@@ -584,6 +589,8 @@ export class IFCManager {
                         mesh.userData.isBatch = true;
                         mesh.castShadow = (this.shadowQuality !== 'off');
                         mesh.receiveShadow = (this.shadowQuality !== 'off');
+                        mesh.matrixAutoUpdate = false;
+                        mesh.updateMatrix();
                         rootGroup!.add(mesh);
                     });
                     
@@ -633,6 +640,8 @@ export class IFCManager {
                     mesh.userData.isBatch = true;
                     mesh.castShadow = (this.shadowQuality !== 'off');
                     mesh.receiveShadow = (this.shadowQuality !== 'off');
+                    mesh.matrixAutoUpdate = false;
+                    mesh.updateMatrix();
                     rootGroup!.add(mesh);
                 });
                 
@@ -723,6 +732,8 @@ export class IFCManager {
                     mesh.userData.isBatch = true;
                     mesh.castShadow = (this.shadowQuality !== 'off');
                     mesh.receiveShadow = (this.shadowQuality !== 'off');
+                    mesh.matrixAutoUpdate = false;
+                    mesh.updateMatrix();
                     rootGroup.add(mesh);
                 });
                 rootGroup.updateMatrixWorld(true);
@@ -788,14 +799,29 @@ export class IFCManager {
     private getMaterial(color: number, opacity: number): THREE.MeshStandardMaterial {
         const key = `${color}-${opacity.toFixed(2)}`;
         if (!this.materialCache[key]) {
-            this.materialCache[key] = new THREE.MeshStandardMaterial({
+            const mat = new THREE.MeshStandardMaterial({
                 color: color,
                 transparent: opacity < 1,
                 opacity: opacity,
-                side: THREE.DoubleSide,
+                side: (this.activeTool === ViewerTool.SECTION) ? THREE.DoubleSide : THREE.FrontSide,
                 roughness: 0.6,
                 metalness: 0.2
             });
+
+            // Modify shader to color backfaces (interior) as a solid grey cap
+            mat.onBeforeCompile = (shader) => {
+                shader.fragmentShader = shader.fragmentShader.replace(
+                    '#include <color_fragment>',
+                    `
+                    #include <color_fragment>
+                    if (!gl_FrontFacing) {
+                        diffuseColor.rgb = vec3(0.65, 0.65, 0.65); // Solid grey for section cut interior
+                    }
+                    `
+                );
+            };
+
+            this.materialCache[key] = mat;
         }
         return this.materialCache[key];
     }
@@ -1449,7 +1475,21 @@ export class IFCManager {
             if (c instanceof THREE.Mesh) { 
                 if (c.geometry.disposeBoundsTree) c.geometry.disposeBoundsTree();
                 c.geometry.dispose(); 
-                if (c.material instanceof THREE.Material) c.material.dispose();
+                
+                // Only dispose materials that are not in the shared materialCache
+                if (c.material instanceof THREE.Material) {
+                    const isCached = Object.values(this.materialCache).includes(c.material as any);
+                    if (!isCached) {
+                        c.material.dispose();
+                    }
+                } else if (Array.isArray(c.material)) {
+                    c.material.forEach(mat => {
+                        const isCached = Object.values(this.materialCache).includes(mat as any);
+                        if (!isCached) {
+                            mat.dispose();
+                        }
+                    });
+                }
             } 
         });
 
@@ -1608,13 +1648,24 @@ export class IFCManager {
     setTool(t: ViewerTool) { 
         this.activeTool = t; 
         this.measurementManager?.setActive(t === 'MEASURE'); 
-        if(t !== 'SECTION') this.sectionManager?.clear(); 
+        
+        // Dynamically toggle material double-sidedness to optimize face culling
+        const side = (t === ViewerTool.SECTION) ? THREE.DoubleSide : THREE.FrontSide;
+        Object.values(this.materialCache).forEach(mat => {
+            if (mat.side !== side) {
+                mat.side = side;
+                mat.needsUpdate = true;
+            }
+        });
+
+        if (t !== ViewerTool.SECTION) this.sectionManager?.clear(); 
         
         if (t === ViewerTool.WALK) {
             this.activateWalkthroughMode();
         } else {
             this.deactivateWalkthroughMode();
         }
+        this.renderScene();
     }
 
     private activateWalkthroughMode() {
@@ -1704,13 +1755,19 @@ export class IFCManager {
 
     private handleWalkKeyDown = (e: KeyboardEvent) => {
         const key = e.key.toLowerCase();
-        if (key === 'w' || key === 'arrowup') this.walkKeys.w = true;
-        if (key === 'a' || key === 'arrowleft') this.walkKeys.a = true;
-        if (key === 's' || key === 'arrowdown') this.walkKeys.s = true;
-        if (key === 'd' || key === 'arrowright') this.walkKeys.d = true;
-        if (key === 'q') this.walkKeys.q = true; // Fly up
-        if (key === 'e') this.walkKeys.e = true; // Fly down
+        let activeKey = false;
+        if (key === 'w' || key === 'arrowup') { this.walkKeys.w = true; activeKey = true; }
+        if (key === 'a' || key === 'arrowleft') { this.walkKeys.a = true; activeKey = true; }
+        if (key === 's' || key === 'arrowdown') { this.walkKeys.s = true; activeKey = true; }
+        if (key === 'd' || key === 'arrowright') { this.walkKeys.d = true; activeKey = true; }
+        if (key === 'q') { this.walkKeys.q = true; activeKey = true; }
+        if (key === 'e') { this.walkKeys.e = true; activeKey = true; }
         if (e.shiftKey) this.walkKeys.shift = true;
+
+        if (activeKey) {
+            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
+            this.isDirty = true;
+        }
     }
 
     private handleWalkKeyUp = (e: KeyboardEvent) => {
@@ -1722,11 +1779,19 @@ export class IFCManager {
         if (key === 'q') this.walkKeys.q = false;
         if (key === 'e') this.walkKeys.e = false;
         if (!e.shiftKey) this.walkKeys.shift = false;
+
+        const hasActiveKeys = this.walkKeys.w || this.walkKeys.a || this.walkKeys.s || this.walkKeys.d || this.walkKeys.q || this.walkKeys.e;
+        if (!hasActiveKeys) {
+            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            this.isDirty = true;
+        }
     }
 
     private handleWalkMouseDown = (e: MouseEvent) => {
         this.mouseDragging = true;
         this.prevMousePos = { x: e.clientX, y: e.clientY };
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
+        this.isDirty = true;
     }
 
     private handleWalkMouseMove = (e: MouseEvent) => {
@@ -1748,6 +1813,8 @@ export class IFCManager {
 
     private handleWalkMouseUp = () => {
         this.mouseDragging = false;
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.isDirty = true;
     }
 
     private updateCameraRotation() {
@@ -1760,6 +1827,8 @@ export class IFCManager {
     }
 
     private handleWalkTouchStart = (e: TouchEvent) => {
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
+        this.isDirty = true;
         if (e.touches.length === 1) {
             this.mouseDragging = true;
             this.prevMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -1825,6 +1894,8 @@ export class IFCManager {
     private handleWalkTouchEnd = () => {
         this.mouseDragging = false;
         this.isPinching = false;
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.isDirty = true;
     }
 
     private updateWalkPosition() {
