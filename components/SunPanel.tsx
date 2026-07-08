@@ -49,10 +49,10 @@ const SunPanel: React.FC<SunPanelProps> = ({
 
     const applyPreset = (preset: 'sunrise' | 'noon' | 'sunset' | 'night') => {
         switch (preset) {
-            case 'sunrise': setTimeOfDay(7.0);  setAzimuth(90);  setAltitude(15); break;
-            case 'noon':    setTimeOfDay(12.0); setAzimuth(180); setAltitude(75); break;
-            case 'sunset':  setTimeOfDay(17.5); setAzimuth(270); setAltitude(12); break;
-            case 'night':   setTimeOfDay(21.0); setAzimuth(315); setAltitude(40); break;
+            case 'sunrise': setTimeOfDay(7.0); setAzimuth(90); setAltitude(15); break;
+            case 'noon': setTimeOfDay(12.0); setAzimuth(180); setAltitude(75); break;
+            case 'sunset': setTimeOfDay(17.5); setAzimuth(270); setAltitude(12); break;
+            case 'night': setTimeOfDay(21.0); setAzimuth(315); setAltitude(40); break;
         }
     };
 
@@ -95,9 +95,9 @@ const SunPanel: React.FC<SunPanelProps> = ({
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
                         {[
                             { id: 'sunrise', label: '日出', time: '07:00' },
-                            { id: 'noon',    label: '正午', time: '12:00' },
-                            { id: 'sunset',  label: '日落', time: '17:30' },
-                            { id: 'night',   label: '月夜', time: '21:00' },
+                            { id: 'noon', label: '正午', time: '12:00' },
+                            { id: 'sunset', label: '日落', time: '17:30' },
+                            { id: 'night', label: '月夜', time: '21:00' },
                         ].map(({ id, label, time }) => (
                             <button
                                 key={id}
@@ -107,7 +107,7 @@ const SunPanel: React.FC<SunPanelProps> = ({
                                 style={{ minHeight: 46, padding: '6px 4px', gap: 2 }}
                             >
                                 <span style={{ fontSize: 12, fontWeight: 600 }}>{label}</span>
-                                <span style={{ fontSize: 10, color: 'var(--text-muted)',  }}>{time}</span>
+                                <span style={{ fontSize: 10, color: 'var(--text-muted)', }}>{time}</span>
                             </button>
                         ))}
                     </div>
@@ -122,7 +122,7 @@ const SunPanel: React.FC<SunPanelProps> = ({
                             alignItems: 'center',
                             gap: 4,
                             fontSize: 12,
-                            
+
                             fontWeight: 700,
                             color: 'var(--brand)',
                             background: 'var(--brand-soft)',
@@ -143,7 +143,7 @@ const SunPanel: React.FC<SunPanelProps> = ({
                         onChange={(e) => setTimeOfDay(parseFloat(e.target.value))}
                         style={rangeStyle}
                     />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)',  marginTop: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
                         <span>00:00</span>
                         <span>06:00</span>
                         <span>12:00</span>
@@ -160,7 +160,7 @@ const SunPanel: React.FC<SunPanelProps> = ({
                     <div className="control-card" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>方位角</span>
-                            <span style={{ fontSize: 12,  fontWeight: 700, color: 'var(--brand)' }}>{Math.round(azimuth)}°</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--brand)' }}>{Math.round(azimuth)}°</span>
                         </div>
                         <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>0° 北 · 90° 东 · 180° 南 · 270° 西</p>
                         <input
@@ -175,7 +175,7 @@ const SunPanel: React.FC<SunPanelProps> = ({
                     <div className="control-card" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>仰角</span>
-                            <span style={{ fontSize: 12,  fontWeight: 700, color: 'var(--brand)' }}>{Math.round(altitude)}°</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--brand)' }}>{Math.round(altitude)}°</span>
                         </div>
                         <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>0° 地平 · 90° 头顶</p>
                         <input
@@ -198,8 +198,8 @@ const SunPanel: React.FC<SunPanelProps> = ({
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                         {[
                             { key: 'high', label: '高质量' },
-                            { key: 'low',  label: '低质量' },
-                            { key: 'off',  label: '无阴影' },
+                            { key: 'low', label: '低质量' },
+                            { key: 'off', label: '无阴影' },
                         ].map(({ key, label }) => (
                             <button
                                 key={key}
@@ -216,12 +216,12 @@ const SunPanel: React.FC<SunPanelProps> = ({
                 {/* 5. Light Intensity */}
                 <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <SectionLabel label="亮度调节" />
-                    
+
                     {/* Ambient Intensity */}
                     <div className="control-card" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>环境光亮度</span>
-                            <span style={{ fontSize: 12,  fontWeight: 700, color: 'var(--brand)' }}>{ambientIntensity.toFixed(1)}</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--brand)' }}>{ambientIntensity.toFixed(1)}</span>
                         </div>
                         <input
                             type="range" min="0" max="2" step="0.1"
@@ -235,7 +235,7 @@ const SunPanel: React.FC<SunPanelProps> = ({
                     <div className="control-card" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>太阳光强度</span>
-                            <span style={{ fontSize: 12,  fontWeight: 700, color: 'var(--brand)' }}>{sunIntensity.toFixed(1)}</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--brand)' }}>{sunIntensity.toFixed(1)}</span>
                         </div>
                         <input
                             type="range" min="0" max="3" step="0.1"
