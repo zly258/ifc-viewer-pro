@@ -26,10 +26,14 @@ export class SectionManager {
         zMax?: THREE.Group;
     } = {};
     
-    constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
+    private onPlanesChanged?: (planes: THREE.Plane[]) => void;
+
+    constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, onPlanesChanged?: (planes: THREE.Plane[]) => void) {
         this.renderer = renderer;
         this.scene = scene;
+        this.onPlanesChanged = onPlanesChanged;
         this.renderer.localClippingEnabled = true;
+        this.renderer.clippingPlanes = []; // Disable global clipping planes
 
         this.planes = {
             xMin: new THREE.Plane(new THREE.Vector3(1, 0, 0), 0),
@@ -39,6 +43,14 @@ export class SectionManager {
             zMin: new THREE.Plane(new THREE.Vector3(0, 0, 1), 0),
             zMax: new THREE.Plane(new THREE.Vector3(0, 0, -1), 0)
         };
+    }
+
+    public getClippingPlanes(): THREE.Plane[] {
+        const activePlanes: THREE.Plane[] = [];
+        if (this.activeAxis.has('X')) { activePlanes.push(this.planes.xMin, this.planes.xMax); }
+        if (this.activeAxis.has('Y')) { activePlanes.push(this.planes.yMin, this.planes.yMax); }
+        if (this.activeAxis.has('Z')) { activePlanes.push(this.planes.zMin, this.planes.zMax); }
+        return activePlanes;
     }
 
     public togglePlane(axis: 'X' | 'Y' | 'Z', active: boolean, minVal: number, maxVal: number) {
@@ -56,6 +68,8 @@ export class SectionManager {
         if (this.activeAxis.has(axis)) {
             this.updatePlaneConstant(axis, minVal, maxVal);
             this.updateHelpers();
+            // Call onPlanesChanged to update clipping on materials in real-time as offsets change
+            this.updateClippingPlanes();
         }
     }
 
@@ -75,12 +89,10 @@ export class SectionManager {
     }
 
     private updateClippingPlanes() {
-        const activePlanes: THREE.Plane[] = [];
-        if (this.activeAxis.has('X')) { activePlanes.push(this.planes.xMin, this.planes.xMax); }
-        if (this.activeAxis.has('Y')) { activePlanes.push(this.planes.yMin, this.planes.yMax); }
-        if (this.activeAxis.has('Z')) { activePlanes.push(this.planes.zMin, this.planes.zMax); }
-        
-        this.renderer.clippingPlanes = activePlanes;
+        const activePlanes = this.getClippingPlanes();
+        if (this.onPlanesChanged) {
+            this.onPlanesChanged(activePlanes);
+        }
     }
 
     private getModelBounds(): THREE.Box3 {

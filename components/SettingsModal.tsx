@@ -96,25 +96,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                         </div>
                     </SettingSection>
 
-                    <SettingSection
-                        label="GLB / GLTF 模型朝向"
-                        help="glTF 规范使用 Y 轴向上，如遇模型倒置可切换至 Z 轴。"
-                    >
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                            {[
-                                { val: 'Y', label: 'Y 轴向上（标准）' },
-                                { val: 'Z', label: 'Z 轴向上' },
-                            ].map(({ val, label }) => (
-                                <button
-                                    key={val}
-                                    onClick={() => update('glbUpAxis', val)}
-                                    className={`option-button ${localSettings.glbUpAxis === val ? 'option-button-active' : ''}`}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-                    </SettingSection>
+
 
 
                 </div>

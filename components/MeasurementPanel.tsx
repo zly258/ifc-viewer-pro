@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { MeasurementResult } from '../types';
-import { Trash2, Ruler, DraftingCompass, MapPin, Square, Download } from 'lucide-react';
+import { Trash2, Ruler, DraftingCompass, MapPin, Download } from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
 
 interface MeasurementPanelProps {
@@ -135,7 +135,6 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
             case 'DISTANCE': return <Ruler size={14} />;
             case 'ANGLE': return <DraftingCompass size={14} />;
             case 'COORDINATE': return <MapPin size={14} />;
-            case 'AREA': return <Square size={14} />;
             default: return <Ruler size={14} />;
         }
     };
@@ -145,7 +144,6 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
             case 'DISTANCE': return '距离测距';
             case 'ANGLE': return '角度测量';
             case 'COORDINATE': return '坐标拾取';
-            case 'AREA': return '面积测量';
             default: return type;
         }
     };

@@ -19,6 +19,27 @@ function getTypeName(typeID: number): string {
     return 'Object';
 }
 
+function parsePropertyName(name: any): string {
+    if (!name) return 'Unnamed';
+    if (typeof name !== 'object') return String(name);
+    return name.value !== undefined ? String(name.value) : String(name);
+}
+
+function parsePropertyValue(nominalValue: any): string {
+    if (nominalValue === null || nominalValue === undefined) return '';
+    if (typeof nominalValue !== 'object') return String(nominalValue);
+    
+    let val = nominalValue;
+    while (val && typeof val === 'object' && val.value !== undefined) {
+        val = val.value;
+    }
+    
+    if (val && typeof val === 'object') {
+        return JSON.stringify(val);
+    }
+    return val === null || val === undefined ? '' : String(val);
+}
+
 const modelsMetadata = new Map<number, {
     parentMap: Map<string, string>;
     propertyMaps: Map<number, number[]>;
@@ -210,13 +231,9 @@ self.onmessage = async (e: MessageEvent) => {
                 
                 Object.keys(props).forEach(k => {
                     if (!['expressID', 'type', 'GlobalId', 'Name', 'is_a'].includes(k) && props[k]) {
-                        let val = props[k].value;
-                        if (val === undefined || val === null) {
-                            if (typeof props[k] !== 'object') val = props[k];
-                        }
+                        let val = props[k];
                         if (val !== undefined && val !== null) {
-                            if (typeof val === 'object' && val.value !== undefined) val = val.value;
-                            properties.push({ name: k, value: String(val), setName: '基本属性' });
+                            properties.push({ name: k, value: parsePropertyValue(val), setName: '基本属性' });
                         }
                     }
                 });
@@ -272,26 +289,40 @@ self.onmessage = async (e: MessageEvent) => {
                 for (const pid of psetIDs) {
                     try {
                         const pset = ifcApi.GetLine(modelID, pid);
-                        const setName = pset.Name?.value || 'Pset';
+                        const setName = parsePropertyName(pset.Name) || 'Pset';
                         
-                        if (pset.HasProperties) {
+                        if (pset.HasProperties && Array.isArray(pset.HasProperties)) {
                             for (const pr of pset.HasProperties) {
                                 try {
                                     const p = ifcApi.GetLine(modelID, pr.value);
-                                    if (p.Name && p.NominalValue) {
-                                        properties.push({ name: p.Name.value, value: String(p.NominalValue.value), setName });
+                                    const pName = parsePropertyName(p.Name);
+                                    
+                                    if (p.NominalValue !== undefined && p.NominalValue !== null) {
+                                        const pVal = parsePropertyValue(p.NominalValue);
+                                        properties.push({ name: pName, value: pVal, setName });
+                                    } else if (p.EnumerationValues && Array.isArray(p.EnumerationValues)) {
+                                        const vals = p.EnumerationValues.map((v: any) => parsePropertyValue(v)).filter(Boolean).join(', ');
+                                        properties.push({ name: pName, value: vals, setName });
+                                    } else if (p.LowerLimitValue !== undefined || p.UpperLimitValue !== undefined) {
+                                        const lower = p.LowerLimitValue ? parsePropertyValue(p.LowerLimitValue) : '无下限';
+                                        const upper = p.UpperLimitValue ? parsePropertyValue(p.UpperLimitValue) : '无上限';
+                                        properties.push({ name: pName, value: `${lower} ~ ${upper}`, setName });
+                                    } else if (p.ListValues && Array.isArray(p.ListValues)) {
+                                        const vals = p.ListValues.map((v: any) => parsePropertyValue(v)).filter(Boolean).join(', ');
+                                        properties.push({ name: pName, value: vals, setName });
                                     }
                                 } catch (e) {}
                             }
                         }
                         
-                        if (pset.Quantities) {
+                        if (pset.Quantities && Array.isArray(pset.Quantities)) {
                             for (const q of pset.Quantities) {
                                 try {
                                     const p = ifcApi.GetLine(modelID, q.value);
-                                    const val = p.LengthValue ?? p.AreaValue ?? p.VolumeValue ?? p.CountValue ?? p.WeightValue ?? p.TimeValue;
-                                    if (p.Name && val !== undefined && val !== null) {
-                                        properties.push({ name: p.Name.value, value: String(val.value !== undefined ? val.value : val), setName });
+                                    const pName = parsePropertyName(p.Name);
+                                    const val = p.LengthValue ?? p.AreaValue ?? p.VolumeValue ?? p.CountValue ?? p.WeightValue ?? p.TimeValue ?? p.QuantityValue;
+                                    if (val !== undefined && val !== null) {
+                                        properties.push({ name: pName, value: parsePropertyValue(val), setName });
                                     }
                                 } catch (e) {}
                             }
@@ -460,7 +491,25 @@ async function buildPropertyMap(modelID: number, meta: { parentMap: Map<string, 
             }
         }
         
-        // Inherit type properties
+        // Inherit direct property sets on type objects (IfcTypeObject has HasPropertySets)
+        const processedTypes = new Set<number>(typeMap.values());
+        for (const typeID of processedTypes) {
+            try {
+                const typeObj = ifcApi.GetLine(modelID, typeID);
+                if (typeObj && typeObj.HasPropertySets && Array.isArray(typeObj.HasPropertySets)) {
+                    if (!map.has(typeID)) map.set(typeID, []);
+                    const typePsets = map.get(typeID)!;
+                    typeObj.HasPropertySets.forEach((psetRef: any) => {
+                        const psetID = psetRef.value;
+                        if (psetID && !typePsets.includes(psetID)) {
+                            typePsets.push(psetID);
+                        }
+                    });
+                }
+            } catch (e) {}
+        }
+        
+        // Inherit type properties to instance elements
         for (const [objID, typeID] of Array.from(typeMap.entries())) {
             const typePsets = map.get(typeID);
             if (typePsets) {

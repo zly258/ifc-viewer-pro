@@ -82,7 +82,7 @@ export class IFCManager {
 
     private raycaster = new THREE.Raycaster();
     private mouse = new THREE.Vector2();
-    private activeTool: ViewerTool = ViewerTool.SELECT;
+    private activeTool: ViewerTool = ViewerTool.NONE;
     private wasDraggingControls = false;
     private cachedRaycastMeshes: THREE.Mesh[] = [];
 
@@ -333,7 +333,9 @@ export class IFCManager {
             this.camera.zoom = 1;
             this.camera.updateProjectionMatrix();
             
-            this.sectionManager = new SectionManager(this.renderer, this.scene);
+            this.sectionManager = new SectionManager(this.renderer, this.scene, (planes) => {
+                this.updateClippingPlanesForMaterials(planes);
+            });
             this.measurementManager = new MeasurementManager(this.scene, this.camera, container);
             this.postProcessing = new PostProcessingManager(this.renderer, this.scene, this.camera);
 
@@ -815,6 +817,10 @@ export class IFCManager {
                 metalness: 0.2
             });
 
+            if (this.sectionManager) {
+                mat.clippingPlanes = this.sectionManager.getClippingPlanes();
+            }
+
             // Modify shader to color backfaces (interior) as a solid grey cap
             mat.onBeforeCompile = (shader) => {
                 shader.fragmentShader = shader.fragmentShader.replace(
@@ -831,6 +837,26 @@ export class IFCManager {
             this.materialCache[key] = mat;
         }
         return this.materialCache[key];
+    }
+
+    private updateClippingPlanesForMaterials(planes: THREE.Plane[]) {
+        Object.values(this.materialCache).forEach(mat => {
+            mat.clippingPlanes = planes;
+            mat.needsUpdate = true;
+        });
+        if (this.highlightMaterial) {
+            this.highlightMaterial.clippingPlanes = planes;
+            this.highlightMaterial.needsUpdate = true;
+        }
+        if (this.hoverMaterial) {
+            this.hoverMaterial.clippingPlanes = planes;
+            this.hoverMaterial.needsUpdate = true;
+        }
+        if (this.isolationDimMaterial) {
+            this.isolationDimMaterial.clippingPlanes = planes;
+            this.isolationDimMaterial.needsUpdate = true;
+        }
+        this.renderScene();
     }
 
     fitModelToFrame() {
@@ -1008,8 +1034,8 @@ export class IFCManager {
             return;
         }
 
-        // Hover highlight for SELECT tool
-        if (this.activeTool === ViewerTool.SELECT || this.activeTool === ViewerTool.NONE) {
+        // Hover highlight for non-walk tools
+        if (this.activeTool !== ViewerTool.WALK) {
             this.container!.style.cursor = 'default';
             const hit = this.castRay(event);
             if (hit && hit.expressID !== -1) {
@@ -1121,7 +1147,7 @@ export class IFCManager {
              return;
         }
 
-        if (this.activeTool === ViewerTool.SELECT || this.activeTool === ViewerTool.NONE) {
+        if (this.activeTool !== ViewerTool.WALK) {
             if (this.hasClickMoved()) return;
             event.preventDefault();
             event.stopPropagation();
@@ -1133,7 +1159,7 @@ export class IFCManager {
     private handleDoubleClick = async (event: MouseEvent) => {
         if (!this.container) return;
 
-        if (this.activeTool === ViewerTool.MEASURE || this.activeTool === ViewerTool.SECTION || this.activeTool === ViewerTool.WALK) {
+        if (this.activeTool === ViewerTool.WALK) {
             return;
         }
 

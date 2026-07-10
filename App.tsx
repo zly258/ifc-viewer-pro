@@ -112,9 +112,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const ifcUp = settings.ifcUpAxis || 'Z';
-    const glbUp = settings.glbUpAxis || 'Y';
-    ifcManager.setOrientations(ifcUp, glbUp);
-  }, [settings.ifcUpAxis, settings.glbUpAxis]);
+    ifcManager.setOrientations(ifcUp, 'Y');
+  }, [settings.ifcUpAxis]);
 
   useEffect(() => {
     const shadowQ = settings.shadowQuality || 'off';
@@ -297,7 +296,7 @@ const App: React.FC = () => {
           icon={Ruler}
           isOpen={showMeasurePanel}
           onClose={() => setShowMeasurePanel(false)}
-          initialPosition={{ x: 20, y: 400 }}
+          initialPosition={{ x: 20, y: 540 }}
           initialSize={{ w: 300, h: 300 }}
         >
           <MeasurementPanel measurements={measurements} onClear={() => setMeasurements([])} />
@@ -310,7 +309,7 @@ const App: React.FC = () => {
           icon={Bookmark}
           isOpen={showBcfPanel}
           onClose={() => setShowBcfPanel(false)}
-          initialPosition={{ x: Math.max(20, window.innerWidth - 340), y: 120 }}
+          initialPosition={{ x: Math.max(20, window.innerWidth - 340), y: 540 }}
           initialSize={{ w: 320, h: 480 }}
         >
           <BcfPanel selectedElement={selectedElement} />
@@ -407,12 +406,12 @@ const App: React.FC = () => {
               </div>
               <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>打开 BIM 模型</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.7 }}>
-                支持 IFC · GLB · GLTF 格式<br />
+                支持 IFC 格式<br />
                 点击底部工具栏「加载」导入，或直接<strong style={{ color: 'var(--brand)' }}>拖放文件</strong>到此处
               </div>
               {/* Format badges */}
               <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                {['IFC', 'GLB', 'GLTF'].map(fmt => (
+                {['IFC'].map(fmt => (
                   <span key={fmt} style={{
                     padding: '2px 8px', borderRadius: 99,
                     fontSize: 10, fontWeight: 700,
@@ -433,7 +432,7 @@ const App: React.FC = () => {
                 <Upload size={28} />
               </div>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>释放以加载模型</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>支持 IFC · GLB · GLTF</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>支持 IFC 格式</div>
             </div>
           </div>
         )}

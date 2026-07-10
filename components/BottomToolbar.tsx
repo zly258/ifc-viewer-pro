@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import {
   FolderTree, FileText, Maximize, Settings, MousePointer2,
   Ruler, Scissors, Trash2, Plus, DraftingCompass, MapPin,
-  List, Navigation, Bookmark, LayoutGrid, Square, RefreshCcw,
+  List, Navigation, Bookmark, LayoutGrid,
 } from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
 import { CameraView, ViewerTool, MeasurementMode } from '../types';
@@ -47,7 +47,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
-  const [activeTool, setActiveTool] = useState<ViewerTool>(ViewerTool.SELECT);
+  const [activeTool, setActiveTool] = useState<ViewerTool>(ViewerTool.NONE);
 
   const [activePlanes, setActivePlanes] = useState({ X: false, Y: false, Z: false });
   const [planeRangeOffsets, setPlaneRangeOffsets] = useState({
@@ -90,7 +90,6 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
   }, [activeTool]);
 
   const handleToolChange = (tool: ViewerTool) => {
-    if (tool === ViewerTool.SELECT && activeTool === ViewerTool.SELECT) return;
     if (activeTool === tool) {
       setActiveTool(ViewerTool.NONE);
       ifcManager.setTool(ViewerTool.NONE);
@@ -179,7 +178,6 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
         <div className="sub-toolbar flex items-center gap-1">
           <SubBtn icon={Ruler} onClick={() => handleMeasureMode('DISTANCE')} active={measureMode === 'DISTANCE'} title="距离测量" />
           <SubBtn icon={DraftingCompass} onClick={() => handleMeasureMode('ANGLE')} active={measureMode === 'ANGLE'} title="角度测量" />
-          <SubBtn icon={Square} onClick={() => handleMeasureMode('AREA')} active={measureMode === 'AREA'} title="面积测量" />
           <SubBtn icon={MapPin} onClick={() => handleMeasureMode('COORDINATE')} active={measureMode === 'COORDINATE'} title="坐标拾取" />
           <div className="toolbar-divider" />
           <SubBtn icon={List} onClick={() => window.dispatchEvent(new Event('open-measure-panel'))} title="测量结果列表" />
@@ -322,7 +320,6 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
         <div className="toolbar-divider" />
 
         {/* Tool Group */}
-        <ToolButton icon={MousePointer2} label="选择" active={activeTool === ViewerTool.SELECT} onClick={() => handleToolChange(ViewerTool.SELECT)} />
         <ToolButton icon={Navigation} label="漫游" active={activeTool === ViewerTool.WALK} onClick={() => handleToolChange(ViewerTool.WALK)} />
         <ToolButton icon={Ruler} label="测量" active={activeTool === ViewerTool.MEASURE} onClick={() => handleToolChange(ViewerTool.MEASURE)} />
         <ToolButton icon={Scissors} label="剖切" active={activeTool === ViewerTool.SECTION} onClick={() => handleToolChange(ViewerTool.SECTION)} />
@@ -332,7 +329,6 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
 
         {/* View Group */}
         <ToolButton icon={Maximize} label="充满" onClick={() => ifcManager.fitModelToFrame()} />
-        <ToolButton icon={RefreshCcw} label="复位" onClick={() => { ifcManager.setCameraView(CameraView.ISO_NE); ifcManager.fitModelToFrame(); }} />
 
         <div className="relative" ref={viewMenuRef}>
           {viewMenuOpen && (
