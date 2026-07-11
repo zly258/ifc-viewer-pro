@@ -1760,8 +1760,11 @@ export class IFCManager {
             return true;
         };
 
+        const meshBoxes: { box: THREE.Box3; center: THREE.Vector3 }[] = [];
+
         this.models.forEach(m => m.group.traverse(c => { 
             if (c instanceof THREE.Mesh && isVisible(c)) { 
+                const cBox = new THREE.Box3();
                 if (c instanceof THREE.InstancedMesh) {
                     if (!c.geometry.boundingBox) c.geometry.computeBoundingBox();
                     if (c.geometry.boundingBox) {
@@ -1772,17 +1775,54 @@ export class IFCManager {
                             const b = c.geometry.boundingBox.clone();
                             const combined = c.matrixWorld.clone().multiply(instanceMatrix);
                             b.applyMatrix4(combined);
-                            box.union(b);
+                            cBox.union(b);
                         }
                     }
                 } else {
                     if (!c.geometry.boundingBox) c.geometry.computeBoundingBox(); 
-                    const b = c.geometry.boundingBox!.clone(); 
-                    b.applyMatrix4(c.matrixWorld); 
-                    box.union(b); 
+                    if (c.geometry.boundingBox) {
+                        cBox.copy(c.geometry.boundingBox).applyMatrix4(c.matrixWorld);
+                    }
+                }
+
+                if (!cBox.isEmpty()) {
+                    meshBoxes.push({
+                        box: cBox,
+                        center: cBox.getCenter(new THREE.Vector3())
+                    });
                 }
             } 
         }));
+
+        if (meshBoxes.length === 0) {
+            return { min: new THREE.Vector3(), max: new THREE.Vector3(), center: new THREE.Vector3(), size: 0 };
+        }
+
+        // Calculate average center
+        const avgCenter = new THREE.Vector3();
+        meshBoxes.forEach(mb => avgCenter.add(mb.center));
+        avgCenter.divideScalar(meshBoxes.length);
+
+        // Calculate average distance from average center
+        let totalDist = 0;
+        meshBoxes.forEach(mb => {
+            totalDist += mb.center.distanceTo(avgCenter);
+        });
+        const avgDist = totalDist / meshBoxes.length;
+
+        // Adaptive outlier threshold (e.g., 8 times average distance, at least 1200 meters)
+        // If there are very few meshes (< 5), we do not filter to prevent filtering out valid parts of small models.
+        const enableFiltering = meshBoxes.length > 5;
+        const outlierThreshold = enableFiltering ? Math.max(1200, avgDist * 8) : Infinity;
+
+        meshBoxes.forEach(mb => {
+            const dist = mb.center.distanceTo(avgCenter);
+            if (dist <= outlierThreshold) {
+                box.union(mb.box);
+            } else {
+                console.warn(`[ifcManager] Filtered out stray outlier mesh at distance ${dist.toFixed(1)}m (threshold: ${outlierThreshold.toFixed(1)}m)`);
+            }
+        });
         if(box.isEmpty()) return { min: new THREE.Vector3(), max: new THREE.Vector3(), center: new THREE.Vector3(), size: 0};
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());

@@ -105,52 +105,56 @@ self.onmessage = async (e: MessageEvent) => {
             let lastProgressReport = 0;
             
             ifcApi.StreamAllMeshes(openedModelID, (flatMesh: WebIFC.FlatMesh) => {
-                const expressID = flatMesh.expressID;
-                meta.modelMeshExpressIDs.add(expressID);
-                
-                const size = flatMesh.geometries.size();
-                for (let i = 0; i < size; i++) {
-                    const placedGeom = flatMesh.geometries.get(i);
-                    const geomData = ifcApi.GetGeometry(openedModelID, placedGeom.geometryExpressID);
-                    if (!geomData) continue;
+                try {
+                    const expressID = flatMesh.expressID;
+                    meta.modelMeshExpressIDs.add(expressID);
                     
-                    const verts = ifcApi.GetVertexArray(geomData.GetVertexData(), geomData.GetVertexDataSize());
-                    const indices = ifcApi.GetIndexArray(geomData.GetIndexData(), geomData.GetIndexDataSize());
-                    
-                    if (verts.length === 0 || indices.length === 0) continue;
-                    
-                    const numVerts = verts.length / 6;
-                    const pos = new Float32Array(numVerts * 3);
-                    const norm = new Float32Array(numVerts * 3);
-                    
-                    let idx3 = 0;
-                    let idx6 = 0;
-                    for (let j = 0; j < numVerts; j++) {
-                        pos[idx3] = verts[idx6];
-                        pos[idx3+1] = verts[idx6+1];
-                        pos[idx3+2] = verts[idx6+2];
+                    const size = flatMesh.geometries.size();
+                    for (let i = 0; i < size; i++) {
+                        const placedGeom = flatMesh.geometries.get(i);
+                        const geomData = ifcApi.GetGeometry(openedModelID, placedGeom.geometryExpressID);
+                        if (!geomData) continue;
                         
-                        norm[idx3] = verts[idx6+3];
-                        norm[idx3+1] = verts[idx6+4];
-                        norm[idx3+2] = verts[idx6+5];
+                        const verts = ifcApi.GetVertexArray(geomData.GetVertexData(), geomData.GetVertexDataSize());
+                        const indices = ifcApi.GetIndexArray(geomData.GetIndexData(), geomData.GetIndexDataSize());
                         
-                        idx3 += 3;
-                        idx6 += 6;
+                        if (verts.length === 0 || indices.length === 0) continue;
+                        
+                        const numVerts = verts.length / 6;
+                        const pos = new Float32Array(numVerts * 3);
+                        const norm = new Float32Array(numVerts * 3);
+                        
+                        let idx3 = 0;
+                        let idx6 = 0;
+                        for (let j = 0; j < numVerts; j++) {
+                            pos[idx3] = verts[idx6];
+                            pos[idx3+1] = verts[idx6+1];
+                            pos[idx3+2] = verts[idx6+2];
+                            
+                            norm[idx3] = verts[idx6+3];
+                            norm[idx3+1] = verts[idx6+4];
+                            norm[idx3+2] = verts[idx6+5];
+                            
+                            idx3 += 3;
+                            idx6 += 6;
+                        }
+                        
+                        const geomMsg = {
+                            modelID: openedModelID,
+                            expressID,
+                            geometryExpressID: placedGeom.geometryExpressID,
+                            color: placedGeom.color ? { x: placedGeom.color.x, y: placedGeom.color.y, z: placedGeom.color.z, w: placedGeom.color.w } : null,
+                            flatTransformation: Array.from(placedGeom.flatTransformation),
+                            pos: pos.buffer,
+                            norm: norm.buffer,
+                            indices: indices.buffer
+                        };
+                        
+                        pendingFlush.push(geomMsg);
+                        pendingTransfers.push(pos.buffer as ArrayBuffer, norm.buffer as ArrayBuffer, indices.buffer as ArrayBuffer);
                     }
-                    
-                    const geomMsg = {
-                        modelID: openedModelID,
-                        expressID,
-                        geometryExpressID: placedGeom.geometryExpressID,
-                        color: placedGeom.color ? { x: placedGeom.color.x, y: placedGeom.color.y, z: placedGeom.color.z, w: placedGeom.color.w } : null,
-                        flatTransformation: Array.from(placedGeom.flatTransformation),
-                        pos: pos.buffer,
-                        norm: norm.buffer,
-                        indices: indices.buffer
-                    };
-                    
-                    pendingFlush.push(geomMsg);
-                    pendingTransfers.push(pos.buffer as ArrayBuffer, norm.buffer as ArrayBuffer, indices.buffer as ArrayBuffer);
+                } catch (e) {
+                    console.warn(`[Worker] Failed parsing geometry for expressID ${flatMesh?.expressID}:`, e);
                 }
                 
                 streamedMeshCount++;
