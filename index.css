@@ -927,3 +927,241 @@ select {
 .max-range-input {
   z-index: 20;
 }
+
+/* ============================================================
+   Report Panel Styles
+   ============================================================ */
+
+.report-panel-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 12px;
+}
+
+.report-config-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  background: var(--surface-2);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.report-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.report-column-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.report-column-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: var(--surface-1);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+}
+
+.report-column-index {
+  font-size: 12px;
+  color: var(--text-muted);
+  width: 20px;
+}
+
+.report-column-inputs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.report-column-input-name {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.report-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.report-footer {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.report-result-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.report-table-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.report-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.report-table-header-title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.report-table-scroll {
+  flex: 1;
+  overflow: auto;
+}
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.report-table thead {
+  position: sticky;
+  top: 0;
+  background: var(--surface-2);
+  z-index: 10;
+}
+
+.report-table th {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.report-table th.col-index {
+  width: 60px;
+}
+
+.report-table td {
+  padding: 8px 12px;
+}
+
+.report-table td.cell-index {
+  color: var(--text-muted);
+}
+
+.report-table tbody tr {
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.report-table tbody tr.row-even {
+  background: var(--surface-1);
+}
+
+.report-table tbody tr.row-odd {
+  background: transparent;
+}
+
+.report-table tbody tr.row-selected {
+  background: var(--brand-soft);
+}
+
+.report-table-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   Common Button Styles
+   ============================================================ */
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--brand);
+  color: #ffffff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--brand-hover, #1d4ed8);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary.btn-large {
+  padding: 8px 24px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  gap: 6px;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-primary);
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--border-hover, var(--border));
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
