@@ -499,6 +499,7 @@ self.onmessage = async (e: MessageEvent) => {
             }
 
             const groupRows = new Map<string, { count: number; metrics: Record<string, number[]>; expressIDs: number[] }>();
+            const resultRows: any[] = [];
 
             // 2. Iterate elements and resolve properties
             meta.modelMeshExpressIDs.forEach((expressID) => {
