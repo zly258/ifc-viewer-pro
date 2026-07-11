@@ -272,7 +272,7 @@ const App: React.FC = () => {
           icon={Ruler}
           isOpen={showMeasurePanel}
           onClose={() => setShowMeasurePanel(false)}
-          initialPosition={{ x: 20, y: 540 }}
+          initialPosition={{ x: 20, y: 120 }}
           initialSize={{ w: 300, h: 300 }}
         >
           <MeasurementPanel measurements={measurements} onClear={() => setMeasurements([])} />

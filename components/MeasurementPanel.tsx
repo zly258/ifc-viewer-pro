@@ -232,6 +232,10 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
                             (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
                             (e.currentTarget as HTMLElement).style.boxShadow = 'none';
                         }}
+                        onDoubleClick={() => {
+                            window.dispatchEvent(new CustomEvent('zoom-to-measurement', { detail: { id: m.id } }));
+                        }}
+                        title="双击定位到该测量记录"
                     >
                         {/* Icon */}
                         <div style={{

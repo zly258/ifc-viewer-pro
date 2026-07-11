@@ -419,6 +419,16 @@ export class IFCManager {
             this.renderer.domElement.addEventListener('dblclick', this.handleDoubleClick);
             this.renderer.domElement.addEventListener('contextmenu', this.handleContextMenu);
             
+            window.addEventListener('zoom-to-measurement', (e: Event) => {
+                const customEvent = e as CustomEvent;
+                if (this.measurementManager && customEvent.detail?.id) {
+                    const box = this.measurementManager.getMeasurementBox(customEvent.detail.id);
+                    if (box && !box.isEmpty()) {
+                        this.zoomToBox(box);
+                    }
+                }
+            });
+            
             // Mark dirty on any user interaction with controls
             this.controls.addEventListener('change', () => {
                 this.isDirty = true;

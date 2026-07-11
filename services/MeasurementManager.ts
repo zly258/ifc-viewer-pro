@@ -351,16 +351,44 @@ export class MeasurementManager {
                     let closest = point;
                     let minDist = Infinity;
 
+                    // 1. Vertex Snapping
                     if (distA < minDist) { minDist = distA; closest = worldA; }
                     if (distB < minDist) { minDist = distB; closest = worldB; }
                     if (distC < minDist) { minDist = distC; closest = worldC; }
 
-                    // Snap threshold: 0.35 meters
-                    if (minDist < 0.35) {
+                    // Snap threshold for Vertex: 0.3 meters
+                    if (minDist < 0.3) {
+                        return closest;
+                    }
+
+                    // 2. Edge Snapping
+                    const lineAB = new THREE.Line3(worldA, worldB);
+                    const lineBC = new THREE.Line3(worldB, worldC);
+                    const lineCA = new THREE.Line3(worldC, worldA);
+
+                    const closestAB = new THREE.Vector3();
+                    lineAB.closestPointToPoint(point, true, closestAB);
+                    const distAB = point.distanceTo(closestAB);
+
+                    const closestBC = new THREE.Vector3();
+                    lineBC.closestPointToPoint(point, true, closestBC);
+                    const distBC = point.distanceTo(closestBC);
+
+                    const closestCA = new THREE.Vector3();
+                    lineCA.closestPointToPoint(point, true, closestCA);
+                    const distCA = point.distanceTo(closestCA);
+
+                    minDist = Infinity;
+                    if (distAB < minDist) { minDist = distAB; closest = closestAB; }
+                    if (distBC < minDist) { minDist = distBC; closest = closestBC; }
+                    if (distCA < minDist) { minDist = distCA; closest = closestCA; }
+
+                    // Snap threshold for Edge: 0.3 meters
+                    if (minDist < 0.3) {
                         return closest;
                     }
                 } catch (e) {
-                    console.warn("[MeasurementManager] Vertex snapping failed:", e);
+                    console.warn("[MeasurementManager] Snapping failed:", e);
                 }
             }
         }
