@@ -352,6 +352,8 @@ export class IFCManager {
             this.renderer.domElement.addEventListener('click', this.handleClick);
             this.renderer.domElement.addEventListener('dblclick', this.handleDoubleClick);
             this.renderer.domElement.addEventListener('contextmenu', this.handleContextMenu);
+            this.renderer.domElement.addEventListener('mousedown', this.handleMouseDown);
+            this.renderer.domElement.addEventListener('wheel', this.handleWheel, { passive: true });
             
             // Mark dirty on any user interaction with controls
             this.controls.addEventListener('change', () => {
@@ -1167,6 +1169,47 @@ export class IFCManager {
         }));
     }
 
+    private handleMouseDown = (event: MouseEvent) => {
+        if (event.button === 0 && this.activeTool !== ViewerTool.WALK) {
+            this.updateTargetToMouse(event);
+        }
+    };
+
+    private handleWheel = (event: WheelEvent) => {
+        if (this.activeTool !== ViewerTool.WALK) {
+            this.updateTargetToMouse(event);
+        }
+    };
+
+    private updateTargetToMouse(event: MouseEvent | WheelEvent) {
+        if (!this.container || !this.renderer?.domElement) return;
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+
+        const mouseX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        const mouseY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        const tempRaycaster = new THREE.Raycaster();
+        tempRaycaster.setFromCamera(new THREE.Vector2(mouseX, mouseY), this.camera);
+        tempRaycaster.firstHitOnly = true;
+
+        const intersects = tempRaycaster.intersectObjects(
+            this.cachedRaycastMeshes.filter(c => !this.multiHighlightMeshes.includes(c)),
+            false
+        );
+
+        if (intersects.length > 0) {
+            const hitPoint = intersects[0].point;
+            const oldTarget = this.controls.target.clone();
+            const diff = hitPoint.clone().sub(oldTarget);
+
+            this.camera.position.add(diff);
+            this.controls.target.copy(hitPoint);
+            this.controls.update();
+            this.isDirty = true;
+        }
+    }
+
     // Click handler
     private handleClick = async (event: MouseEvent) => {
         if (!this.container) return;
@@ -1762,10 +1805,11 @@ export class IFCManager {
         }
         window.removeEventListener('keydown', this.handleKeyDown);
         if (this.renderer?.domElement) {
-
             this.renderer.domElement.removeEventListener('mousemove', this.handleMouseMove);
             this.renderer.domElement.removeEventListener('click', this.handleClick);
             this.renderer.domElement.removeEventListener('dblclick', this.handleDoubleClick);
+            this.renderer.domElement.removeEventListener('mousedown', this.handleMouseDown);
+            this.renderer.domElement.removeEventListener('wheel', this.handleWheel);
         }
         if (this.renderer?.domElement?.parentNode) {
             this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
