@@ -515,15 +515,6 @@ export class MeasurementManager {
         this.scene.add(line);
         objects.push(line);
 
-        // Markers
-        [p1, p2].forEach(p => {
-             const m = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), this.markerMaterial);
-             m.position.copy(p);
-             m.renderOrder = 999;
-             this.scene.add(m);
-             objects.push(m);
-        });
-
         // Label
         const dist = p1.distanceTo(p2);
         const center = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
@@ -543,15 +534,6 @@ export class MeasurementManager {
         lines.renderOrder = 999;
         this.scene.add(lines);
         objects.push(lines);
-
-         // Markers
-         [p1, center, p2].forEach(p => {
-            const m = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), this.markerMaterial);
-            m.position.copy(p);
-            m.renderOrder = 999;
-            this.scene.add(m);
-            objects.push(m);
-       });
 
         const v1 = new THREE.Vector3().subVectors(p1, center).normalize();
         const v2 = new THREE.Vector3().subVectors(p2, center).normalize();
@@ -575,14 +557,6 @@ export class MeasurementManager {
         line.renderOrder = 999;
         this.scene.add(line);
         objects.push(line);
-
-        points.forEach(p => {
-            const m = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), this.markerMaterial);
-            m.position.copy(p);
-            m.renderOrder = 999;
-            this.scene.add(m);
-            objects.push(m);
-       });
 
         let area = 0;
         const p0 = points[0];
@@ -635,14 +609,26 @@ export class MeasurementManager {
         const objects: THREE.Object3D[] = [];
         const labels: THREE.Sprite[] = [];
 
-        const m = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), this.markerMaterial);
+        // Dynamic leader line direction based on quadrant or standard (0.6, 1.0, 0.6)
+        const leaderOffset = new THREE.Vector3(0.6, 1.0, 0.6);
+        const labelPos = p.clone().add(leaderOffset);
+
+        // Leader Line
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([p, labelPos]);
+        const line = new THREE.Line(lineGeo, this.lineMaterial);
+        line.renderOrder = 999;
+        this.scene.add(line);
+        objects.push(line);
+
+        // A very tiny helper marker sphere (0.03m) at the exact clicked coordinate to indicate origin point
+        const m = new THREE.Mesh(new THREE.SphereGeometry(0.03, 16, 16), this.markerMaterial);
         m.position.copy(p);
         m.renderOrder = 999;
         this.scene.add(m);
         objects.push(m);
 
         const txt = `X: ${p.x.toFixed(3)}\nY: ${p.y.toFixed(3)}\nZ: ${p.z.toFixed(3)}`;
-        const label = this.createLabel(p, txt);
+        const label = this.createLabel(labelPos, txt);
         labels.push(label);
 
         this.addMeasurementRecord('COORDINATE', `(${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)})`, txt, objects, labels);
