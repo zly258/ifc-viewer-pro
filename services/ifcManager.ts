@@ -175,7 +175,22 @@ export class IFCManager {
         // Custom rotate cursor
         const rotateCursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>') 12 12, auto`;
         
-        this.container?.addEventListener('mousedown', (e) => {
+        this.container?.addEventListener('pointerdown', (e: PointerEvent) => {
+            // Dynamic check for Ctrl + Middle to Rotate
+            if (e.button === 1) { // Middle button
+                if (e.ctrlKey) {
+                    this.controls.mouseButtons.MIDDLE = THREE.MOUSE.ROTATE;
+                    // Mock modifier keys so OrbitControls does not force fallback to Pan
+                    try {
+                        Object.defineProperty(e, 'ctrlKey', { get: () => false });
+                        Object.defineProperty(e, 'shiftKey', { get: () => false });
+                        Object.defineProperty(e, 'metaKey', { get: () => false });
+                    } catch (err) {}
+                } else {
+                    this.controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN;
+                }
+            }
+
             const isRotateMiddle = e.button === 1 && this.controls.mouseButtons.MIDDLE === THREE.MOUSE.ROTATE;
             
             if (isRotateMiddle) {
@@ -191,7 +206,7 @@ export class IFCManager {
                     this.controls.update();
                 }
             }
-        });
+        }, { capture: true });
         window.addEventListener('mouseup', () => {
             this.container!.style.cursor = 'default';
         });
@@ -1136,7 +1151,7 @@ export class IFCManager {
             if (this.hasClickMoved()) return;
             event.preventDefault();
             event.stopPropagation();
-            await this.selectFromPointer(event, event.shiftKey);
+            await this.selectFromPointer(event, event.ctrlKey);
         }
     }
 

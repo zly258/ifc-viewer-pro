@@ -59,8 +59,7 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
                         </h3>
                         <div style={{ background: 'var(--surface-2)', padding: 16, borderRadius: 'var(--radius-sm)' }}>
                             <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, lineHeight: 2, color: 'var(--text-secondary)' }}>
-                                <li><b>左键点击：</b> 选中构件并高亮显示，查看属性。</li>
-                                <li><b>左键拖拽：</b> 旋转视图 (Orbit)。</li>
+                                <li><b>左键点击：</b> 选中构件并高亮显示（按住 Ctrl 可多选）。</li>
                                 <li><b>中键拖拽：</b> 平移视图 (Pan)。</li>
                                 <li><b>Ctrl + 中键拖拽：</b> 旋转视图 (Orbit)。</li>
                                 <li><b>滚轮：</b> 缩放视图 (Zoom)。</li>
