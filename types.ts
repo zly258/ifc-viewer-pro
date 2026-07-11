@@ -81,46 +81,17 @@ export interface MeasurementResult {
     timestamp: number;
 }
 
-// --- Advanced Reporting ---
-
-export type AggregationType = 'sum' | 'count' | 'avg' | 'min' | 'max' | 'none';
-
-export interface ReportFilter {
-    id: string;
-    field: string;       // Matching property, e.g. "type", "space" or custom property
-    operator: 'equals' | 'contains' | 'startsWith' | 'exists' | 'greaterThan' | 'lessThan';
-    value: string;
-}
-
 export interface ReportColumn {
     id: string;
     name: string;      // Display Name (e.g. "Total Volume")
     fieldMatch: string; // Property name keyword (e.g. "NetVolume", "Area")
-    aggregation: AggregationType;
-    precision: number;
-    unit?: string;      // Unit display, e.g. "m³", "㎡"
-}
-
-export interface ReportTemplate {
-    id: string;
-    title: string;
-    description?: string;
-    config: ReportConfig;
-    version: number;
 }
 
 export interface ReportConfig {
-    mode: 'detail' | 'summary'; // 'detail': Flat list mode, 'summary': Grouping summary mode
-    groupByFields: string[];    // Nested grouping fields list, e.g. ['space', 'type']
     columns: ReportColumn[];
-    filters: ReportFilter[];
 }
 
 export interface ReportRow {
-    groupValue: string;
-    count: number;
-    expressIDs?: number[];
+    expressID: number;
     [key: string]: any;
 }
-
-

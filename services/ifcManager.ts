@@ -165,12 +165,36 @@ export class IFCManager {
         this.controls.enableDamping = false;
         this.controls.screenSpacePanning = true; 
         
-        // Map mouse buttons: Left = Rotate, Middle = Dolly/Pan, Right = Pan
+        // Map mouse buttons for CAD-like experience
         this.controls.mouseButtons = {
-            LEFT: THREE.MOUSE.ROTATE,
-            MIDDLE: THREE.MOUSE.DOLLY,
-            RIGHT: THREE.MOUSE.PAN
+            LEFT: THREE.MOUSE.ROTATE, // Left click to select, drag to rotate
+            MIDDLE: THREE.MOUSE.PAN,
+            RIGHT: null as any // Disable right drag to allow context menus
         }; 
+
+        // Emulate Ctrl+Middle for Rotate
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Control') {
+                this.controls.mouseButtons.MIDDLE = THREE.MOUSE.ROTATE;
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'Control') {
+                this.controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN;
+            }
+        });
+
+        // Custom rotate cursor
+        const rotateCursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>') 12 12, auto`;
+        
+        this.container?.addEventListener('mousedown', (e) => {
+            if (e.button === 0 || (e.button === 1 && e.ctrlKey)) {
+                this.container!.style.cursor = rotateCursor;
+            }
+        });
+        window.addEventListener('mouseup', () => {
+            this.container!.style.cursor = 'default';
+        });
         
         this.controls.addEventListener('start', () => {
              this.wasDraggingControls = false;
@@ -209,9 +233,6 @@ export class IFCManager {
             
             // Reset rotation first
             model.group.rotation.set(0, 0, 0);
-            if (targetAxis === 'Z') {
-                model.group.rotateX(-Math.PI / 2);
-            }
             model.group.updateMatrixWorld(true);
         });
 
@@ -591,7 +612,7 @@ export class IFCManager {
                         rootGroup = new THREE.Group();
                         rootGroup.name = this.currentLoadingFileName || "Model";
                         rootGroup.userData.modelID = modelID;
-                        if (this.ifcUpAxis === 'Z') rootGroup.rotateX(-Math.PI / 2);
+
                         rootGroup.updateMatrixWorld(true);
                         this.partialGroups.set(modelID, rootGroup);
                         this.scene.add(rootGroup);
@@ -639,7 +660,7 @@ export class IFCManager {
                     rootGroup = new THREE.Group();
                     rootGroup.name = this.currentLoadingFileName || "Model";
                     rootGroup.userData.modelID = modelID;
-                    if (this.ifcUpAxis === 'Z') rootGroup.rotateX(-Math.PI / 2);
+
                     rootGroup.updateMatrixWorld(true);
                     this.scene.add(rootGroup);
                 } else {
@@ -758,7 +779,7 @@ export class IFCManager {
                 const rootGroup = new THREE.Group();
                 rootGroup.name = file.name;
                 rootGroup.userData.modelID = modelID;
-                if (this.ifcUpAxis === 'Z') rootGroup.rotateX(-Math.PI / 2);
+
                 
                 meshes.forEach(mesh => {
                     mesh.userData.modelID = modelID;
@@ -1050,6 +1071,8 @@ export class IFCManager {
         }
 
         if (this.activeTool !== ViewerTool.WALK) {
+            if (this.wasDraggingControls) return; // Prevent overwriting rotate cursor
+
             const hit = this.castRay(event);
             if (hit && hit.expressID !== -1) {
                 this.container!.style.cursor = 'pointer';

@@ -13,6 +13,7 @@ import { Network, FileText, Ruler, Bookmark, Upload, Moon, Camera, TableProperti
 import { ifcManager } from './services/ifcManager';
 import BcfPanel from './components/BcfPanel';
 import ReportPanel from './components/ReportPanel';
+import AboutModal from './components/AboutModal';
 
 const App: React.FC = () => {
   const [selectedElement, setSelectedElement] = useState<IFCElementData | null>(null);
@@ -24,6 +25,12 @@ const App: React.FC = () => {
   const [showMeasurePanel, setShowMeasurePanel] = useState(false);
   const [showBcfPanel, setShowBcfPanel] = useState(false);
   const [showReportPanel, setShowReportPanel] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
+
+  // Expose showAboutModal globally for TopStatusBar
+  useEffect(() => {
+    (window as any).showAboutModal = () => setShowAbout(true);
+  }, []);
 
   // Modal States
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -285,12 +292,12 @@ const App: React.FC = () => {
         </DraggablePanel>
 
         <DraggablePanel
-          title="工程量清单与报表设计器"
+          title="工程量报表"
           icon={TableProperties}
           isOpen={showReportPanel}
           onClose={() => setShowReportPanel(false)}
-          initialPosition={{ x: Math.max(20, window.innerWidth - 380), y: 150 }}
-          initialSize={{ w: 360, h: 520 }}
+          initialPosition={{ x: Math.max(20, window.innerWidth - 520), y: 150 }}
+          initialSize={{ w: 500, h: 520 }}
         >
           <ReportPanel />
         </DraggablePanel>
@@ -476,6 +483,8 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+      {/* About Modal */}
+      <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />
 
     </div>
   );

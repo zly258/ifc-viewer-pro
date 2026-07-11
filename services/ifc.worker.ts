@@ -633,161 +633,30 @@ self.onmessage = async (e: MessageEvent) => {
                     }
                 }
 
-                // 3. Filter check
-                if (config.filters && config.filters.length > 0) {
-                    for (const filter of config.filters) {
-                        const valRaw = elementProps[filter.field] ?? elementProps[filter.field.toLowerCase()];
-                        const valStr = valRaw !== undefined && valRaw !== null ? String(valRaw) : '';
+                // 3. Resolve Fields for Flat Row
+                const row: any = {
+                    expressID: expressID
+                };
 
-                        if (filter.operator === 'exists') {
-                            if (valRaw === undefined || valRaw === null) return;
-                        } else if (filter.operator === 'equals') {
-                            const candidates = filter.value.split(',').map(c => c.trim().toLowerCase());
-                            if (!candidates.includes(valStr.toLowerCase())) return;
-                        } else if (filter.operator === 'contains') {
-                            const candidates = filter.value.split(',').map(c => c.trim().toLowerCase());
-                            const valLower = valStr.toLowerCase();
-                            if (!candidates.some(c => valLower.includes(c))) return;
-                        } else if (filter.operator === 'startsWith') {
-                            const candidates = filter.value.split(',').map(c => c.trim().toLowerCase());
-                            const valLower = valStr.toLowerCase();
-                            if (!candidates.some(c => valLower.startsWith(c))) return;
-                        } else if (filter.operator === 'greaterThan') {
-                            const valNum = parseFloat(valStr);
-                            const filterNum = parseFloat(filter.value);
-                            if (isNaN(valNum) || valNum <= filterNum) return;
-                        } else if (filter.operator === 'lessThan') {
-                            const valNum = parseFloat(valStr);
-                            const filterNum = parseFloat(filter.value);
-                            if (isNaN(valNum) || valNum >= filterNum) return;
+                let hasAnyData = false;
+                for (const col of config.columns) {
+                    const candidates = col.fieldMatch.split(',').map(c => c.trim().toLowerCase());
+                    let finalVal: any = '-';
+                    for (const cand of candidates) {
+                        const rawVal = elementProps[cand];
+                        if (rawVal !== undefined && rawVal !== null) {
+                            finalVal = rawVal;
+                            hasAnyData = true;
+                            break;
                         }
                     }
+                    row[col.id] = finalVal;
                 }
-
-                // 4. Resolve Grouping Key & Aggregation
-                if (config.mode === 'detail') {
-                    const row: any = {
-                        groupValue: `#${expressID} ${elemName || elemType}`,
-                        count: 1,
-                        expressIDs: [expressID]
-                    };
-
-                    for (const col of config.columns) {
-                        if (col.aggregation === 'count') {
-                            row[col.id] = 1;
-                        } else {
-                            const candidates = col.fieldMatch.split(',').map(c => c.trim().toLowerCase());
-                            let finalVal: any = '-';
-                            for (const cand of candidates) {
-                                const rawVal = elementProps[cand];
-                                if (rawVal !== undefined && rawVal !== null) {
-                                    const parsed = parseFloat(String(rawVal).replace(/[^\d.-]/g, ''));
-                                    if (!isNaN(parsed)) {
-                                        finalVal = parseFloat(parsed.toFixed(col.precision));
-                                    } else {
-                                        finalVal = rawVal;
-                                    }
-                                    break;
-                                }
-                            }
-                            row[col.id] = finalVal;
-                        }
-                    }
+                
+                if (hasAnyData || config.columns.length === 0) {
                     resultRows.push(row);
-                } else {
-                    // Summary Mode with multi-level grouping fields
-                    const fields = config.groupByFields && config.groupByFields.length > 0 ? config.groupByFields : ['type'];
-                    const keys = fields.map(f => {
-                        const val = elementProps[f] ?? elementProps[f.toLowerCase()] ?? '其他';
-                        return String(val);
-                    });
-                    const groupKey = keys.join(' / ');
-
-                    if (!groupRows.has(groupKey)) {
-                        groupRows.set(groupKey, {
-                            count: 0,
-                            metrics: {},
-                            expressIDs: []
-                        });
-                    }
-
-                    const g = groupRows.get(groupKey)!;
-                    g.count++;
-                    g.expressIDs.push(expressID);
-
-                    // Gather Metric Numbers
-                    for (const col of config.columns) {
-                        if (!g.metrics[col.id]) g.metrics[col.id] = [];
-                        
-                        if (col.aggregation === 'count') {
-                            const candidates = col.fieldMatch.split(',').map(c => c.trim().toLowerCase());
-                            let hasValue = false;
-                            for (const cand of candidates) {
-                                if (elementProps[cand] !== undefined && elementProps[cand] !== null) {
-                                    hasValue = true;
-                                    break;
-                                }
-                            }
-                            if (hasValue || !col.fieldMatch) {
-                                g.metrics[col.id].push(1);
-                            }
-                        } else {
-                            const candidates = col.fieldMatch.split(',').map(c => c.trim().toLowerCase());
-                            let matchedVal: number | null = null;
-                            for (const cand of candidates) {
-                                const rawVal = elementProps[cand];
-                                if (rawVal !== undefined && rawVal !== null) {
-                                    const cleanStr = String(rawVal).replace(/[^\d.-]/g, '');
-                                    const parsed = parseFloat(cleanStr);
-                                    if (!isNaN(parsed)) {
-                                        matchedVal = parsed;
-                                        break;
-                                    }
-                                }
-                            }
-                            if (matchedVal !== null) {
-                                g.metrics[col.id].push(matchedVal);
-                            }
-                        }
-                    }
                 }
             });
-
-            // 6. Aggregate Groups into Final Rows (only for summary mode)
-            if (config.mode === 'summary') {
-                groupRows.forEach((gData, groupVal) => {
-                    const row: any = {
-                        groupValue: groupVal,
-                        count: gData.count,
-                        expressIDs: gData.expressIDs
-                    };
-
-                    for (const col of config.columns) {
-                        const vals = gData.metrics[col.id] || [];
-                        let finalVal = 0;
-
-                        if (col.aggregation === 'count') {
-                            finalVal = vals.length;
-                        } else if (vals.length > 0) {
-                            if (col.aggregation === 'sum') {
-                                finalVal = vals.reduce((a, b) => a + b, 0);
-                            } else if (col.aggregation === 'avg') {
-                                finalVal = vals.reduce((a, b) => a + b, 0) / vals.length;
-                            } else if (col.aggregation === 'min') {
-                                finalVal = Math.min(...vals);
-                            } else if (col.aggregation === 'max') {
-                                finalVal = Math.max(...vals);
-                            }
-                        } else {
-                            finalVal = 0;
-                        }
-
-                        row[col.id] = parseFloat(finalVal.toFixed(col.precision));
-                    }
-
-                    resultRows.push(row);
-                });
-            }
 
             self.postMessage({ type: 'REPORT_RESULT', data: { rows: resultRows } });
         } catch (err: any) {
