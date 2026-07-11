@@ -63,6 +63,7 @@ export class IFCManager {
     public measurementManager: MeasurementManager | null = null;
     public sectionManager: SectionManager | null = null;
     public postProcessing: PostProcessingManager | null = null;
+    private resizeObserver: ResizeObserver | null = null;
     
     // Caching state
     private pendingCacheData: { 
@@ -75,7 +76,7 @@ export class IFCManager {
     public onLoading: (progress: number, total: number) => void = () => {};
     public onProcessing: (message: string | null) => void = () => {};
     public onError: (msg: string) => void = () => {};
-    public ifcUpAxis: 'Y' | 'Z' = 'Z';
+    public ifcUpAxis: 'Y' | 'Z' = 'Y';
     public glbUpAxis: 'Y' | 'Z' = 'Y';
     public ambientLight!: THREE.AmbientLight;
     public dirLight!: THREE.DirectionalLight;
@@ -342,7 +343,10 @@ export class IFCManager {
             this.measurementManager = new MeasurementManager(this.scene, this.camera, container);
             this.postProcessing = new PostProcessingManager(this.renderer, this.scene, this.camera);
 
-            window.addEventListener('resize', this.handleResize);
+            this.resizeObserver = new ResizeObserver(() => {
+                this.handleResize();
+            });
+            this.resizeObserver.observe(container);
             window.addEventListener('keydown', this.handleKeyDown);
             this.renderer.domElement.addEventListener('mousemove', this.handleMouseMove);
             this.renderer.domElement.addEventListener('click', this.handleClick);
@@ -361,6 +365,13 @@ export class IFCManager {
             if (this.measurementManager) {
                 this.measurementManager.updateContainer(container);
             }
+            if (this.resizeObserver) {
+                this.resizeObserver.disconnect();
+            }
+            this.resizeObserver = new ResizeObserver(() => {
+                this.handleResize();
+            });
+            this.resizeObserver.observe(container);
         }
 
         container.appendChild(this.renderer.domElement);
@@ -410,6 +421,8 @@ export class IFCManager {
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
         this.labelRenderer.setSize(this.container.clientWidth, this.container.clientHeight);
         this.postProcessing?.handleResize();
+        this.isDirty = true;
+        this.renderScene();
     };
 
     private handleKeyDown = (e: KeyboardEvent) => {
@@ -1743,7 +1756,10 @@ export class IFCManager {
             cancelAnimationFrame(this.animationFrameId);
             this.animationFrameId = null;
         }
-        window.removeEventListener('resize', this.handleResize); 
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+            this.resizeObserver = null;
+        }
         window.removeEventListener('keydown', this.handleKeyDown);
         if (this.renderer?.domElement) {
 

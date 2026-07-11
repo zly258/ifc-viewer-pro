@@ -11,7 +11,7 @@ export interface ViewSettings {
 export const SETTINGS_VERSION = 3;
 
 export const DEFAULT_VIEW_SETTINGS: ViewSettings = {
-    ifcUpAxis: 'Z',
+    ifcUpAxis: 'Y',
     glbUpAxis: 'Y',
     shadowQuality: 'off',
     settingsVersion: SETTINGS_VERSION,
@@ -39,7 +39,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
 
     React.useEffect(() => {
         const migratedSettings = {
-            ifcUpAxis: settings.settingsVersion ? (settings.ifcUpAxis || 'Z') : 'Z',
+            ifcUpAxis: settings.settingsVersion ? (settings.ifcUpAxis || 'Y') : 'Y',
             glbUpAxis: settings.glbUpAxis || 'Y',
             shadowQuality: settings.shadowQuality || 'off',
             settingsVersion: SETTINGS_VERSION,

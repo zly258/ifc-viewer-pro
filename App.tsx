@@ -35,7 +35,7 @@ const App: React.FC = () => {
       try {
         const parsed = JSON.parse(saved);
         return {
-          ifcUpAxis: parsed.settingsVersion === SETTINGS_VERSION ? (parsed.ifcUpAxis || 'Z') : 'Z',
+          ifcUpAxis: parsed.settingsVersion === SETTINGS_VERSION ? (parsed.ifcUpAxis || 'Y') : 'Y',
           glbUpAxis: parsed.settingsVersion === SETTINGS_VERSION ? (parsed.glbUpAxis || 'Y') : 'Y',
           shadowQuality: parsed.settingsVersion === SETTINGS_VERSION ? (parsed.shadowQuality || 'off') : 'off',
           settingsVersion: SETTINGS_VERSION,
@@ -113,7 +113,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const ifcUp = settings.ifcUpAxis || 'Z';
+    const ifcUp = settings.ifcUpAxis || 'Y';
     ifcManager.setOrientations(ifcUp, 'Y');
   }, [settings.ifcUpAxis]);
 
