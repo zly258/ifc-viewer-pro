@@ -279,7 +279,53 @@ export class MeasurementManager {
 
         this.raycaster.setFromCamera(mouse, this.camera);
         const intersects = this.raycaster.intersectObjects(models);
-        return intersects.length > 0 ? intersects[0].point : null;
+        if (intersects.length === 0) return null;
+
+        const hit = intersects[0];
+        const point = hit.point;
+
+        // Perform Vertex Snapping if face geometry is available
+        if (hit.face && hit.object && (hit.object as THREE.Mesh).geometry) {
+            const mesh = hit.object as THREE.Mesh;
+            const geom = mesh.geometry;
+            const posAttr = geom.getAttribute('position');
+            if (posAttr) {
+                try {
+                    const localA = new THREE.Vector3().fromBufferAttribute(posAttr, hit.face.a);
+                    const localB = new THREE.Vector3().fromBufferAttribute(posAttr, hit.face.b);
+                    const localC = new THREE.Vector3().fromBufferAttribute(posAttr, hit.face.c);
+
+                    const instanceMatrix = new THREE.Matrix4();
+                    if (mesh instanceof THREE.InstancedMesh && hit.instanceId !== undefined) {
+                        mesh.getMatrixAt(hit.instanceId, instanceMatrix);
+                    }
+
+                    const worldA = localA.applyMatrix4(instanceMatrix).applyMatrix4(mesh.matrixWorld);
+                    const worldB = localB.applyMatrix4(instanceMatrix).applyMatrix4(mesh.matrixWorld);
+                    const worldC = localC.applyMatrix4(instanceMatrix).applyMatrix4(mesh.matrixWorld);
+
+                    const distA = point.distanceTo(worldA);
+                    const distB = point.distanceTo(worldB);
+                    const distC = point.distanceTo(worldC);
+
+                    let closest = point;
+                    let minDist = Infinity;
+
+                    if (distA < minDist) { minDist = distA; closest = worldA; }
+                    if (distB < minDist) { minDist = distB; closest = worldB; }
+                    if (distC < minDist) { minDist = distC; closest = worldC; }
+
+                    // Snap threshold: 0.35 meters
+                    if (minDist < 0.35) {
+                        return closest;
+                    }
+                } catch (e) {
+                    console.warn("[MeasurementManager] Vertex snapping failed:", e);
+                }
+            }
+        }
+
+        return point;
     }
 
     private addTempPoint(point: THREE.Vector3) {
