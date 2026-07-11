@@ -12,7 +12,6 @@ interface BottomToolbarProps {
   onOpenFile: (files: File[]) => void;
   onToggleModelTree: () => void;
   onToggleRightPanel: () => void;
-  onOpenSettings: () => void;
   onClear: () => void;
   isModelTreeOpen: boolean;
   activeRightPanel: 'properties' | null;
@@ -47,7 +46,6 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
     onOpenFile,
     onToggleModelTree,
     onToggleRightPanel,
-    onOpenSettings,
     onClear,
     isModelTreeOpen,
     activeRightPanel,
@@ -418,7 +416,6 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
         <ToolButton icon={Navigation} label="漫游" active={activeTool === ViewerTool.WALK} onClick={() => handleToolChange(ViewerTool.WALK)} />
         <ToolButton icon={Ruler} label="测量" active={activeTool === ViewerTool.MEASURE} onClick={() => handleToolChange(ViewerTool.MEASURE)} />
         <ToolButton icon={Scissors} label="剖切" active={activeTool === ViewerTool.SECTION} onClick={() => handleToolChange(ViewerTool.SECTION)} />
-        <ToolButton icon={Settings} label="设置" onClick={onOpenSettings} />
 
         <div className="toolbar-divider" />
 

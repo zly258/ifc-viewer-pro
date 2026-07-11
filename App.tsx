@@ -5,7 +5,6 @@ import PropertyPanel from './components/PropertyPanel';
 import ModelTree from './components/ModelTree';
 import MeasurementPanel from './components/MeasurementPanel';
 import BottomToolbar from './components/BottomToolbar';
-import SettingsModal, { ViewSettings, DEFAULT_VIEW_SETTINGS, SETTINGS_VERSION } from './components/SettingsModal';
 import DraggablePanel from './components/common/DraggablePanel';
 import { TopStatusBar } from './components/TopStatusBar';
 import ContextMenu from './components/ContextMenu';
@@ -27,25 +26,7 @@ const App: React.FC = () => {
   const [showReportPanel, setShowReportPanel] = useState(false);
 
   // Modal States
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [settings, setSettings] = useState<ViewSettings>(() => {
-    const saved = localStorage.getItem('bimvision_settings');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return {
-          ifcUpAxis: parsed.settingsVersion === SETTINGS_VERSION ? (parsed.ifcUpAxis || 'Y') : 'Y',
-          glbUpAxis: parsed.settingsVersion === SETTINGS_VERSION ? (parsed.glbUpAxis || 'Y') : 'Y',
-          shadowQuality: parsed.settingsVersion === SETTINGS_VERSION ? (parsed.shadowQuality || 'off') : 'off',
-          settingsVersion: SETTINGS_VERSION,
-        };
-      } catch (e) {
-        return DEFAULT_VIEW_SETTINGS;
-      }
-    }
-    return DEFAULT_VIEW_SETTINGS;
-  });
 
   // Dark Theme
   const [isDarkTheme, setIsDarkTheme] = useState(() => {
@@ -112,22 +93,7 @@ const App: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const ifcUp = settings.ifcUpAxis || 'Y';
-    ifcManager.setOrientations(ifcUp, 'Y');
-  }, [settings.ifcUpAxis]);
 
-  useEffect(() => {
-    const shadowQ = settings.shadowQuality || 'off';
-    ifcManager.setShadowQuality(shadowQ);
-  }, [settings.shadowQuality]);
-
-  const handleSaveSettings = (newSettings: ViewSettings) => {
-    const versionedSettings = { ...newSettings, settingsVersion: SETTINGS_VERSION };
-    setSettings(versionedSettings);
-    localStorage.setItem('bimvision_settings', JSON.stringify(versionedSettings));
-    setIsSettingsOpen(false);
-  };
 
   const handleElementSelect = (data: IFCElementData | null) => {
     setSelectedElement(data);
@@ -334,7 +300,6 @@ const App: React.FC = () => {
           onOpenFile={handleOpenFiles}
           onToggleModelTree={() => setShowModelTree(!showModelTree)}
           onToggleRightPanel={() => setShowPropertyPanel(!showPropertyPanel)}
-          onOpenSettings={() => setIsSettingsOpen(true)}
           onClear={() => setShowClearConfirm(true)}
           isModelTreeOpen={showModelTree}
           activeRightPanel={showPropertyPanel ? 'properties' : null}
@@ -512,12 +477,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        settings={settings}
-        onClose={() => setIsSettingsOpen(false)}
-        onSave={handleSaveSettings}
-      />
     </div>
   );
 };

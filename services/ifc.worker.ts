@@ -814,47 +814,53 @@ self.onmessage = async (e: MessageEvent) => {
             keys.add('材质');
             keys.add('Express ID');
 
-            const sampleIDs = Array.from(meta.modelMeshExpressIDs);
-            const step = Math.max(1, Math.floor(sampleIDs.length / 300));
-            
-            for (let i = 0; i < sampleIDs.length; i += step) {
-                const expressID = sampleIDs[i];
-                const psetIDs = meta.propertyMaps.get(expressID);
-                if (psetIDs) {
-                    for (const pid of psetIDs) {
-                        try {
-                            const pset = ifcApi.GetLine(modelID, pid);
-                            const setName = parsePropertyName(pset.Name);
-                            if (setName) {
-                                if (pset.HasProperties && Array.isArray(pset.HasProperties)) {
-                                    for (const pr of pset.HasProperties) {
-                                        try {
-                                            const p = ifcApi.GetLine(modelID, pr.value);
-                                            const pName = parsePropertyName(p.Name);
-                                            if (pName) {
-                                                keys.add(pName);
-                                                keys.add(`${setName}.${pName}`);
-                                            }
-                                        } catch (e) {}
+            // Retrieve all PropertySets in the model
+            try {
+                const psetIDs = ifcApi.GetLineIDsWithType(modelID, WebIFC.IFCPROPERTYSET);
+                for (let i = 0; i < psetIDs.size(); i++) {
+                    const pid = psetIDs.get(i);
+                    try {
+                        const pset = ifcApi.GetLine(modelID, pid);
+                        const setName = parsePropertyName(pset.Name);
+                        if (setName && pset.HasProperties && Array.isArray(pset.HasProperties)) {
+                            for (const pr of pset.HasProperties) {
+                                try {
+                                    const p = ifcApi.GetLine(modelID, pr.value);
+                                    const pName = parsePropertyName(p.Name);
+                                    if (pName) {
+                                        keys.add(pName);
+                                        keys.add(`${setName}.${pName}`);
                                     }
-                                }
-                                if (pset.Quantities && Array.isArray(pset.Quantities)) {
-                                    for (const q of pset.Quantities) {
-                                        try {
-                                            const p = ifcApi.GetLine(modelID, q.value);
-                                            const pName = parsePropertyName(p.Name);
-                                            if (pName) {
-                                                keys.add(pName);
-                                                keys.add(`${setName}.${pName}`);
-                                            }
-                                        } catch (e) {}
-                                    }
-                                }
+                                } catch (e) {}
                             }
-                        } catch (e) {}
-                    }
+                        }
+                    } catch (e) {}
                 }
-            }
+            } catch (e) {}
+
+            // Retrieve all ElementQuantities in the model
+            try {
+                const qtyIDs = ifcApi.GetLineIDsWithType(modelID, WebIFC.IFCELEMENTQUANTITY);
+                for (let i = 0; i < qtyIDs.size(); i++) {
+                    const qid = qtyIDs.get(i);
+                    try {
+                        const qty = ifcApi.GetLine(modelID, qid);
+                        const setName = parsePropertyName(qty.Name);
+                        if (setName && qty.Quantities && Array.isArray(qty.Quantities)) {
+                            for (const q of qty.Quantities) {
+                                try {
+                                    const p = ifcApi.GetLine(modelID, q.value);
+                                    const pName = parsePropertyName(p.Name);
+                                    if (pName) {
+                                        keys.add(pName);
+                                        keys.add(`${setName}.${pName}`);
+                                    }
+                                } catch (e) {}
+                            }
+                        }
+                    } catch (e) {}
+                }
+            } catch (e) {}
 
             self.postMessage({ type: 'PROPERTY_KEYS_RESULT', data: { keys: Array.from(keys) } });
         } catch (e) {

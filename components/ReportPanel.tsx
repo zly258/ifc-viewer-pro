@@ -61,6 +61,92 @@ const PRESETS: ReportTemplate[] = [
     }
 ];
 
+interface SearchSelectProps {
+    options: string[];
+    placeholder: string;
+    onSelect: (val: string) => void;
+    exclude?: string[];
+}
+
+const SearchSelect: React.FC<SearchSelectProps> = ({ options, placeholder, onSelect, exclude = [] }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState('');
+    const ref = React.useRef<HTMLDivElement>(null);
+
+    const filteredOptions = useMemo(() => {
+        const query = search.toLowerCase().trim();
+        return options.filter(opt => {
+            if (exclude.includes(opt)) return false;
+            return !query || opt.toLowerCase().includes(query);
+        }).slice(0, 100);
+    }, [options, search, exclude]);
+
+    React.useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    return (
+        <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+            <div style={{ position: 'relative' }}>
+                <input
+                    type="text"
+                    placeholder={placeholder}
+                    value={search}
+                    onChange={(e) => { setSearch(e.target.value); setIsOpen(true); }}
+                    onFocus={() => setIsOpen(true)}
+                    className="input-control"
+                    style={{ paddingRight: 24, fontSize: 11, width: '100%', boxSizing: 'border-box' }}
+                />
+                <ChevronDown 
+                    size={12} 
+                    style={{ 
+                        position: 'absolute', right: 8, top: '50%', 
+                        color: 'var(--text-muted)', cursor: 'pointer',
+                        transform: isOpen ? 'translateY(-50%) rotate(180deg)' : 'translateY(-50%)',
+                        transition: 'transform 0.2s'
+                    }}
+                    onClick={() => setIsOpen(!isOpen)}
+                />
+            </div>
+            {isOpen && filteredOptions.length > 0 && (
+                <div style={{
+                    position: 'absolute', left: 0, right: 0, bottom: 'unset', top: '100%',
+                    maxHeight: 180, overflowY: 'auto', border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)', background: 'var(--surface-1)', zIndex: 100,
+                    boxShadow: 'var(--shadow-panel)', marginTop: 4
+                }}>
+                    {filteredOptions.map(opt => (
+                        <button
+                            key={opt}
+                            type="button"
+                            style={{
+                                width: '100%', textAlign: 'left', padding: '6px 10px', fontSize: 11,
+                                border: 'none', background: 'transparent', cursor: 'pointer',
+                                color: 'var(--text-primary)', transition: 'background 0.1s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'var(--brand-soft)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            onClick={() => {
+                                onSelect(opt);
+                                setSearch('');
+                                setIsOpen(false);
+                            }}
+                        >
+                            {opt}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const ReportPanel: React.FC = () => {
     // Current Model ID
     const [modelID, setModelID] = useState<number>(-1);
@@ -157,51 +243,70 @@ const ReportPanel: React.FC = () => {
         setSelectedRowIndex(null);
     };
 
-    // Checkbox togglers for Group By Fields
-    const toggleGroupByField = (field: string) => {
-        setGroupByFields(prev => {
-            if (prev.includes(field)) {
-                return prev.filter(f => f !== field);
-            } else {
-                return [...prev, field];
-            }
-        });
+    // Grouping Field Managers
+    const addGroupByField = (field: string) => {
+        if (!groupByFields.includes(field)) {
+            setGroupByFields(prev => [...prev, field]);
+        }
     };
 
-    // Auto Column Generation on checking properties
-    const handleToggleColumnProperty = (propName: string, isChecked: boolean) => {
-        if (isChecked) {
-            // Add column configuration
-            const id = `col_${propName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
-            // Set default aggregation: count for Express ID / type / name, otherwise sum for numbers in summary mode
-            let defaultAgg: 'sum' | 'count' | 'avg' | 'none' = 'sum';
-            if (mode === 'detail') {
-                defaultAgg = 'none';
-            } else if (['type', 'name', 'space', 'material', '构件类型', '构件名称', '所在空间', '材质', 'Express ID'].includes(propName)) {
-                defaultAgg = 'count';
-            }
+    const removeGroupByField = (field: string) => {
+        setGroupByFields(prev => prev.filter(f => f !== field));
+    };
 
-            // Detect unit
-            let defaultUnit = '';
-            if (propName.toLowerCase().includes('volume') || propName.includes('体积')) defaultUnit = 'm³';
-            else if (propName.toLowerCase().includes('area') || propName.includes('面积')) defaultUnit = '㎡';
-            else if (propName.toLowerCase().includes('length') || propName.includes('长度') || propName.includes('高度') || propName.includes('height')) defaultUnit = 'm';
+    const moveGroupByField = (index: number, direction: 'up' | 'down') => {
+        const newFields = [...groupByFields];
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex >= 0 && targetIndex < newFields.length) {
+            const temp = newFields[index];
+            newFields[index] = newFields[targetIndex];
+            newFields[targetIndex] = temp;
+            setGroupByFields(newFields);
+        }
+    };
 
-            const newCol: ReportColumn = {
-                id,
-                name: propName,
-                fieldMatch: propName,
-                aggregation: defaultAgg,
-                precision: ['volume', '体积', 'area', '面积'].some(k => propName.toLowerCase().includes(k)) ? 3 : 2,
-                unit: defaultUnit || undefined
-            };
-            setColumns(prev => [...prev, newCol]);
-        } else {
-            // Remove column config matching the fieldMatch
-            setColumns(prev => prev.filter(c => c.fieldMatch !== propName));
-            if (editingColumnId && columns.find(c => c.fieldMatch === propName)?.id === editingColumnId) {
-                setEditingColumnId(null);
-            }
+    // Column Managers
+    const addColumnProperty = (propName: string) => {
+        if (columns.some(c => c.fieldMatch === propName)) return;
+        const id = `col_${propName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
+        let defaultAgg: 'sum' | 'count' | 'avg' | 'none' = 'sum';
+        if (mode === 'detail') {
+            defaultAgg = 'none';
+        } else if (['type', 'name', 'space', 'material', '构件类型', '构件名称', '所在空间', '材质', 'Express ID'].includes(propName)) {
+            defaultAgg = 'count';
+        }
+
+        let defaultUnit = '';
+        if (propName.toLowerCase().includes('volume') || propName.includes('体积')) defaultUnit = 'm³';
+        else if (propName.toLowerCase().includes('area') || propName.includes('面积')) defaultUnit = '㎡';
+        else if (propName.toLowerCase().includes('length') || propName.includes('长度') || propName.includes('高度') || propName.includes('height')) defaultUnit = 'm';
+
+        const newCol: ReportColumn = {
+            id,
+            name: propName,
+            fieldMatch: propName,
+            aggregation: defaultAgg,
+            precision: ['volume', '体积', 'area', '面积'].some(k => propName.toLowerCase().includes(k)) ? 3 : 2,
+            unit: defaultUnit || undefined
+        };
+        setColumns(prev => [...prev, newCol]);
+    };
+
+    const removeColumn = (id: string) => {
+        setColumns(prev => prev.filter(c => c.id !== id));
+        if (editingColumnId === id) {
+            setEditingColumnId(null);
+        }
+    };
+
+    const moveColumn = (index: number, direction: 'up' | 'down') => {
+        const newCols = [...columns];
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex >= 0 && targetIndex < newCols.length) {
+            const temp = newCols[index];
+            newCols[index] = newCols[targetIndex];
+            newCols[targetIndex] = temp;
+            setColumns(newCols);
         }
     };
 
@@ -614,106 +719,59 @@ const ReportPanel: React.FC = () => {
                                         ))}
                                     </div>
                                 </div>
-
-                                {/* 2. Multi-level Grouping (Only shown in summary mode) */}
                                 {mode === 'summary' && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, background: 'var(--surface-1)', padding: 8, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-soft)' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>多级分组依赖 (勾选顺序决定层级)</label>
-                                            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>当前层级：{groupByFields.length > 0 ? groupByFields.map(f => {
-                                                if (f === 'type') return '构件类型';
-                                                if (f === 'space') return '所在空间';
-                                                if (f === 'material') return '物理材质';
-                                                return f;
-                                            }).join(' > ') : '未选择 (默认按构件类型)'}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: 14 }}>
-                                            {[
-                                                { key: 'space', label: '楼层空间' },
-                                                { key: 'type', label: '构件类型' },
-                                                { key: 'material', label: '物理材质' }
-                                            ].map(opt => (
-                                                <label key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer', color: 'var(--text-primary)' }}>
-                                                    <input 
-                                                        type="checkbox"
-                                                        checked={groupByFields.includes(opt.key)}
-                                                        onChange={() => toggleGroupByField(opt.key)}
-                                                        style={{ cursor: 'pointer' }}
-                                                    />
-                                                    <span>{opt.label}</span>
-                                                </label>
-                                            ))}
-                                        </div>
+                                        <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>设置分组字段 (按照先后顺序多级分组)</label>
+                                        {groupByFields.length > 0 && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+                                                {groupByFields.map((f, idx) => (
+                                                    <div key={f} style={{
+                                                        display: 'flex', alignItems: 'center', gap: 4, background: 'var(--surface-2)',
+                                                        border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '2px 6px', fontSize: 11,
+                                                        color: 'var(--text-primary)'
+                                                    }}>
+                                                        <span>{f}</span>
+                                                        <div style={{ display: 'flex', gap: 2 }}>
+                                                            {idx > 0 && (
+                                                                <button type="button" onClick={() => moveGroupByField(idx, 'up')} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: 'var(--text-muted)', fontSize: 9 }} title="向前移">
+                                                                    ▲
+                                                                </button>
+                                                            )}
+                                                            {idx < groupByFields.length - 1 && (
+                                                                <button type="button" onClick={() => moveGroupByField(idx, 'down')} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: 'var(--text-muted)', fontSize: 9 }} title="向后移">
+                                                                    ▼
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => removeGroupByField(f)} 
+                                                            style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, marginLeft: 2, color: 'var(--danger)', fontSize: 10, fontWeight: 700 }}
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <SearchSelect 
+                                            options={availableProps} 
+                                            placeholder="输入或下拉检索并添加分组字段..." 
+                                            onSelect={addGroupByField}
+                                            exclude={groupByFields}
+                                        />
                                     </div>
                                 )}
 
-                                {/* 3. Select columns from scanned properties checkboxes */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>勾选属性加入报表列 (Check Columns)</label>
-                                    
-                                    {/* Search Property List */}
-                                    <div style={{ position: 'relative' }}>
-                                        <input 
-                                            type="text"
-                                            placeholder="输入关键字检索可用属性（如体积、长度、LoadBearing）..."
-                                            value={propSearch}
-                                            onChange={(e) => setPropSearch(e.target.value)}
-                                            className="input-control"
-                                            style={{ paddingLeft: 28, paddingTop: 4, paddingBottom: 4, fontSize: 11 }}
-                                        />
-                                        <Search size={12} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                                    </div>
-
-                                    {/* Scrollable checklists */}
-                                    <div style={{ 
-                                        maxHeight: 120, overflowY: 'auto', border: '1px solid var(--border-soft)', 
-                                        borderRadius: 'var(--radius-sm)', padding: 8, background: 'var(--surface-1)',
-                                        display: 'flex', flexDirection: 'column', gap: 8
-                                    }}>
-                                        {/* Common metrics */}
-                                        {categorizedProps.common.length > 0 && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 700, borderBottom: '1px solid var(--border-soft)', paddingBottom: 2 }}>常用几何参数与基础属性</span>
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px' }}>
-                                                    {categorizedProps.common.map(prop => (
-                                                        <label key={prop} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer', color: 'var(--text-primary)' }}>
-                                                            <input 
-                                                                type="checkbox"
-                                                                checked={isPropChecked(prop)}
-                                                                onChange={(e) => handleToggleColumnProperty(prop, e.target.checked)}
-                                                                style={{ cursor: 'pointer' }}
-                                                            />
-                                                            <span>{prop}</span>
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Custom props */}
-                                        {categorizedProps.custom.length > 0 && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
-                                                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 700, borderBottom: '1px solid var(--border-soft)', paddingBottom: 2 }}>扫描到的自定义集属性 (Pset)</span>
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px' }}>
-                                                    {categorizedProps.custom.map(prop => (
-                                                        <label key={prop} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer', color: 'var(--text-primary)' }}>
-                                                            <input 
-                                                                type="checkbox"
-                                                                checked={isPropChecked(prop)}
-                                                                onChange={(e) => handleToggleColumnProperty(prop, e.target.checked)}
-                                                                style={{ cursor: 'pointer' }}
-                                                            />
-                                                            <span title={prop}>{prop}</span>
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {categorizedProps.common.length === 0 && categorizedProps.custom.length === 0 && (
-                                            <span style={{ fontSize: 10, color: 'var(--text-muted)', fontStyle: 'italic' }}>无匹配属性键</span>
-                                        )}
-                                    </div>
+                                {/* 3. Select columns from scanned properties */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, background: 'var(--surface-1)', padding: 8, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-soft)' }}>
+                                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>添加要统计的报表列 (IFC 全量属性下拉搜索)</label>
+                                    <SearchSelect 
+                                        options={availableProps} 
+                                        placeholder="输入或下拉检索属性（如体积、长度、FireRating 等）..." 
+                                        onSelect={addColumnProperty}
+                                        exclude={columns.map(c => c.fieldMatch)}
+                                    />
                                 </div>
 
                                 {/* 4. Configured Columns Fine-tuning (Inline) */}
@@ -721,7 +779,7 @@ const ReportPanel: React.FC = () => {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                         <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>已选报表列配置 ({columns.length} 列)</label>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                            {columns.map(col => (
+                                            {columns.map((col, idx) => (
                                                 <div key={col.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                                     <div style={{ 
                                                         display: 'flex', alignItems: 'center', gap: 4, background: 'var(--brand-soft)',
@@ -729,15 +787,35 @@ const ReportPanel: React.FC = () => {
                                                         fontWeight: 700, color: 'var(--brand)', cursor: 'default'
                                                     }}>
                                                         <span>{col.name} ({col.aggregation === 'none' ? '明细' : col.aggregation})</span>
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => setEditingColumnId(editingColumnId === col.id ? null : col.id)}
-                                                            className="text-brand hover:text-brand-hover"
-                                                            title="点击微调列名、求和与精度设置"
-                                                            style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex' }}
-                                                        >
-                                                            <Settings size={11} />
-                                                        </button>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginLeft: 4 }}>
+                                                            {idx > 0 && (
+                                                                <button type="button" onClick={() => moveColumn(idx, 'up')} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: 'var(--brand)', fontSize: 8 }} title="左移">
+                                                                    ◀
+                                                                </button>
+                                                            )}
+                                                            {idx < columns.length - 1 && (
+                                                                <button type="button" onClick={() => moveColumn(idx, 'down')} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: 'var(--brand)', fontSize: 8 }} title="右移">
+                                                                    ▶
+                                                                </button>
+                                                            )}
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => setEditingColumnId(editingColumnId === col.id ? null : col.id)}
+                                                                className="text-brand hover:text-brand-hover"
+                                                                title="点击微调列名、求和与精度设置"
+                                                                style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', padding: 0 }}
+                                                            >
+                                                                <Settings size={11} />
+                                                            </button>
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => removeColumn(col.id)}
+                                                                style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, color: 'var(--danger)', fontWeight: 'bold', fontSize: 10, marginLeft: 2 }}
+                                                                title="删除该列"
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        </div>
                                                     </div>
 
                                                     {/* Inline Column Editor */}
