@@ -122,7 +122,10 @@ export class MeasurementManager {
         if (!active) {
             this.clearTemp();
             this.container.style.cursor = 'default';
-            this.updateCursorText('', false);
+            if (this.tipElement) {
+                this.tipElement.style.display = 'none';
+                this.tipElement.style.opacity = '0';
+            }
             this.snapMarker.visible = false;
         } else {
             this.container.style.cursor = 'default';

@@ -47,7 +47,7 @@ const SearchSelect: React.FC<SearchSelectProps> = ({ options, placeholder, onSel
                     onChange={(e) => { setSearch(e.target.value); setIsOpen(true); }}
                     onFocus={() => setIsOpen(true)}
                     className="input-control"
-                    style={{ paddingRight: 24, fontSize: 12, width: '100%', boxSizing: 'border-box' }}
+                    style={{ padding: '6px 28px 6px 10px', fontSize: 12, width: '100%', boxSizing: 'border-box' }}
                 />
                 <ChevronDown 
                     size={14} 
@@ -64,7 +64,7 @@ const SearchSelect: React.FC<SearchSelectProps> = ({ options, placeholder, onSel
                 <div style={{
                     position: 'absolute', left: 0, right: 0, top: '100%',
                     maxHeight: 200, overflowY: 'auto', border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-sm)', background: 'var(--surface-1)', zIndex: 100,
+                    borderRadius: 'var(--radius-md)', background: 'var(--surface-1)', zIndex: 100,
                     boxShadow: 'var(--shadow-panel)', marginTop: 4
                 }}>
                     {filteredOptions.map(opt => (
@@ -72,7 +72,7 @@ const SearchSelect: React.FC<SearchSelectProps> = ({ options, placeholder, onSel
                             key={opt}
                             type="button"
                             style={{
-                                width: '100%', textAlign: 'left', padding: '8px 10px', fontSize: 12,
+                                width: '100%', textAlign: 'left', padding: '6px 10px', fontSize: 12,
                                 border: 'none', background: 'transparent', cursor: 'pointer',
                                 color: 'var(--text-primary)', transition: 'background 0.1s'
                             }}
@@ -239,24 +239,23 @@ const ReportPanel: React.FC = () => {
     return (
         <div className="panel-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 16 }}>
             {/* Header Actions */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>工程量报表</h3>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 8 }}>
                 <div style={{ display: 'flex', gap: 8 }}>
                     {view === 'config' ? (
                         <>
-                            <button onClick={importConfig} title="导入列配置" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                            <button onClick={importConfig} title="导入列配置" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                                 <Upload size={14} /> 导入配置
                             </button>
-                            <button onClick={exportConfig} title="导出当前列配置" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                            <button onClick={exportConfig} title="导出当前列配置" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                                 <Download size={14} /> 导出配置
                             </button>
                         </>
                     ) : (
                         <>
-                            <button onClick={() => setView('config')} title="编辑配置" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                            <button onClick={() => setView('config')} title="编辑配置" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                                 <Edit size={14} /> 修改配置
                             </button>
-                            <button onClick={exportCsv} disabled={rows.length === 0} title="导出CSV电子表格" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)', opacity: rows.length === 0 ? 0.5 : 1 }}>
+                            <button onClick={exportCsv} disabled={rows.length === 0} title="导出CSV电子表格" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)', opacity: rows.length === 0 ? 0.5 : 1, whiteSpace: 'nowrap' }}>
                                 <FileSpreadsheet size={14} /> 导出为 CSV
                             </button>
                         </>
@@ -270,7 +269,7 @@ const ReportPanel: React.FC = () => {
                         <div style={{ fontWeight: 600, fontSize: 13 }}>表格列配置</div>
                         <button 
                             onClick={addColumn} 
-                            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--brand)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 12 }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--brand)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}
                         >
                             <Plus size={14} /> 添加列
                         </button>
@@ -286,7 +285,7 @@ const ReportPanel: React.FC = () => {
                                         value={col.name} 
                                         onChange={e => updateColumn(col.id, { name: e.target.value })}
                                         placeholder="表头显示名称 (例如：体积)"
-                                        style={{ fontSize: 12, padding: '4px 8px' }}
+                                        style={{ fontSize: 12, padding: '6px 10px' }}
                                     />
                                     <SearchSelect 
                                         options={availableProps} 
@@ -310,7 +309,7 @@ const ReportPanel: React.FC = () => {
                         <button 
                             onClick={generateReport} 
                             disabled={isLoading || modelID === -1 || columns.length === 0}
-                            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--brand)', color: 'white', border: 'none', padding: '8px 24px', fontWeight: 600, borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13, opacity: (isLoading || modelID === -1 || columns.length === 0) ? 0.5 : 1 }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--brand)', color: 'white', border: 'none', padding: '8px 24px', fontWeight: 600, borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13, opacity: (isLoading || modelID === -1 || columns.length === 0) ? 0.5 : 1, whiteSpace: 'nowrap' }}
                         >
                             {isLoading ? '扫描中...' : <><Play size={16} /> 生成报表</>}
                         </button>
