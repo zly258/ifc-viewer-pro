@@ -225,14 +225,13 @@ const ReportPanel: React.FC = () => {
     const handleRowClick = (row: ReportRow, index: number) => {
         setSelectedRowIndex(index);
         if (row.expressID && modelID !== -1) {
-            ifcManager.selectElement(modelID, row.expressID, false);
-            ifcManager.highlightElement(modelID, row.expressID, undefined, false);
+            ifcManager.selectByID(modelID, row.expressID, false);
         }
     };
 
     const handleRowDoubleClick = (row: ReportRow) => {
         if (row.expressID && modelID !== -1) {
-            ifcManager.focusOnElements(modelID, [row.expressID]);
+            ifcManager.selectByID(modelID, row.expressID, true);
         }
     };
 
