@@ -87,7 +87,7 @@ export type AggregationType = 'sum' | 'count' | 'avg' | 'min' | 'max' | 'none';
 
 export interface ReportFilter {
     id: string;
-    field: string;       // 匹配属性，如 "type"、"space" 或自定义属性
+    field: string;       // Matching property, e.g. "type", "space" or custom property
     operator: 'equals' | 'contains' | 'startsWith' | 'exists' | 'greaterThan' | 'lessThan';
     value: string;
 }
@@ -98,7 +98,7 @@ export interface ReportColumn {
     fieldMatch: string; // Property name keyword (e.g. "NetVolume", "Area")
     aggregation: AggregationType;
     precision: number;
-    unit?: string;      // 单位展示，如 "m³"、"㎡"
+    unit?: string;      // Unit display, e.g. "m³", "㎡"
 }
 
 export interface ReportTemplate {
@@ -110,8 +110,8 @@ export interface ReportTemplate {
 }
 
 export interface ReportConfig {
-    mode: 'detail' | 'summary'; // 'detail': 清单明细模式, 'summary': 分组汇总模式
-    groupByFields: string[];    // 支持多级嵌套分组，如 ['space', 'type']
+    mode: 'detail' | 'summary'; // 'detail': Flat list mode, 'summary': Grouping summary mode
+    groupByFields: string[];    // Nested grouping fields list, e.g. ['space', 'type']
     columns: ReportColumn[];
     filters: ReportFilter[];
 }

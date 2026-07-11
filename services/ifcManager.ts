@@ -13,7 +13,7 @@ import { IfcBatcher } from './IfcBatcher';
 import { PostProcessingManager } from './PostProcessing';
 import { cacheManager } from './CacheManager';
 
-// 启用 BVH 加速
+// Enable BVH acceleration
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
@@ -53,7 +53,7 @@ export class IFCManager {
     private isDirty: boolean = true;
     private lastUserInteraction: number = 0;
 
-    // 模型存储
+    // Models cache storage
     public models: Map<number, { group: THREE.Group, modelID: number, name: string }> = new Map();
     private propertyMaps: Map<number, Map<number, number[]>> = new Map();
     private modelMeshExpressIDs: Map<number, Set<number>> = new Map();
