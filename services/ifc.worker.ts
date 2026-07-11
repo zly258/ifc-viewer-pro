@@ -453,6 +453,325 @@ self.onmessage = async (e: MessageEvent) => {
             modelsMetadata.delete(modelID);
         } catch (e) {}
     }
+    
+    else if (type === 'GENERATE_REPORT') {
+        const { modelID, config } = data;
+        const meta = modelsMetadata.get(modelID);
+        if (!meta) {
+            self.postMessage({ type: 'REPORT_RESULT_FAILED', error: '模型数据未找到或未加载完成' });
+            return;
+        }
+
+        try {
+            // 1. Pre-build materials map for O(1) lookup
+            const elementMaterials = new Map<number, string>();
+            try {
+                const matRels = ifcApi.GetLineIDsWithType(modelID, WebIFC.IFCRELASSOCIATESMATERIAL);
+                for (let i = 0; i < matRels.size(); i++) {
+                    const rel = ifcApi.GetLine(modelID, matRels.get(i));
+                    if (rel.RelatedObjects && Array.isArray(rel.RelatedObjects) && rel.RelatingMaterial) {
+                        const mat = ifcApi.GetLine(modelID, rel.RelatingMaterial.value);
+                        if (mat) {
+                            let matName = mat.Name?.value || mat.is_a || 'Material';
+                            if (mat.MaterialParts && Array.isArray(mat.MaterialParts)) {
+                                const parts: string[] = [];
+                                for (const pt of mat.MaterialParts) {
+                                    const pLine = ifcApi.GetLine(modelID, pt.value);
+                                    if (pLine && pLine.Material) {
+                                        const item = ifcApi.GetLine(modelID, pLine.Material.value);
+                                        if (item && item.Name) parts.push(item.Name.value);
+                                    }
+                                }
+                                if (parts.length > 0) matName = parts.join(' + ');
+                            }
+                            rel.RelatedObjects.forEach((objRef: any) => {
+                                elementMaterials.set(objRef.value, matName);
+                            });
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn("Worker properties report build materials map fail:", e);
+            }
+
+            const groupRows = new Map<string, { count: number; metrics: Record<string, number[]>; expressIDs: number[] }>();
+
+            // 2. Iterate elements and resolve properties
+            meta.modelMeshExpressIDs.forEach((expressID) => {
+                let props: any;
+                try {
+                    props = ifcApi.GetLine(modelID, expressID);
+                } catch (e) { return; }
+                if (!props) return;
+
+                const elemType = formatTypeName(props.is_a || 'Unknown');
+                const elemName = props.Name?.value || '';
+
+                // Get space name
+                let spaceName = '未分配空间';
+                try {
+                    const parentKey = meta.parentMap.get(`${modelID}_${expressID}`);
+                    if (parentKey) {
+                        const parentID = parseInt(parentKey.split('_')[1], 10);
+                        const pLine = ifcApi.GetLine(modelID, parentID);
+                        if (pLine) {
+                            spaceName = pLine.Name?.value || formatTypeName(pLine.is_a) || `空间 #${parentID}`;
+                        }
+                    }
+                } catch (e) {}
+
+                const materialName = elementMaterials.get(expressID) || '未指定材质';
+
+                // Flatten element properties for easy filtering & grouping matching
+                const elementProps: Record<string, any> = {
+                    'type': elemType,
+                    '构件类型': elemType,
+                    'name': elemName,
+                    '构件名称': elemName,
+                    'space': spaceName,
+                    '所在空间': spaceName,
+                    'material': materialName,
+                    '材质': materialName,
+                    'expressid': String(expressID),
+                    'express id': String(expressID)
+                };
+
+                // Add properties from Psets
+                const psetIDs = meta.propertyMaps.get(expressID);
+                if (psetIDs) {
+                    for (const pid of psetIDs) {
+                        try {
+                            const pset = ifcApi.GetLine(modelID, pid);
+                            const setName = parsePropertyName(pset.Name) || 'Pset';
+                            
+                            if (pset.HasProperties && Array.isArray(pset.HasProperties)) {
+                                for (const pr of pset.HasProperties) {
+                                    try {
+                                        const p = ifcApi.GetLine(modelID, pr.value);
+                                        const pName = parsePropertyName(p.Name);
+                                        if (p.NominalValue !== undefined && p.NominalValue !== null) {
+                                            const pVal = parsePropertyValue(p.NominalValue);
+                                            const keyFull = `${setName}.${pName}`;
+                                            elementProps[pName.toLowerCase()] = pVal;
+                                            elementProps[keyFull.toLowerCase()] = pVal;
+                                            elementProps[pName] = pVal;
+                                            elementProps[keyFull] = pVal;
+                                        }
+                                    } catch (e) {}
+                                }
+                            }
+                            if (pset.Quantities && Array.isArray(pset.Quantities)) {
+                                for (const q of pset.Quantities) {
+                                    try {
+                                        const p = ifcApi.GetLine(modelID, q.value);
+                                        const pName = parsePropertyName(p.Name);
+                                        const val = p.LengthValue ?? p.AreaValue ?? p.VolumeValue ?? p.CountValue ?? p.WeightValue ?? p.TimeValue ?? p.QuantityValue;
+                                        if (val !== undefined && val !== null) {
+                                            const pVal = parsePropertyValue(val);
+                                            const keyFull = `${setName}.${pName}`;
+                                            elementProps[pName.toLowerCase()] = pVal;
+                                            elementProps[keyFull.toLowerCase()] = pVal;
+                                            elementProps[pName] = pVal;
+                                            elementProps[keyFull] = pVal;
+                                        }
+                                    } catch (e) {}
+                                }
+                            }
+                        } catch (e) {}
+                    }
+                }
+
+                // 3. Filter check
+                if (config.filters && config.filters.length > 0) {
+                    for (const filter of config.filters) {
+                        const valRaw = elementProps[filter.field] ?? elementProps[filter.field.toLowerCase()];
+                        const valStr = valRaw !== undefined && valRaw !== null ? String(valRaw) : '';
+
+                        if (filter.operator === 'exists') {
+                            if (valRaw === undefined || valRaw === null) return;
+                        } else if (filter.operator === 'equals') {
+                            const candidates = filter.value.split(',').map(c => c.trim().toLowerCase());
+                            if (!candidates.includes(valStr.toLowerCase())) return;
+                        } else if (filter.operator === 'contains') {
+                            const candidates = filter.value.split(',').map(c => c.trim().toLowerCase());
+                            const valLower = valStr.toLowerCase();
+                            if (!candidates.some(c => valLower.includes(c))) return;
+                        } else if (filter.operator === 'startsWith') {
+                            const candidates = filter.value.split(',').map(c => c.trim().toLowerCase());
+                            const valLower = valStr.toLowerCase();
+                            if (!candidates.some(c => valLower.startsWith(c))) return;
+                        } else if (filter.operator === 'greaterThan') {
+                            const valNum = parseFloat(valStr);
+                            const filterNum = parseFloat(filter.value);
+                            if (isNaN(valNum) || valNum <= filterNum) return;
+                        } else if (filter.operator === 'lessThan') {
+                            const valNum = parseFloat(valStr);
+                            const filterNum = parseFloat(filter.value);
+                            if (isNaN(valNum) || valNum >= filterNum) return;
+                        }
+                    }
+                }
+
+                // 4. Resolve Grouping Key
+                const groupKeyRaw = elementProps[config.groupByField] ?? elementProps[config.groupByField.toLowerCase()] ?? '其他';
+                const groupKey = String(groupKeyRaw);
+
+                if (!groupRows.has(groupKey)) {
+                    groupRows.set(groupKey, {
+                        count: 0,
+                        metrics: {},
+                        expressIDs: []
+                    });
+                }
+
+                const g = groupRows.get(groupKey)!;
+                g.count++;
+                g.expressIDs.push(expressID);
+
+                // 5. Gather Metric Numbers
+                for (const col of config.columns) {
+                    if (!g.metrics[col.id]) g.metrics[col.id] = [];
+                    
+                    if (col.aggregation === 'count') {
+                        const candidates = col.fieldMatch.split(',').map(c => c.trim().toLowerCase());
+                        let hasValue = false;
+                        for (const cand of candidates) {
+                            if (elementProps[cand] !== undefined && elementProps[cand] !== null) {
+                                hasValue = true;
+                                break;
+                            }
+                        }
+                        if (hasValue || !col.fieldMatch) {
+                            g.metrics[col.id].push(1);
+                        }
+                    } else {
+                        const candidates = col.fieldMatch.split(',').map(c => c.trim().toLowerCase());
+                        let matchedVal: number | null = null;
+                        for (const cand of candidates) {
+                            const rawVal = elementProps[cand];
+                            if (rawVal !== undefined && rawVal !== null) {
+                                const cleanStr = String(rawVal).replace(/[^\d.-]/g, '');
+                                const parsed = parseFloat(cleanStr);
+                                if (!isNaN(parsed)) {
+                                    matchedVal = parsed;
+                                    break;
+                                }
+                            }
+                        }
+                        if (matchedVal !== null) {
+                            g.metrics[col.id].push(matchedVal);
+                        }
+                    }
+                }
+            });
+
+            // 6. Aggregate Groups into Final Rows
+            const resultRows: any[] = [];
+            groupRows.forEach((gData, groupVal) => {
+                const row: any = {
+                    groupValue: groupVal,
+                    count: gData.count,
+                    expressIDs: gData.expressIDs
+                };
+
+                for (const col of config.columns) {
+                    const vals = gData.metrics[col.id] || [];
+                    let finalVal = 0;
+
+                    if (col.aggregation === 'count') {
+                        finalVal = vals.length;
+                    } else if (vals.length > 0) {
+                        if (col.aggregation === 'sum') {
+                            finalVal = vals.reduce((a, b) => a + b, 0);
+                        } else if (col.aggregation === 'avg') {
+                            finalVal = vals.reduce((a, b) => a + b, 0) / vals.length;
+                        } else if (col.aggregation === 'min') {
+                            finalVal = Math.min(...vals);
+                        } else if (col.aggregation === 'max') {
+                            finalVal = Math.max(...vals);
+                        }
+                    } else {
+                        finalVal = 0;
+                    }
+
+                    // Round to precision
+                    row[col.id] = parseFloat(finalVal.toFixed(col.precision));
+                }
+
+                resultRows.push(row);
+            });
+
+            self.postMessage({ type: 'REPORT_RESULT', data: { rows: resultRows } });
+        } catch (err: any) {
+            self.postMessage({ type: 'REPORT_RESULT_FAILED', error: err.message });
+        }
+    }
+    
+    else if (type === 'GET_ALL_PROPERTY_KEYS') {
+        const { modelID } = data;
+        const meta = modelsMetadata.get(modelID);
+        if (!meta) {
+            self.postMessage({ type: 'PROPERTY_KEYS_RESULT', data: { keys: [] } });
+            return;
+        }
+
+        try {
+            const keys = new Set<string>();
+            
+            // Add standard ones
+            keys.add('构件类型');
+            keys.add('构件名称');
+            keys.add('所在空间');
+            keys.add('材质');
+            keys.add('Express ID');
+
+            const sampleIDs = Array.from(meta.modelMeshExpressIDs);
+            const scanCount = Math.min(300, sampleIDs.length);
+            
+            for (let i = 0; i < scanCount; i++) {
+                const expressID = sampleIDs[i];
+                const psetIDs = meta.propertyMaps.get(expressID);
+                if (psetIDs) {
+                    for (const pid of psetIDs) {
+                        try {
+                            const pset = ifcApi.GetLine(modelID, pid);
+                            const setName = parsePropertyName(pset.Name);
+                            if (setName) {
+                                if (pset.HasProperties && Array.isArray(pset.HasProperties)) {
+                                    for (const pr of pset.HasProperties) {
+                                        try {
+                                            const p = ifcApi.GetLine(modelID, pr.value);
+                                            const pName = parsePropertyName(p.Name);
+                                            if (pName) {
+                                                keys.add(pName);
+                                                keys.add(`${setName}.${pName}`);
+                                            }
+                                        } catch (e) {}
+                                    }
+                                }
+                                if (pset.Quantities && Array.isArray(pset.Quantities)) {
+                                    for (const q of pset.Quantities) {
+                                        try {
+                                            const p = ifcApi.GetLine(modelID, q.value);
+                                            const pName = parsePropertyName(p.Name);
+                                            if (pName) {
+                                                keys.add(pName);
+                                                keys.add(`${setName}.${pName}`);
+                                            }
+                                        } catch (e) {}
+                                    }
+                                }
+                            }
+                        } catch (e) {}
+                    }
+                }
+            }
+
+            self.postMessage({ type: 'PROPERTY_KEYS_RESULT', data: { keys: Array.from(keys) } });
+        } catch (e) {
+            self.postMessage({ type: 'PROPERTY_KEYS_RESULT', data: { keys: ['构件类型', '构件名称', '所在空间', '材质', 'Express ID'] } });
+        }
+    }
 };
 
 async function buildPropertyMap(modelID: number, meta: { parentMap: Map<string, string>, propertyMaps: Map<number, number[]>, modelMeshExpressIDs: Set<number> }) {

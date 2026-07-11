@@ -85,22 +85,41 @@ export interface MeasurementResult {
 
 export type AggregationType = 'sum' | 'count' | 'avg' | 'min' | 'max';
 
+export interface ReportFilter {
+    id: string;
+    field: string;       // 匹配属性，如 "type"、"space" 或自定义属性
+    operator: 'equals' | 'contains' | 'startsWith' | 'exists' | 'greaterThan' | 'lessThan';
+    value: string;
+}
+
 export interface ReportColumn {
     id: string;
     name: string;      // Display Name (e.g. "Total Volume")
     fieldMatch: string; // Property name keyword (e.g. "NetVolume", "Area")
     aggregation: AggregationType;
     precision: number;
+    unit?: string;      // 单位展示，如 "m³"、"㎡"
+}
+
+export interface ReportTemplate {
+    id: string;
+    title: string;
+    description?: string;
+    config: ReportConfig;
+    version: number;
 }
 
 export interface ReportConfig {
-    groupByField: string; // "type" or property name
+    groupByField: string; // "type" (构件类型), "space" (空间), "material" (材质) 或属性名
     columns: ReportColumn[];
+    filters: ReportFilter[];
 }
 
 export interface ReportRow {
     groupValue: string;
     count: number;
-    [key: string]: string | number; // Dynamic columns
+    expressIDs?: number[];
+    [key: string]: any;
 }
+
 

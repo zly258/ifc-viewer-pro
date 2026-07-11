@@ -10,9 +10,10 @@ import DraggablePanel from './components/common/DraggablePanel';
 import { TopStatusBar } from './components/TopStatusBar';
 import ContextMenu from './components/ContextMenu';
 import { IFCElementData, MeasurementResult } from './types';
-import { Network, FileText, Ruler, Bookmark, Upload, Moon, Camera, X as XIcon } from 'lucide-react';
+import { Network, FileText, Ruler, Bookmark, Upload, Moon, Camera, TableProperties, X as XIcon } from 'lucide-react';
 import { ifcManager } from './services/ifcManager';
 import BcfPanel from './components/BcfPanel';
+import ReportPanel from './components/ReportPanel';
 
 const App: React.FC = () => {
   const [selectedElement, setSelectedElement] = useState<IFCElementData | null>(null);
@@ -23,6 +24,7 @@ const App: React.FC = () => {
   const [showPropertyPanel, setShowPropertyPanel] = useState(false);
   const [showMeasurePanel, setShowMeasurePanel] = useState(false);
   const [showBcfPanel, setShowBcfPanel] = useState(false);
+  const [showReportPanel, setShowReportPanel] = useState(false);
 
   // Modal States
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -207,6 +209,7 @@ const App: React.FC = () => {
     setShowModelTree(false);
     setShowPropertyPanel(false);
     setShowMeasurePanel(false);
+    setShowReportPanel(false);
     setMeasurements([]);
     setProcessingStatus(null);
     setIsLoading(false);
@@ -315,6 +318,17 @@ const App: React.FC = () => {
           <BcfPanel selectedElement={selectedElement} />
         </DraggablePanel>
 
+        <DraggablePanel
+          title="工程量清单与报表设计器"
+          icon={TableProperties}
+          isOpen={showReportPanel}
+          onClose={() => setShowReportPanel(false)}
+          initialPosition={{ x: Math.max(20, window.innerWidth - 380), y: 150 }}
+          initialSize={{ w: 360, h: 520 }}
+        >
+          <ReportPanel />
+        </DraggablePanel>
+
         {/* Bottom Toolbar */}
         <BottomToolbar
           onOpenFile={handleOpenFiles}
@@ -326,6 +340,8 @@ const App: React.FC = () => {
           activeRightPanel={showPropertyPanel ? 'properties' : null}
           onToggleBcfPanel={() => setShowBcfPanel(!showBcfPanel)}
           isBcfPanelOpen={showBcfPanel}
+          onToggleReportPanel={() => setShowReportPanel(!showReportPanel)}
+          isReportPanelOpen={showReportPanel}
         />
 
         {/* Loading Overlay */}

@@ -37,6 +37,9 @@ export class IFCManager {
     private loadResolver: (() => void) | null = null;
     private propertyResolver: ((props: any) => void) | null = null;
     private highlightResolver: ((geoms: any[]) => void) | null = null;
+    private propertyKeysResolver: ((keys: string[]) => void) | null = null;
+    private reportResolver: ((rows: any[]) => void) | null = null;
+    private reportRejecter: ((err: any) => void) | null = null;
     
     // Incremental loading: partial group accumulates batched meshes before LOAD_COMPLETE
     private partialGroups: Map<number, THREE.Group> = new Map();
@@ -212,7 +215,7 @@ export class IFCManager {
         this.glbUpAxis = glbUpAxis;
 
         this.models.forEach((model, modelID) => {
-            const isIFC = modelID > 0;
+            const isIFC = modelID >= 0;
             const targetAxis = isIFC ? ifcUpAxis : glbUpAxis;
             
             // Reset rotation first
@@ -701,6 +704,26 @@ export class IFCManager {
                     this.highlightResolver = null;
                 }
             }
+            else if (type === 'REPORT_RESULT') {
+                if (this.reportResolver) {
+                    this.reportResolver(data.rows);
+                    this.reportResolver = null;
+                    this.reportRejecter = null;
+                }
+            }
+            else if (type === 'REPORT_RESULT_FAILED') {
+                if (this.reportRejecter) {
+                    this.reportRejecter(new Error(data.error || '报表计算失败'));
+                    this.reportResolver = null;
+                    this.reportRejecter = null;
+                }
+            }
+            else if (type === 'PROPERTY_KEYS_RESULT') {
+                if (this.propertyKeysResolver) {
+                    this.propertyKeysResolver(data.keys);
+                    this.propertyKeysResolver = null;
+                }
+            }
         };
         
         this.worker.postMessage({ type: 'INIT' });
@@ -862,27 +885,8 @@ export class IFCManager {
     fitModelToFrame() {
         if (this.models.size === 0) return;
         
-        const box = new THREE.Box3();
-        let hasContent = false;
-
-        this.models.forEach(m => {
-            m.group.updateMatrixWorld(true);
-            m.group.traverse(c => {
-                if (c instanceof THREE.Mesh) {
-                    if (!c.geometry.boundingBox) c.geometry.computeBoundingBox();
-                    if (c.geometry.boundingBox) {
-                         const geomBox = c.geometry.boundingBox.clone();
-                         geomBox.applyMatrix4(c.matrixWorld);
-                         if (!geomBox.isEmpty()) {
-                             box.union(geomBox);
-                             hasContent = true;
-                         }
-                    }
-                }
-            });
-        });
-
-        if (!hasContent || box.isEmpty()) {
+        const bounds = this.getModelBoundingBox();
+        if (bounds.size === 0) {
             this.camera.position.set(50, 50, 50);
             this.camera.zoom = 1;
             this.camera.updateProjectionMatrix();
@@ -891,9 +895,8 @@ export class IFCManager {
             return;
         }
 
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
+        const center = bounds.center;
+        const maxDim = bounds.size;
         const padding = 1.2;
         
         this.camera.up.set(0, 1, 0); // Ensure Y-up
@@ -1591,8 +1594,50 @@ export class IFCManager {
         }; 
     }
     
-    async getAllPropertiesForStats(cb: (p: number) => void) { 
-        cb(100); return []; 
+    async getAllPropertiesForStats(modelID: number): Promise<string[]> {
+        if (!this.worker || modelID < 0) return [];
+        return new Promise((resolve) => {
+            this.propertyKeysResolver = resolve;
+            this.worker!.postMessage({ type: 'GET_ALL_PROPERTY_KEYS', data: { modelID } });
+            
+            // Fallback timeout in case of errors
+            setTimeout(() => {
+                if (this.propertyKeysResolver === resolve) {
+                    resolve(['构件类型', '构件名称', '所在空间', '材质', 'Express ID']);
+                    this.propertyKeysResolver = null;
+                }
+            }, 3000);
+        });
+    }
+
+    async generateReport(modelID: number, config: any): Promise<any[]> {
+        if (!this.worker || modelID < 0) return [];
+        return new Promise((resolve, reject) => {
+            this.reportResolver = resolve;
+            this.reportRejecter = reject;
+            this.worker!.postMessage({ type: 'GENERATE_REPORT', data: { modelID, config } });
+        });
+    }
+
+    public async selectElementsByExpressIDs(modelID: number, expressIDs: number[], zoomTo = false) {
+        this.clearSelection();
+        
+        if (expressIDs.length === 0) {
+            if (this.onMultiSelect) this.onMultiSelect([]);
+            return;
+        }
+
+        for (const expressID of expressIDs) {
+            await this.highlightElement(modelID, expressID, undefined, true);
+        }
+
+        if (zoomTo) {
+            this.zoomToHighlight();
+        }
+
+        if (this.onMultiSelect) {
+            this.onMultiSelect(this.selectedElements);
+        }
     }
     
     clearModels() {
@@ -1705,8 +1750,18 @@ export class IFCManager {
     getModelBoundingBox() { 
         this.models.forEach(m => m.group.updateMatrixWorld(true));
         const box = new THREE.Box3();
+        
+        const isVisible = (obj: THREE.Object3D): boolean => {
+            let current: THREE.Object3D | null = obj;
+            while (current) {
+                if (!current.visible) return false;
+                current = current.parent;
+            }
+            return true;
+        };
+
         this.models.forEach(m => m.group.traverse(c => { 
-            if (c instanceof THREE.Mesh) { 
+            if (c instanceof THREE.Mesh && isVisible(c)) { 
                 if (c instanceof THREE.InstancedMesh) {
                     if (!c.geometry.boundingBox) c.geometry.computeBoundingBox();
                     if (c.geometry.boundingBox) {

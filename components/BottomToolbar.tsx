@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import {
   FolderTree, FileText, Maximize, Settings, MousePointer2,
   Ruler, Scissors, Trash2, Plus, DraftingCompass, MapPin,
-  List, Navigation, Bookmark, LayoutGrid,
+  List, Navigation, Bookmark, LayoutGrid, TableProperties,
 } from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
 import { CameraView, ViewerTool, MeasurementMode } from '../types';
@@ -17,6 +17,8 @@ interface BottomToolbarProps {
   activeRightPanel: 'properties' | null;
   onToggleBcfPanel: () => void;
   isBcfPanelOpen: boolean;
+  onToggleReportPanel: () => void;
+  isReportPanelOpen: boolean;
 }
 
 // Camera views list
@@ -43,6 +45,8 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
     activeRightPanel,
     onToggleBcfPanel,
     isBcfPanelOpen,
+    onToggleReportPanel,
+    isReportPanelOpen,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -316,6 +320,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
         <ToolButton icon={FolderTree} label="模型" active={isModelTreeOpen} onClick={onToggleModelTree} />
         <ToolButton icon={FileText} label="属性" active={activeRightPanel === 'properties'} onClick={() => onToggleRightPanel()} />
         <ToolButton icon={Bookmark} label="批注" active={isBcfPanelOpen} onClick={onToggleBcfPanel} />
+        <ToolButton icon={TableProperties} label="报表" active={isReportPanelOpen} onClick={onToggleReportPanel} />
 
         <div className="toolbar-divider" />
 
