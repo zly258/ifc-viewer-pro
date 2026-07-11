@@ -3,6 +3,7 @@ import {
   FolderTree, FileText, Maximize, Settings, MousePointer2,
   Ruler, Scissors, Trash2, Plus, DraftingCompass, MapPin,
   List, Navigation, Bookmark, LayoutGrid, TableProperties,
+  Database,
 } from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
 import { CameraView, ViewerTool, MeasurementMode } from '../types';
@@ -35,6 +36,13 @@ const VIEWS = [
     { id: CameraView.ISO_SW,  label: '西南等轴测',  group: '等轴测' },
 ];
 
+const SAMPLES = [
+    { file: 'Structure_Model.ifc', label: '结构体系模型 (0.7MB)' },
+    { file: 'LED_Screen.ifc', label: 'LED大屏结构 (5.2MB)' },
+    { file: 'Energy_Tower.ifc', label: '能源大楼 (10.6MB)' },
+    { file: 'Wellness_Center.ifc', label: '康体中心 (21.3MB)' },
+];
+
 const BottomToolbar: React.FC<BottomToolbarProps> = ({
     onOpenFile,
     onToggleModelTree,
@@ -51,6 +59,8 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
+  const [sampleMenuOpen, setSampleMenuOpen] = useState(false);
+  const [isLoadingSample, setIsLoadingSample] = useState(false);
   const [activeTool, setActiveTool] = useState<ViewerTool>(ViewerTool.NONE);
 
   const [activePlanes, setActivePlanes] = useState({ X: false, Y: false, Z: false });
@@ -62,6 +72,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
 
   const [measureMode, setMeasureMode] = useState<MeasurementMode>('DISTANCE');
   const viewMenuRef = useRef<HTMLDivElement>(null);
+  const sampleMenuRef = useRef<HTMLDivElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -70,15 +81,35 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
     }
   };
 
+  const handleLoadSample = async (fileName: string, displayName: string) => {
+    setIsLoadingSample(true);
+    try {
+      const response = await fetch(`/samples/${fileName}`);
+      if (!response.ok) throw new Error('Fetch failed');
+      const blob = await response.blob();
+      const file = new File([blob], displayName, { type: 'application/octet-stream' });
+      onOpenFile([file]);
+      setSampleMenuOpen(false);
+    } catch (e) {
+      console.error(e);
+      alert('下载案例模型失败，请检查网络！');
+    } finally {
+      setIsLoadingSample(false);
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (viewMenuRef.current && !viewMenuRef.current.contains(event.target as Node)) {
         setViewMenuOpen(false);
       }
+      if (sampleMenuRef.current && !sampleMenuRef.current.contains(event.target as Node)) {
+        setSampleMenuOpen(false);
+      }
     };
-    if (viewMenuOpen) document.addEventListener('mousedown', handleClickOutside);
+    if (viewMenuOpen || sampleMenuOpen) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [viewMenuOpen]);
+  }, [viewMenuOpen, sampleMenuOpen]);
 
   useEffect(() => {
     if (activeTool === ViewerTool.SECTION) {
@@ -313,6 +344,65 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
 
         {/* File Group */}
         <ToolButton icon={Plus} label="加载" onClick={() => fileInputRef.current?.click()} />
+
+        <div className="relative" ref={sampleMenuRef}>
+          {sampleMenuOpen && (
+            <div
+              className="absolute mb-3 py-1 w-52 overflow-hidden z-50 animate-fade-in-up panel-surface"
+              style={{ bottom: '100%', left: '50%', transform: 'translateX(-50%)' }}
+            >
+              <div style={{
+                padding: '4px 12px',
+                fontSize: 10,
+                fontWeight: 700,
+                color: 'var(--text-muted)',
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                background: 'var(--surface-1)',
+                borderBottom: '1px solid var(--border-soft)',
+              }}>
+                选择预设案例
+              </div>
+              {isLoadingSample ? (
+                <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="animate-spin" style={{ width: 12, height: 12, border: '2px solid var(--brand)', borderTopColor: 'transparent', borderRadius: '50%' }} />
+                  正在拉取案例模型...
+                </div>
+              ) : (
+                SAMPLES.map(s => (
+                  <button
+                    key={s.file}
+                    type="button"
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '8px 14px',
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: 'var(--text-secondary)',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'background 0.1s, color 0.1s',
+                    }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLElement).style.background = 'var(--brand-soft)';
+                      (e.currentTarget as HTMLElement).style.color = 'var(--brand)';
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLElement).style.background = 'transparent';
+                      (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
+                    }}
+                    onClick={() => handleLoadSample(s.file, s.label.split(' ')[0] + '.ifc')}
+                  >
+                    {s.label}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+          <ToolButton icon={Database} label="案例" active={sampleMenuOpen} onClick={() => setSampleMenuOpen(!sampleMenuOpen)} />
+        </div>
 
         <div className="toolbar-divider" />
 
