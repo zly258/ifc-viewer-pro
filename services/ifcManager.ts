@@ -197,11 +197,29 @@ export class IFCManager {
                 this.container!.style.cursor = rotateCursor;
                 
                 // Adjust orbit target to the depth of the hit point to prevent "flying away"
+                let depthDistance = -1;
+                
+                // 1. Try hitting under the cursor
                 const hit = this.castRay(e as unknown as MouseEvent);
                 if (hit && hit.point) {
-                    const distance = this.camera.position.distanceTo(hit.point);
+                    depthDistance = this.camera.position.distanceTo(hit.point);
+                } else {
+                    // 2. Try hitting from the center of the screen
+                    this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+                    this.raycaster.firstHitOnly = true;
+                    const centerHits = this.raycaster.intersectObjects(
+                        this.cachedRaycastMeshes.filter(c => !this.multiHighlightMeshes.includes(c)), 
+                        false
+                    );
+                    if (centerHits.length > 0) {
+                        depthDistance = this.camera.position.distanceTo(centerHits[0].point);
+                    }
+                }
+
+                // Apply new target if we found a depth
+                if (depthDistance > 0) {
                     const lookDirection = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
-                    const newTarget = this.camera.position.clone().add(lookDirection.multiplyScalar(distance));
+                    const newTarget = this.camera.position.clone().add(lookDirection.multiplyScalar(depthDistance));
                     this.controls.target.copy(newTarget);
                     this.controls.update();
                 }
