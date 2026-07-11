@@ -1,38 +1,39 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ifcManager } from '../services/ifcManager';
 import { ReportConfig, ReportColumn, ReportFilter, ReportTemplate, ReportRow } from '../types';
 import { 
-    BarChart3, Play, Download, Upload, Plus, Trash2, 
-    Search, FileSpreadsheet, Save, ChevronDown, ChevronUp, 
-    Filter, HelpCircle, AlertCircle, RefreshCw, Layers
+    BarChart3, Play, Download, Upload, Trash2, 
+    Search, FileSpreadsheet, Save, ChevronDown, 
+    Filter, Layers, Settings, X, AlertCircle, RefreshCw
 } from 'lucide-react';
 
-// Built-in Presets
+// Built-in templates
 const PRESETS: ReportTemplate[] = [
     {
         id: 'tpl_count',
         title: '构件清单与数量统计',
         description: '按构件类型分组，统计各类型构件的个数',
-        version: 1,
+        version: 2,
         config: {
-            groupByField: 'type',
+            mode: 'summary',
+            groupByFields: ['type'],
             columns: [
-                { id: 'col_count', name: '构件数量', fieldMatch: '', aggregation: 'count', precision: 0, unit: '个' }
+                { id: 'col_count', name: '数量', fieldMatch: 'type', aggregation: 'count', precision: 0, unit: '个' }
             ],
             filters: []
         }
     },
     {
         id: 'tpl_concrete',
-        title: '结构混凝土工程量明细',
-        description: '仅筛选结构构件，计算其总体积和总暴露面积',
-        version: 1,
+        title: '结构混凝土工程量汇总',
+        description: '先按空间再按类型分组，统计结构物体的体积与面积',
+        version: 2,
         config: {
-            groupByField: 'type',
+            mode: 'summary',
+            groupByFields: ['space', 'type'],
             columns: [
-                { id: 'col_count', name: '构件数量', fieldMatch: '', aggregation: 'count', precision: 0, unit: '个' },
-                { id: 'col_volume', name: '总体积', fieldMatch: 'Volume,体积,NetVolume', aggregation: 'sum', precision: 3, unit: 'm³' },
-                { id: 'col_area', name: '总面积', fieldMatch: 'Area,面积,NetArea', aggregation: 'sum', precision: 2, unit: '㎡' }
+                { id: 'col_volume', name: '体积', fieldMatch: 'Volume,体积,NetVolume', aggregation: 'sum', precision: 3, unit: 'm³' },
+                { id: 'col_area', name: '暴露面积', fieldMatch: 'Area,面积,NetArea', aggregation: 'sum', precision: 2, unit: '㎡' }
             ],
             filters: [
                 { id: 'f1', field: 'type', operator: 'contains', value: 'Wall,Slab,Beam,Column,Footing,柱,梁,板,墙' }
@@ -40,40 +41,46 @@ const PRESETS: ReportTemplate[] = [
         }
     },
     {
-        id: 'tpl_mep',
-        title: '管线长度及规格汇总',
-        description: '筛选机电管道分段，计算总长度及构件数量',
-        version: 1,
+        id: 'tpl_detail_list',
+        title: '全部墙体清单明细',
+        description: '详细列出所有墙体构件的个体体积与长度，直接追溯 3D 构件',
+        version: 2,
         config: {
-            groupByField: 'type',
+            mode: 'detail',
+            groupByFields: [],
             columns: [
-                { id: 'col_len', name: '总长度', fieldMatch: 'Length,长度,NetLength', aggregation: 'sum', precision: 2, unit: 'm' },
-                { id: 'col_count', name: '构件数量', fieldMatch: '', aggregation: 'count', precision: 0, unit: '个' }
+                { id: 'col_type', name: '类型', fieldMatch: 'type', aggregation: 'none', precision: 0 },
+                { id: 'col_vol', name: '设计体积', fieldMatch: 'Volume,体积', aggregation: 'none', precision: 3, unit: 'm³' },
+                { id: 'col_len', name: '设计长度', fieldMatch: 'Length,长度', aggregation: 'none', precision: 2, unit: 'm' }
             ],
             filters: [
-                { id: 'f1', field: 'type', operator: 'contains', value: 'FlowSegment,Pipe,Duct,管,线' }
+                { id: 'f1', field: 'type', operator: 'contains', value: 'Wall,墙' }
             ]
         }
     }
 ];
 
 const ReportPanel: React.FC = () => {
-    // Model state
+    // Current Model ID
     const [modelID, setModelID] = useState<number>(-1);
     const [availableProps, setAvailableProps] = useState<string[]>([]);
     
-    // UI Expand states
+    // UI Expand / Navigation states
     const [designerOpen, setDesignerOpen] = useState(true);
     const [activeTab, setActiveTab] = useState<'design' | 'templates'>('design');
 
-    // Report Configuration states
-    const [groupBy, setGroupBy] = useState('type');
+    // Report configuration states
+    const [mode, setMode] = useState<'detail' | 'summary'>('summary');
+    const [groupByFields, setGroupByFields] = useState<string[]>(['space', 'type']);
     const [columns, setColumns] = useState<ReportColumn[]>([
-        { id: 'c1', name: '构件数量', fieldMatch: '', aggregation: 'count', precision: 0, unit: '个' }
+        { id: 'col_vol', name: '总体积', fieldMatch: 'Volume,体积,NetVolume', aggregation: 'sum', precision: 3, unit: 'm³' }
     ]);
     const [filters, setFilters] = useState<ReportFilter[]>([]);
 
-    // Templates states
+    // Column Config Popup / Drawer state
+    const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
+
+    // Templates LocalStorage states
     const [savedTemplates, setSavedTemplates] = useState<ReportTemplate[]>([]);
     const [tplTitle, setTplTitle] = useState('');
     const [tplDesc, setTplDesc] = useState('');
@@ -86,10 +93,11 @@ const ReportPanel: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
     
-    // Selected row for highlighting tracking
+    // Property checklist search filter
+    const [propSearch, setPropSearch] = useState('');
     const [selectedRowIndex, setSelectedRowIndex] = useState<number | null>(null);
 
-    // Auto-update model list
+    // Auto-detect loaded model
     useEffect(() => {
         const updateModelID = () => {
             const models = Array.from(ifcManager.models.keys());
@@ -105,7 +113,7 @@ const ReportPanel: React.FC = () => {
         return () => clearInterval(interval);
     }, [modelID]);
 
-    // Fetch property keys for autocompletes
+    // Retrieve property names list
     useEffect(() => {
         if (modelID !== -1) {
             ifcManager.getAllPropertiesForStats(modelID).then(keys => {
@@ -136,9 +144,10 @@ const ReportPanel: React.FC = () => {
         localStorage.setItem('bimvision_report_templates', JSON.stringify(tpls));
     };
 
-    // Apply a configuration template
+    // Apply template configuration
     const applyTemplate = (tpl: ReportTemplate) => {
-        setGroupBy(tpl.config.groupByField);
+        setMode(tpl.config.mode || 'summary');
+        setGroupByFields(tpl.config.groupByFields || []);
         setColumns(tpl.config.columns.map(c => ({ ...c })));
         setFilters(tpl.config.filters ? tpl.config.filters.map(f => ({ ...f })) : []);
         setDesignerOpen(true);
@@ -147,20 +156,57 @@ const ReportPanel: React.FC = () => {
         setSelectedRowIndex(null);
     };
 
-    // Columns config managers
-    const addColumn = () => {
-        const id = `col_${Date.now()}`;
-        setColumns(prev => [...prev, { id, name: '新数据列', fieldMatch: '', aggregation: 'sum', precision: 2 }]);
+    // Checkbox togglers for Group By Fields
+    const toggleGroupByField = (field: string) => {
+        setGroupByFields(prev => {
+            if (prev.includes(field)) {
+                return prev.filter(f => f !== field);
+            } else {
+                return [...prev, field];
+            }
+        });
     };
 
+    // Auto Column Generation on checking properties
+    const handleToggleColumnProperty = (propName: string, isChecked: boolean) => {
+        if (isChecked) {
+            // Add column configuration
+            const id = `col_${propName.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
+            // Set default aggregation: count for Express ID / type / name, otherwise sum for numbers in summary mode
+            let defaultAgg: 'sum' | 'count' | 'avg' | 'none' = 'sum';
+            if (mode === 'detail') {
+                defaultAgg = 'none';
+            } else if (['type', 'name', 'space', 'material', '构件类型', '构件名称', '所在空间', '材质', 'Express ID'].includes(propName)) {
+                defaultAgg = 'count';
+            }
+
+            // Detect unit
+            let defaultUnit = '';
+            if (propName.toLowerCase().includes('volume') || propName.includes('体积')) defaultUnit = 'm³';
+            else if (propName.toLowerCase().includes('area') || propName.includes('面积')) defaultUnit = '㎡';
+            else if (propName.toLowerCase().includes('length') || propName.includes('长度') || propName.includes('高度') || propName.includes('height')) defaultUnit = 'm';
+
+            const newCol: ReportColumn = {
+                id,
+                name: propName,
+                fieldMatch: propName,
+                aggregation: defaultAgg,
+                precision: ['volume', '体积', 'area', '面积'].some(k => propName.toLowerCase().includes(k)) ? 3 : 2,
+                unit: defaultUnit || undefined
+            };
+            setColumns(prev => [...prev, newCol]);
+        } else {
+            // Remove column config matching the fieldMatch
+            setColumns(prev => prev.filter(c => c.fieldMatch !== propName));
+            if (editingColumnId && columns.find(c => c.fieldMatch === propName)?.id === editingColumnId) {
+                setEditingColumnId(null);
+            }
+        }
+    };
+
+    // Column Config Modifier
     const updateColumn = (id: string, key: keyof ReportColumn, val: any) => {
         setColumns(prev => prev.map(c => c.id === id ? { ...c, [key]: val } : c));
-    };
-
-    const removeColumn = (id: string) => {
-        if (columns.length > 1) {
-            setColumns(prev => prev.filter(c => c.id !== id));
-        }
     };
 
     // Filters managers
@@ -177,10 +223,10 @@ const ReportPanel: React.FC = () => {
         setFilters(prev => prev.filter(f => f.id !== id));
     };
 
-    // Run report calculation via Web Worker
+    // Run report analysis on Worker
     const runCalculation = async () => {
         if (modelID === -1) {
-            setError('请先加载 BIM 模型文件！');
+            setError('请加载 BIM 模型后再试！');
             return;
         }
 
@@ -189,7 +235,8 @@ const ReportPanel: React.FC = () => {
         setSelectedRowIndex(null);
 
         const config: ReportConfig = {
-            groupByField: groupBy,
+            mode,
+            groupByFields,
             columns,
             filters
         };
@@ -197,15 +244,15 @@ const ReportPanel: React.FC = () => {
         try {
             const results = await ifcManager.generateReport(modelID, config);
             setRows(results);
-            setDesignerOpen(false); // Auto collapse designer on success to view table
+            setDesignerOpen(false); // Auto collapse designer on success
         } catch (err: any) {
-            setError(err.message || '计算报表失败，请检查配置条件或重试。');
+            setError(err.message || '计算报表失败，请检查配置。');
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Template operations
+    // Save configuration template
     const handleSaveTemplate = (e: React.FormEvent) => {
         e.preventDefault();
         if (!tplTitle.trim()) return;
@@ -214,9 +261,10 @@ const ReportPanel: React.FC = () => {
             id: `tpl_${Date.now()}`,
             title: tplTitle,
             description: tplDesc || undefined,
-            version: 1,
+            version: 2,
             config: {
-                groupByField: groupBy,
+                mode,
+                groupByFields,
                 columns,
                 filters
             }
@@ -242,7 +290,7 @@ const ReportPanel: React.FC = () => {
                     applyTemplate(template);
                     setError(null);
                 } else {
-                    alert('导入失败：模板文件格式不符合规范！');
+                    alert('导入失败：不是合法的 BIM 报表模板！');
                 }
             } catch (err) {
                 alert('解析模板 JSON 失败！');
@@ -258,7 +306,7 @@ const ReportPanel: React.FC = () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `ReportTemplate_${tpl.title.replace(/\s+/g, '_')}.json`;
+        a.download = `TakeoffTemplate_${tpl.title.replace(/\s+/g, '_')}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -275,33 +323,34 @@ const ReportPanel: React.FC = () => {
     const exportCsv = () => {
         if (rows.length === 0) return;
 
-        // Construct CSV header
-        const headers = ['分类字段组', '构件数量', ...columns.map(c => `${c.name}${c.unit ? ` (${c.unit})` : ''}`)];
+        // Header builder
+        const firstColName = mode === 'detail' ? '构件详细名称' : '嵌套分组级次 (' + groupByFields.join(' > ') + ')';
+        const headers = [firstColName, ...(mode === 'summary' ? ['数量'] : []), ...columns.map(c => `${c.name}${c.unit ? ` (${c.unit})` : ''}`)];
         
-        // Construct CSV rows
+        // Lines builder
         const csvLines = [headers.join(',')];
         rows.forEach(row => {
             const line = [
                 `"${row.groupValue}"`,
-                row.count,
-                ...columns.map(c => row[c.id] ?? 0)
+                ...(mode === 'summary' ? [row.count] : []),
+                ...columns.map(c => row[c.id] ?? '-')
             ];
             csvLines.push(line.join(','));
         });
 
-        const csvContent = '\uFEFF' + csvLines.join('\n'); // UTF-8 BOM for Excel Chinese support
+        const csvContent = '\uFEFF' + csvLines.join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `QuantityTakeoff_${Date.now()}.csv`;
+        a.download = `BIMTakeoff_${mode === 'detail' ? 'Detail' : 'Summary'}_${Date.now()}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     };
 
-    // Handle 3D selection sync on click
+    // Sync elements click selection with 3D scene
     const handleRowClick = (index: number, row: ReportRow) => {
         setSelectedRowIndex(index);
         if (modelID !== -1 && row.expressIDs) {
@@ -315,7 +364,7 @@ const ReportPanel: React.FC = () => {
         }
     };
 
-    // Sorting & Filtering computed rows
+    // Sort computed rows
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' = 'asc';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -324,16 +373,17 @@ const ReportPanel: React.FC = () => {
         setSortConfig({ key, direction });
     };
 
+    // Search and Sort Rows Memo
     const filteredAndSortedRows = useMemo(() => {
         let list = [...rows];
         
-        // Search filter
+        // Search
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase().trim();
             list = list.filter(r => String(r.groupValue).toLowerCase().includes(q));
         }
 
-        // Sorters
+        // Sort
         if (sortConfig) {
             list.sort((a, b) => {
                 let valA: any = sortConfig.key === 'groupValue' ? a.groupValue : (a[sortConfig.key] ?? 0);
@@ -344,15 +394,48 @@ const ReportPanel: React.FC = () => {
                         ? String(valA).localeCompare(String(valB))
                         : String(valB).localeCompare(String(valA));
                 } else {
-                    return sortConfig.direction === 'asc' 
-                        ? (valA as number) - (valB as number)
-                        : (valB as number) - (valA as number);
+                    const numA = typeof valA === 'number' ? valA : parseFloat(String(valA).replace(/[^\d.-]/g, '')) || 0;
+                    const numB = typeof valB === 'number' ? valB : parseFloat(String(valB).replace(/[^\d.-]/g, '')) || 0;
+                    return sortConfig.direction === 'asc' ? numA - numB : numB - numA;
                 }
             });
         }
 
         return list;
     }, [rows, searchQuery, sortConfig]);
+
+    // Categorized properties for checklist selection
+    const categorizedProps = useMemo(() => {
+        const result = {
+            common: [] as string[],
+            custom: [] as string[]
+        };
+
+        const commonKeys = ['volume', '体积', 'area', '面积', 'length', '长度', 'height', '高度', 'width', '宽度', 'thickness', '厚度', 'type', 'space', 'material', '构件类型', '构件名称', '所在空间', '材质', 'Express ID'];
+        
+        availableProps.forEach(prop => {
+            const match = propSearch.toLowerCase().trim();
+            if (match && !prop.toLowerCase().includes(match)) return;
+
+            const isCommon = commonKeys.some(ck => prop.toLowerCase().includes(ck));
+            if (isCommon) {
+                result.common.push(prop);
+            } else {
+                result.custom.push(prop);
+            }
+        });
+
+        // Deduplicate and sort
+        result.common = Array.from(new Set(result.common)).sort();
+        result.custom = Array.from(new Set(result.custom)).sort();
+
+        return result;
+    }, [availableProps, propSearch]);
+
+    // Helper: check if a property is already configured as a column
+    const isPropChecked = (propName: string) => {
+        return columns.some(c => c.fieldMatch === propName);
+    };
 
     if (modelID === -1) {
         return (
@@ -366,7 +449,7 @@ const ReportPanel: React.FC = () => {
                         <BarChart3 size={20} style={{ color: 'var(--text-muted)' }} />
                     </div>
                     <span className="empty-state-title">未加载 BIM 模型</span>
-                    <span className="empty-state-desc">请拖入或在底栏中点击「加载」导入 IFC 模型，然后再启用报表设计器。</span>
+                    <span className="empty-state-desc">请拖入或在底栏中点击「加载」导入 IFC 模型，然后再启用清单设计器。</span>
                 </div>
             </div>
         );
@@ -392,7 +475,7 @@ const ReportPanel: React.FC = () => {
                             color: activeTab === 'design' ? 'var(--brand)' : 'var(--text-secondary)'
                         }}
                     >
-                        设计统计表
+                        清单设计器
                     </button>
                     <button 
                         type="button"
@@ -405,7 +488,7 @@ const ReportPanel: React.FC = () => {
                             color: activeTab === 'templates' ? 'var(--brand)' : 'var(--text-secondary)'
                         }}
                     >
-                        模板库
+                        模板预设
                     </button>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -414,7 +497,7 @@ const ReportPanel: React.FC = () => {
                             type="button"
                             onClick={exportCsv}
                             className="icon-button text-emerald-600 dark:text-emerald-400"
-                            title="导出为 CSV 表格"
+                            title="一键导出为 CSV 电子表格"
                             style={{ width: 28, height: 28 }}
                         >
                             <FileSpreadsheet size={14} />
@@ -425,7 +508,7 @@ const ReportPanel: React.FC = () => {
                             type="button"
                             onClick={() => setShowSaveModal(true)}
                             className="icon-button"
-                            title="另存为报表模板"
+                            title="将当前设计存为自定义模板"
                             style={{ width: 28, height: 28 }}
                         >
                             <Save size={14} />
@@ -434,11 +517,11 @@ const ReportPanel: React.FC = () => {
                 </div>
             </div>
 
-            {/* Design & Configure Tab */}
+            {/* Design Config Tab */}
             {activeTab === 'design' && (
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
                     
-                    {/* Collapsible Design Form */}
+                    {/* Collapsible Config Options */}
                     <div style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface-0)' }}>
                         <button 
                             type="button"
@@ -450,7 +533,7 @@ const ReportPanel: React.FC = () => {
                         >
                             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <Filter size={13} style={{ color: 'var(--brand)' }} />
-                                设计器选项配置 {designerOpen ? '已展开' : '已收起'}
+                                报表计算规则 {designerOpen ? '已展开' : '已收起'}
                             </span>
                             <ChevronDown size={14} style={{ 
                                 color: 'var(--text-muted)', 
@@ -462,141 +545,233 @@ const ReportPanel: React.FC = () => {
                         {designerOpen && (
                             <div className="animate-fade-in-up" style={{ 
                                 padding: '0 12px 12px 12px', display: 'flex', flexDirection: 'column', 
-                                gap: 12, borderTop: '1px solid var(--border-soft)', maxHeight: 320, overflowY: 'auto' 
+                                gap: 12, borderTop: '1px solid var(--border-soft)', maxHeight: 310, overflowY: 'auto' 
                             }}>
                                 <div style={{ height: 4 }} />
-                                
-                                {/* Grouping */}
+
+                                {/* 1. Mode selection */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>分组维度 (Group By)</label>
+                                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>报表呈现模式</label>
                                     <div style={{ display: 'flex', gap: 6 }}>
-                                        <select 
-                                            value={['type', 'space', 'material'].includes(groupBy) ? groupBy : 'custom'}
-                                            onChange={(e) => {
-                                                const v = e.target.value;
-                                                if (v !== 'custom') setGroupBy(v);
-                                                else setGroupBy('Pset_WallCommon.LoadBearing');
-                                            }}
-                                            className="input-control"
-                                            style={{ padding: '4px 8px', fontSize: 11, flex: 1 }}
-                                        >
-                                            <option value="type">按 构件类型 分组</option>
-                                            <option value="space">按 楼层空间 分组</option>
-                                            <option value="material">按 物理材质 分组</option>
-                                            <option value="custom">按 自定义属性键 分组</option>
-                                        </select>
-                                        
-                                        {!['type', 'space', 'material'].includes(groupBy) && (
-                                            <input 
-                                                type="text" 
-                                                list="props-datalist"
-                                                placeholder="自定义属性,如 Pset_WallCommon.LoadBearing"
-                                                value={groupBy}
-                                                onChange={(e) => setGroupBy(e.target.value)}
-                                                className="input-control"
-                                                style={{ padding: '4px 8px', fontSize: 11, flex: 1.2 }}
-                                            />
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Columns Configure */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>数据量度列 (Columns)</label>
-                                        <button 
-                                            type="button"
-                                            onClick={addColumn}
-                                            className="secondary-button"
-                                            style={{ minHeight: 20, padding: '2px 8px', fontSize: 10, gap: 3 }}
-                                        >
-                                            <Plus size={11} /> 添加量度
-                                        </button>
-                                    </div>
-                                    
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                        {columns.map((col, idx) => (
-                                            <div key={col.id} style={{ 
-                                                display: 'flex', gap: 4, background: 'var(--surface-1)', 
-                                                padding: 6, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-soft)',
-                                                alignItems: 'center' 
-                                            }}>
-                                                <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 700, width: 14 }}>{idx + 1}</span>
-                                                
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="列显示名"
-                                                    value={col.name}
-                                                    onChange={(e) => updateColumn(col.id, 'name', e.target.value)}
-                                                    className="input-control"
-                                                    style={{ padding: '3px 6px', fontSize: 11, width: 85 }}
-                                                />
-                                                
-                                                <select 
-                                                    value={col.aggregation}
-                                                    onChange={(e) => updateColumn(col.id, 'aggregation', e.target.value)}
-                                                    className="input-control"
-                                                    style={{ padding: '3px 6px', fontSize: 11, width: 65 }}
-                                                >
-                                                    <option value="count">计数</option>
-                                                    <option value="sum">求和</option>
-                                                    <option value="avg">均值</option>
-                                                    <option value="min">极小值</option>
-                                                    <option value="max">极大值</option>
-                                                </select>
-
-                                                {col.aggregation !== 'count' && (
-                                                    <input 
-                                                        type="text"
-                                                        list="props-datalist"
-                                                        placeholder="匹配词, 如 Volume,体积"
-                                                        value={col.fieldMatch}
-                                                        onChange={(e) => updateColumn(col.id, 'fieldMatch', e.target.value)}
-                                                        className="input-control"
-                                                        style={{ padding: '3px 6px', fontSize: 11, flex: 1, minWidth: 80 }}
-                                                    />
-                                                )}
-
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="单位"
-                                                    value={col.unit || ''}
-                                                    onChange={(e) => updateColumn(col.id, 'unit', e.target.value)}
-                                                    className="input-control"
-                                                    style={{ padding: '3px 6px', fontSize: 11, width: 35 }}
-                                                    title="列单位展示"
-                                                />
-
-                                                <input 
-                                                    type="number" 
-                                                    min={0}
-                                                    max={5}
-                                                    placeholder="精度"
-                                                    value={col.precision}
-                                                    onChange={(e) => updateColumn(col.id, 'precision', parseInt(e.target.value, 10) || 0)}
-                                                    className="input-control"
-                                                    style={{ padding: '3px 6px', fontSize: 11, width: 35 }}
-                                                    title="保留小数位数"
-                                                />
-
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => removeColumn(col.id)}
-                                                    disabled={columns.length === 1}
-                                                    className="icon-button danger-button"
-                                                    style={{ width: 22, height: 22, opacity: columns.length === 1 ? 0.35 : 1 }}
-                                                >
-                                                    <Trash2 size={11} />
-                                                </button>
-                                            </div>
+                                        {[
+                                            { val: 'detail', label: '清单明细模式 (一物一行，直接追溯)' },
+                                            { val: 'summary', label: '分组汇总模式 (条件归类，分组求和)' },
+                                        ].map(({ val, label }) => (
+                                            <button
+                                                key={val}
+                                                type="button"
+                                                onClick={() => {
+                                                    setMode(val as any);
+                                                    // Reset column aggregations accordingly
+                                                    setColumns(prev => prev.map(c => ({
+                                                        ...c,
+                                                        aggregation: val === 'detail' ? 'none' : (c.aggregation === 'none' ? 'sum' : c.aggregation)
+                                                    })));
+                                                }}
+                                                className={`option-button ${mode === val ? 'option-button-active' : ''}`}
+                                                style={{ flex: 1, padding: '6px 8px', fontSize: 11, textAlign: 'center' }}
+                                            >
+                                                {label}
+                                            </button>
                                         ))}
                                     </div>
                                 </div>
 
-                                {/* Filters Configure */}
+                                {/* 2. Multi-level Grouping (Only shown in summary mode) */}
+                                {mode === 'summary' && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, background: 'var(--surface-1)', padding: 8, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-soft)' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>多级分组依赖 (勾选顺序决定层级)</label>
+                                            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>当前层级：{groupByFields.length > 0 ? groupByFields.map(f => {
+                                                if (f === 'type') return '构件类型';
+                                                if (f === 'space') return '所在空间';
+                                                if (f === 'material') return '物理材质';
+                                                return f;
+                                            }).join(' > ') : '未选择 (默认按构件类型)'}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 14 }}>
+                                            {[
+                                                { key: 'space', label: '楼层空间' },
+                                                { key: 'type', label: '构件类型' },
+                                                { key: 'material', label: '物理材质' }
+                                            ].map(opt => (
+                                                <label key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer', color: 'var(--text-primary)' }}>
+                                                    <input 
+                                                        type="checkbox"
+                                                        checked={groupByFields.includes(opt.key)}
+                                                        onChange={() => toggleGroupByField(opt.key)}
+                                                        style={{ cursor: 'pointer' }}
+                                                    />
+                                                    <span>{opt.label}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 3. Select columns from scanned properties checkboxes */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>勾选属性加入报表列 (Check Columns)</label>
+                                    
+                                    {/* Search Property List */}
+                                    <div style={{ position: 'relative' }}>
+                                        <input 
+                                            type="text"
+                                            placeholder="输入关键字检索可用属性（如体积、长度、LoadBearing）..."
+                                            value={propSearch}
+                                            onChange={(e) => setPropSearch(e.target.value)}
+                                            className="input-control"
+                                            style={{ paddingLeft: 28, paddingTop: 4, paddingBottom: 4, fontSize: 11 }}
+                                        />
+                                        <Search size={12} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                    </div>
+
+                                    {/* Scrollable checklists */}
+                                    <div style={{ 
+                                        maxHeight: 120, overflowY: 'auto', border: '1px solid var(--border-soft)', 
+                                        borderRadius: 'var(--radius-sm)', padding: 8, background: 'var(--surface-1)',
+                                        display: 'flex', flexDirection: 'column', gap: 8
+                                    }}>
+                                        {/* Common metrics */}
+                                        {categorizedProps.common.length > 0 && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 700, borderBottom: '1px solid var(--border-soft)', paddingBottom: 2 }}>常用几何参数与基础属性</span>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px' }}>
+                                                    {categorizedProps.common.map(prop => (
+                                                        <label key={prop} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer', color: 'var(--text-primary)' }}>
+                                                            <input 
+                                                                type="checkbox"
+                                                                checked={isPropChecked(prop)}
+                                                                onChange={(e) => handleToggleColumnProperty(prop, e.target.checked)}
+                                                                style={{ cursor: 'pointer' }}
+                                                            />
+                                                            <span>{prop}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Custom props */}
+                                        {categorizedProps.custom.length > 0 && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                                                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 700, borderBottom: '1px solid var(--border-soft)', paddingBottom: 2 }}>扫描到的自定义集属性 (Pset)</span>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px' }}>
+                                                    {categorizedProps.custom.map(prop => (
+                                                        <label key={prop} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, cursor: 'pointer', color: 'var(--text-primary)' }}>
+                                                            <input 
+                                                                type="checkbox"
+                                                                checked={isPropChecked(prop)}
+                                                                onChange={(e) => handleToggleColumnProperty(prop, e.target.checked)}
+                                                                style={{ cursor: 'pointer' }}
+                                                            />
+                                                            <span title={prop}>{prop}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {categorizedProps.common.length === 0 && categorizedProps.custom.length === 0 && (
+                                            <span style={{ fontSize: 10, color: 'var(--text-muted)', fontStyle: 'italic' }}>无匹配属性键</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* 4. Configured Columns Fine-tuning (Inline) */}
+                                {columns.length > 0 && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                        <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>已选报表列配置 ({columns.length} 列)</label>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                            {columns.map(col => (
+                                                <div key={col.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                    <div style={{ 
+                                                        display: 'flex', alignItems: 'center', gap: 4, background: 'var(--brand-soft)',
+                                                        border: '1px solid var(--brand-border)', borderRadius: 4, padding: '3px 8px', fontSize: 10,
+                                                        fontWeight: 700, color: 'var(--brand)', cursor: 'default'
+                                                    }}>
+                                                        <span>{col.name} ({col.aggregation === 'none' ? '明细' : col.aggregation})</span>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setEditingColumnId(editingColumnId === col.id ? null : col.id)}
+                                                            className="text-brand hover:text-brand-hover"
+                                                            title="点击微调列名、求和与精度设置"
+                                                            style={{ border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex' }}
+                                                        >
+                                                            <Settings size={11} />
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Inline Column Editor */}
+                                                    {editingColumnId === col.id && (
+                                                        <div className="animate-fade-in-up" style={{
+                                                            position: 'relative', display: 'flex', flexDirection: 'column', gap: 6,
+                                                            padding: 8, background: 'var(--surface-1)', border: '1px solid var(--border)',
+                                                            borderRadius: 'var(--radius-sm)', minWidth: 200, zIndex: 10
+                                                        }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-secondary)' }}>列 [{col.fieldMatch}] 属性微调</span>
+                                                                <button type="button" onClick={() => setEditingColumnId(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                                                                    <X size={10} style={{ color: 'var(--text-muted)' }} />
+                                                                </button>
+                                                            </div>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                                <input 
+                                                                    type="text" 
+                                                                    placeholder="显示表头别名" 
+                                                                    value={col.name} 
+                                                                    onChange={(e) => updateColumn(col.id, 'name', e.target.value)}
+                                                                    className="input-control"
+                                                                    style={{ padding: '3px 6px', fontSize: 10 }}
+                                                                />
+                                                                <div style={{ display: 'flex', gap: 4 }}>
+                                                                    <select 
+                                                                        value={col.aggregation} 
+                                                                        disabled={mode === 'detail'}
+                                                                        onChange={(e) => updateColumn(col.id, 'aggregation', e.target.value)}
+                                                                        className="input-control"
+                                                                        style={{ padding: '3px 6px', fontSize: 10, flex: 1.2 }}
+                                                                    >
+                                                                        <option value="none">无汇总 (清单值)</option>
+                                                                        <option value="sum">求和 (SUM)</option>
+                                                                        <option value="count">计数 (COUNT)</option>
+                                                                        <option value="avg">平均 (AVG)</option>
+                                                                        <option value="min">最小值 (MIN)</option>
+                                                                        <option value="max">最大值 (MAX)</option>
+                                                                    </select>
+                                                                    <input 
+                                                                        type="text" 
+                                                                        placeholder="单位" 
+                                                                        value={col.unit || ''} 
+                                                                        onChange={(e) => updateColumn(col.id, 'unit', e.target.value)}
+                                                                        className="input-control"
+                                                                        style={{ padding: '3px 6px', fontSize: 10, width: 40 }}
+                                                                    />
+                                                                    <input 
+                                                                        type="number" 
+                                                                        min={0}
+                                                                        max={5}
+                                                                        placeholder="精度" 
+                                                                        value={col.precision} 
+                                                                        onChange={(e) => updateColumn(col.id, 'precision', parseInt(e.target.value, 10) || 0)}
+                                                                        className="input-control"
+                                                                        style={{ padding: '3px 6px', fontSize: 10, width: 35 }}
+                                                                        title="小数位数"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 5. Filters configure */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>过滤器条件 (Filters - AND 逻辑)</label>
+                                        <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>过滤器条件 (Filters - 支持多字段 , 号分隔)</label>
                                         <button 
                                             type="button"
                                             onClick={addFilter}
@@ -622,7 +797,7 @@ const ReportPanel: React.FC = () => {
                                                     <input 
                                                         type="text" 
                                                         list="props-datalist"
-                                                        placeholder="过滤字段,如 type"
+                                                        placeholder="字段,如 type"
                                                         value={f.field}
                                                         onChange={(e) => updateFilter(f.id, 'field', e.target.value)}
                                                         className="input-control"
@@ -668,33 +843,31 @@ const ReportPanel: React.FC = () => {
                                     )}
                                 </div>
 
-                                {/* Run Button */}
-                                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                                    <button 
-                                        type="button"
-                                        onClick={runCalculation}
-                                        disabled={isLoading}
-                                        className="primary-button"
-                                        style={{ flex: 1, minHeight: 32, gap: 6, fontSize: 12 }}
-                                    >
-                                        {isLoading ? (
-                                            <>
-                                                <RefreshCw size={13} className="animate-spin" />
-                                                <span>正在分析模型计算中...</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Play size={13} fill="currentColor" />
-                                                <span>开始生成工程量报表</span>
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
+                                {/* Run query */}
+                                <button 
+                                    type="button"
+                                    onClick={runCalculation}
+                                    disabled={isLoading || columns.length === 0}
+                                    className="primary-button"
+                                    style={{ minHeight: 32, gap: 6, fontSize: 12, marginTop: 4 }}
+                                >
+                                    {isLoading ? (
+                                        <>
+                                            <RefreshCw size={13} className="animate-spin" />
+                                            <span>正在过滤统计并汇总数据...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Play size={13} fill="currentColor" />
+                                            <span>开始生成 {mode === 'detail' ? '清单明细表' : '分组求和汇总表'}</span>
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         )}
                     </div>
 
-                    {/* Results Table Section */}
+                    {/* Results table view */}
                     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
                         {error && (
                             <div style={{
@@ -709,12 +882,13 @@ const ReportPanel: React.FC = () => {
 
                         {rows.length > 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-                                {/* Search in computed rows */}
+                                
+                                {/* Search query input */}
                                 <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-soft)', background: 'var(--surface-1)' }}>
                                     <div style={{ position: 'relative' }}>
                                         <input 
                                             type="text" 
-                                            placeholder="在结果中过滤分组键..."
+                                            placeholder="在结果表格中过滤首列文本..."
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                             className="input-control"
@@ -727,7 +901,7 @@ const ReportPanel: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {/* Table Data */}
+                                {/* Data sheet table */}
                                 <div style={{ flex: 1, overflow: 'auto', background: 'var(--surface-0)' }}>
                                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, textAlign: 'left' }}>
                                         <thead style={{ position: 'sticky', top: 0, background: 'var(--surface-2)', zIndex: 10 }}>
@@ -736,14 +910,16 @@ const ReportPanel: React.FC = () => {
                                                     onClick={() => handleSort('groupValue')}
                                                     style={{ padding: '8px 10px', cursor: 'pointer', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}
                                                 >
-                                                    分组分类键
+                                                    {mode === 'detail' ? '构件详细描述' : '嵌套分组依赖链'}
                                                 </th>
-                                                <th 
-                                                    onClick={() => handleSort('count')}
-                                                    style={{ padding: '8px 10px', cursor: 'pointer', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap', textAlign: 'right' }}
-                                                >
-                                                    数量
-                                                </th>
+                                                {mode === 'summary' && (
+                                                    <th 
+                                                        onClick={() => handleSort('count')}
+                                                        style={{ padding: '8px 10px', cursor: 'pointer', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap', textAlign: 'right' }}
+                                                    >
+                                                        数量
+                                                    </th>
+                                                )}
                                                 {columns.map(col => (
                                                     <th 
                                                         key={col.id}
@@ -769,15 +945,17 @@ const ReportPanel: React.FC = () => {
                                                     }}
                                                     className="hover:bg-slate-50 dark:hover:bg-slate-800"
                                                 >
-                                                    <td style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--text-primary)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    <td style={{ padding: '8px 10px', fontWeight: 600, color: 'var(--text-primary)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                         {row.groupValue}
                                                     </td>
-                                                    <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', textAlign: 'right', fontWeight: 500 }}>
-                                                        {row.count}
-                                                    </td>
+                                                    {mode === 'summary' && (
+                                                        <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', textAlign: 'right', fontWeight: 500 }}>
+                                                            {row.count}
+                                                        </td>
+                                                    )}
                                                     {columns.map(col => (
                                                         <td key={col.id} style={{ padding: '8px 10px', color: 'var(--text-secondary)', textAlign: 'right', fontWeight: 500 }}>
-                                                            {row[col.id] ?? 0}
+                                                            {row[col.id] ?? '-'}
                                                         </td>
                                                     ))}
                                                 </tr>
@@ -786,14 +964,14 @@ const ReportPanel: React.FC = () => {
                                     </table>
                                 </div>
                                 
-                                {/* Status info */}
+                                {/* Status bar summary */}
                                 <div style={{
                                     padding: '6px 12px', fontSize: 10, color: 'var(--text-muted)',
                                     borderTop: '1px solid var(--border)', background: 'var(--surface-1)',
                                     display: 'flex', justifyContent: 'space-between'
                                 }}>
-                                    <span>计算总行数：{rows.length} 行 (已过滤：{filteredAndSortedRows.length})</span>
-                                    <span>提示：双击行可在 3D 视图中缩放聚焦</span>
+                                    <span>汇总结果：{rows.length} 行 (筛选过滤：{filteredAndSortedRows.length} 行)</span>
+                                    <span>提示：双击表格行可以在 3D 视图中缩放聚焦</span>
                                 </div>
                             </div>
                         ) : (
@@ -805,8 +983,8 @@ const ReportPanel: React.FC = () => {
                                 }}>
                                     <Play size={16} style={{ color: 'var(--text-muted)' }} />
                                 </div>
-                                <span className="empty-state-title">未计算工程量</span>
-                                <span className="empty-state-desc">配置上方设计器规则并点击「开始生成」进行汇总。</span>
+                                <span className="empty-state-title">未计算任何数据</span>
+                                <span className="empty-state-desc">在上方勾选参数列，点击「开始生成」输出清单数据。</span>
                             </div>
                         )}
                     </div>
@@ -814,19 +992,19 @@ const ReportPanel: React.FC = () => {
                 </div>
             )}
 
-            {/* Templates Library Tab */}
+            {/* Template Library Tab */}
             {activeTab === 'templates' && (
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: 12, gap: 14, overflowY: 'auto' }}>
                     
-                    {/* Import from file */}
+                    {/* Import configurations */}
                     <div style={{ 
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
                         padding: '10px 12px', background: 'var(--surface-1)', border: '1px solid var(--border)', 
                         borderRadius: 'var(--radius-md)' 
                     }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>导入模板配置</span>
-                            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>从本地载入 `.json` 报表设计模板</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>本地导入设计模板</span>
+                            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>载入外部导出的 `.json` 设计文件</span>
                         </div>
                         <label 
                             className="primary-button" 
@@ -837,11 +1015,11 @@ const ReportPanel: React.FC = () => {
                         </label>
                     </div>
 
-                    {/* Standard Templates Presets */}
+                    {/* Presets */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 5 }}>
                             <Layers size={13} style={{ color: 'var(--brand)' }} />
-                            系统内置工程量模板
+                            系统内置推荐模板
                         </span>
                         
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -867,29 +1045,29 @@ const ReportPanel: React.FC = () => {
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>{preset.title}</span>
                                         <span style={{ fontSize: 9, color: 'var(--brand)', background: 'var(--brand-soft)', border: '1px solid var(--brand-border)', borderRadius: 4, padding: '0 4px' }}>
-                                            System
+                                            内置
                                         </span>
                                     </div>
                                     <span style={{ fontSize: 10, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{preset.description}</span>
-                                    <div style={{ display: 'flex', gap: 6, fontSize: 9, color: 'var(--text-muted)', marginTop: 4 }}>
-                                        <span>列数: {preset.config.columns.length}</span>
+                                    <div style={{ display: 'flex', gap: 10, fontSize: 9, color: 'var(--text-muted)', marginTop: 4 }}>
+                                        <span>模式: {preset.config.mode === 'detail' ? '明细清单' : '分组汇总'}</span>
                                         <span>•</span>
-                                        <span>过滤: {preset.config.filters.length > 0 ? '有' : '无'}</span>
+                                        <span>量度列: {preset.config.columns.length} 列</span>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    {/* Custom Saved Templates */}
+                    {/* Custom Storage Templates */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>
-                            我的自定义模板 ({savedTemplates.length})
+                            我的存盘模板 ({savedTemplates.length})
                         </span>
                         
                         {savedTemplates.length === 0 ? (
                             <div style={{ fontSize: 10, color: 'var(--text-muted)', fontStyle: 'italic', padding: '10px 4px' }}>
-                                暂无自定义模板。您可以在报表配置好后点击右上角的「另存为」保存到此处。
+                                暂无存盘模板。您可以在清单设计完毕后点击右上角「另存为」保存到这里。
                             </div>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -916,13 +1094,13 @@ const ReportPanel: React.FC = () => {
                                             <span style={{ fontSize: 10, color: 'var(--text-secondary)', paddingRight: 60 }}>{tpl.description}</span>
                                         )}
                                         
-                                        {/* Action buttons on the side */}
+                                        {/* Actions */}
                                         <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 4 }}>
                                             <button 
                                                 type="button"
                                                 onClick={(e) => { e.stopPropagation(); handleExportTemplate(tpl); }}
                                                 className="icon-button"
-                                                title="导出模板到本地"
+                                                title="下载模板文件"
                                                 style={{ width: 24, height: 24 }}
                                             >
                                                 <Download size={11} />
@@ -931,7 +1109,7 @@ const ReportPanel: React.FC = () => {
                                                 type="button"
                                                 onClick={(e) => deleteTemplate(tpl.id, e)}
                                                 className="icon-button danger-button"
-                                                title="删除该模板"
+                                                title="删除模板"
                                                 style={{ width: 24, height: 24 }}
                                             >
                                                 <Trash2 size={11} />
@@ -946,7 +1124,7 @@ const ReportPanel: React.FC = () => {
                 </div>
             )}
 
-            {/* Save Template Modal */}
+            {/* Template Save Modal */}
             {showSaveModal && (
                 <div style={{
                     position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)',
@@ -954,10 +1132,10 @@ const ReportPanel: React.FC = () => {
                     alignItems: 'center', justifyContent: 'center', padding: 16
                 }}>
                     <form onSubmit={handleSaveTemplate} className="panel-surface animate-fade-in-up" style={{ width: '100%', maxWidth: 320, padding: 16 }}>
-                        <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>另存为报表配置模板</h3>
+                        <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>保存当前的报表设计配置</h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)' }}>模板名称 *</label>
+                                <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)' }}>模板标题 *</label>
                                 <input 
                                     type="text" 
                                     required
@@ -969,10 +1147,10 @@ const ReportPanel: React.FC = () => {
                                 />
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)' }}>描述说明 (可选)</label>
+                                <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)' }}>模板说明 (可选)</label>
                                 <textarea 
                                     rows={2}
-                                    placeholder="描述模板的作用或主要统计维度..."
+                                    placeholder="描述该清单模板的使用场合与分组依据..."
                                     value={tplDesc}
                                     onChange={(e) => setTplDesc(e.target.value)}
                                     className="input-control"
@@ -988,7 +1166,7 @@ const ReportPanel: React.FC = () => {
                 </div>
             )}
 
-            {/* Datalist for key suggestions */}
+            {/* Datalist suggestions */}
             <datalist id="props-datalist">
                 {availableProps.map(k => (
                     <option key={k} value={k} />

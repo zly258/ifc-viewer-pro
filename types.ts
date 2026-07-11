@@ -83,7 +83,7 @@ export interface MeasurementResult {
 
 // --- Advanced Reporting ---
 
-export type AggregationType = 'sum' | 'count' | 'avg' | 'min' | 'max';
+export type AggregationType = 'sum' | 'count' | 'avg' | 'min' | 'max' | 'none';
 
 export interface ReportFilter {
     id: string;
@@ -110,7 +110,8 @@ export interface ReportTemplate {
 }
 
 export interface ReportConfig {
-    groupByField: string; // "type" (构件类型), "space" (空间), "material" (材质) 或属性名
+    mode: 'detail' | 'summary'; // 'detail': 清单明细模式, 'summary': 分组汇总模式
+    groupByFields: string[];    // 支持多级嵌套分组，如 ['space', 'type']
     columns: ReportColumn[];
     filters: ReportFilter[];
 }
