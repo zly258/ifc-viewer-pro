@@ -1,12 +1,11 @@
 
 import * as THREE from 'three';
-import { CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { MeasurementMode, MeasurementResult } from '../types';
 
 interface MeasureItem {
     id: string;
     objects: THREE.Object3D[]; // Markers, Lines, Meshes
-    labels: CSS2DObject[];
+    labels: THREE.Sprite[];
     data: MeasurementResult;
 }
 
@@ -116,7 +115,7 @@ export class MeasurementManager {
             this.container.style.cursor = 'default';
             this.updateCursorText('', false);
         } else {
-            this.container.style.cursor = 'crosshair';
+            this.container.style.cursor = 'default';
             this.clearTemp();
             this.points = [];
             this.updateInstructions();
@@ -161,17 +160,57 @@ export class MeasurementManager {
 
     // Delete a specific measurement
     public deleteMeasurement(id: string) {
-        const index = this.measurements.findIndex(m => m.id === id);
-        if (index !== -1) {
-            const m = this.measurements[index];
-            m.objects.forEach(o => this.disposeObject(o));
+        const idx = this.measurements.findIndex(m => m.id === id);
+        if (idx !== -1) {
+            const m = this.measurements[idx];
+            m.objects.forEach(o => {
+                this.scene.remove(o);
+                if (o instanceof THREE.Mesh || o instanceof THREE.Line) {
+                    o.geometry.dispose();
+                }
+            });
             m.labels.forEach(l => {
                 this.scene.remove(l);
-                if (l.element) l.element.remove();
+                if (l.material) l.material.dispose();
             });
-            this.measurements.splice(index, 1);
+            this.measurements.splice(idx, 1);
             this.notifyChange();
         }
+    }
+
+    public raycast(event: MouseEvent): string | null {
+        const rect = this.container.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return null;
+        const mouse = new THREE.Vector2();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        this.raycaster.setFromCamera(mouse, this.camera);
+        
+        const allObjects: THREE.Object3D[] = [];
+        for (const m of this.measurements) {
+            allObjects.push(...m.objects, ...m.labels);
+        }
+        
+        // Disable firstHitOnly for proper checking among all overlays
+        this.raycaster.firstHitOnly = false;
+        
+        // Increase line tolerance for easier clicking
+        this.raycaster.params.Line.threshold = 0.5;
+
+        const intersects = this.raycaster.intersectObjects(allObjects, false);
+        if (intersects.length > 0) {
+            return intersects[0].object.userData.measurementId || null;
+        }
+        return null;
+    }
+
+    public getMeasurementBox(id: string): THREE.Box3 | null {
+        const m = this.measurements.find(x => x.id === id);
+        if (!m) return null;
+        const box = new THREE.Box3();
+        m.objects.forEach(o => box.expandByObject(o));
+        m.labels.forEach(l => box.expandByObject(l));
+        return box;
     }
     
     private clearTemp() {
@@ -384,13 +423,27 @@ export class MeasurementManager {
 
     // --- Creation Logic ---
 
-    private addMeasurementRecord(type: MeasurementMode, value: string, label: string, objects: THREE.Object3D[], labels: CSS2DObject[]) {
+    private addMeasurementRecord(type: MeasurementMode, value: string, label: string, objects: THREE.Object3D[], labels: THREE.Sprite[], center?: THREE.Vector3) {
         const id = `m_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        
+        // Calculate center if not provided
+        if (!center && objects.length > 0) {
+            const box = new THREE.Box3();
+            objects.forEach(o => box.expandByObject(o));
+            center = new THREE.Vector3();
+            box.getCenter(center);
+        }
+
+        // Add userData to all objects for raycasting
+        objects.forEach(o => o.userData.measurementId = id);
+        labels.forEach(l => l.userData.measurementId = id);
+
         this.measurements.push({
             id,
             objects,
             labels,
-            data: { id, type, value, label, timestamp: Date.now() }
+            data: { id, type, value, label, timestamp: Date.now() },
+            center: center || new THREE.Vector3()
         });
         this.notifyChange();
     }
@@ -403,7 +456,7 @@ export class MeasurementManager {
 
     private createDistanceMeasurement(p1: THREE.Vector3, p2: THREE.Vector3) {
         const objects: THREE.Object3D[] = [];
-        const labels: CSS2DObject[] = [];
+        const labels: THREE.Sprite[] = [];
 
         // Line
         const geometry = new THREE.BufferGeometry().setFromPoints([p1, p2]);
@@ -433,7 +486,7 @@ export class MeasurementManager {
 
     private createAngleMeasurement(p1: THREE.Vector3, center: THREE.Vector3, p2: THREE.Vector3) {
         const objects: THREE.Object3D[] = [];
-        const labels: CSS2DObject[] = [];
+        const labels: THREE.Sprite[] = [];
 
         const linesGeo = new THREE.BufferGeometry().setFromPoints([p1, center, p2]);
         const lines = new THREE.Line(linesGeo, this.lineMaterial);
@@ -464,7 +517,7 @@ export class MeasurementManager {
 
     private createAreaMeasurement(points: THREE.Vector3[]) {
         const objects: THREE.Object3D[] = [];
-        const labels: CSS2DObject[] = [];
+        const labels: THREE.Sprite[] = [];
 
         const closedPoints = [...points, points[0]];
         const lineGeo = new THREE.BufferGeometry().setFromPoints(closedPoints);
@@ -502,7 +555,7 @@ export class MeasurementManager {
 
     private createVolumeMeasurement(p1: THREE.Vector3, p2: THREE.Vector3) {
         const objects: THREE.Object3D[] = [];
-        const labels: CSS2DObject[] = [];
+        const labels: THREE.Sprite[] = [];
 
         const min = p1.clone().min(p2);
         const max = p1.clone().max(p2);
@@ -530,7 +583,7 @@ export class MeasurementManager {
 
     private createCoordinateMeasurement(p: THREE.Vector3) {
         const objects: THREE.Object3D[] = [];
-        const labels: CSS2DObject[] = [];
+        const labels: THREE.Sprite[] = [];
 
         const m = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), this.markerMaterial);
         m.position.copy(p);
@@ -546,15 +599,71 @@ export class MeasurementManager {
     }
 
     private createLabel(pos: THREE.Vector3, text: string) {
-        const div = document.createElement('div');
-        // Autodesk Viewer style: White bg, rounded, shadow, clean text
-        div.className = 'bg-white text-slate-800 px-3 py-1.5 rounded-md text-xs font-semibold border border-slate-200 pointer-events-none whitespace-pre-line text-center z-10 select-none';
-        div.textContent = text;
-        // Small arrow visual could be added with pseudo-element class in CSS
-
-        const label = new CSS2DObject(div) as any;
-        label.position.copy(pos);
-        this.scene.add(label);
-        return label;
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (!context) return new THREE.Sprite();
+        
+        const lines = text.split('\n');
+        context.font = 'bold 36px Arial';
+        
+        // Calculate max width
+        let maxWidth = 0;
+        for (const line of lines) {
+            const metrics = context.measureText(line);
+            maxWidth = Math.max(maxWidth, metrics.width);
+        }
+        
+        const paddingX = 20;
+        const paddingY = 16;
+        const lineHeight = 40;
+        const textHeight = lines.length * lineHeight;
+        
+        canvas.width = maxWidth + paddingX * 2;
+        canvas.height = textHeight + paddingY * 2;
+        
+        // Redefine font after resize
+        context.font = 'bold 36px Arial';
+        
+        // Background
+        context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        if (context.roundRect) {
+            context.beginPath();
+            context.roundRect(0, 0, canvas.width, canvas.height, 12);
+            context.fill();
+        } else {
+            context.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        context.strokeStyle = 'rgba(100, 116, 139, 0.5)';
+        context.lineWidth = 4;
+        context.strokeRect(0, 0, canvas.width, canvas.height);
+        
+        // Text
+        context.fillStyle = '#1e293b';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        const startY = (canvas.height - textHeight) / 2 + lineHeight / 2;
+        for (let i = 0; i < lines.length; i++) {
+            context.fillText(lines[i], canvas.width / 2, startY + i * lineHeight);
+        }
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        
+        const spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthTest: false, sizeAttenuation: true });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        
+        // Scale appropriately based on typical model size.
+        // A sprite's scale corresponds to units in 3D space. 
+        const spriteHeight = 0.4; // 0.4m text height
+        const aspect = canvas.width / canvas.height;
+        sprite.scale.set(spriteHeight * aspect, spriteHeight, 1);
+        sprite.position.copy(pos);
+        sprite.renderOrder = 1000;
+        
+        // Store userdata for raycasting
+        sprite.userData.isMeasurementLabel = true;
+        
+        this.scene.add(sprite);
+        return sprite;
     }
 }

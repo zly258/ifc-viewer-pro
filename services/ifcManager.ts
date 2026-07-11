@@ -92,6 +92,9 @@ export class IFCManager {
 
     private materialCache: Record<string, THREE.MeshStandardMaterial> = {};
     
+    // Pivot Marker
+    private pivotMarker: THREE.Mesh | null = null;
+    
     // Highlight - Selection
     private highlightModel: THREE.Mesh | null = null;
     private highlightMaterial = new THREE.MeshStandardMaterial({
@@ -161,6 +164,16 @@ export class IFCManager {
             stencil: false
         });
         this.labelRenderer = new CSS2DRenderer();
+        
+        // Pivot Marker
+        this.pivotMarker = new THREE.Mesh(
+            new THREE.SphereGeometry(0.1, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 0.8 })
+        );
+        this.pivotMarker.renderOrder = 9999;
+        this.pivotMarker.visible = false;
+        this.scene.add(this.pivotMarker);
+
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = false;
         this.controls.screenSpacePanning = true; 
@@ -222,6 +235,14 @@ export class IFCManager {
                     const newTarget = this.camera.position.clone().add(lookDirection.multiplyScalar(depthDistance));
                     this.controls.target.copy(newTarget);
                     this.controls.update();
+
+                    if (this.pivotMarker) {
+                        this.pivotMarker.position.copy(newTarget);
+                        const scale = depthDistance * 0.02; // Keep visual size relatively constant
+                        this.pivotMarker.scale.set(scale, scale, scale);
+                        this.pivotMarker.visible = true;
+                        this.isDirty = true;
+                    }
                 }
             }
         }, { capture: true });
@@ -239,6 +260,9 @@ export class IFCManager {
         });
         this.controls.addEventListener('end', () => {
              this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+             if (this.pivotMarker && this.pivotMarker.visible) {
+                 this.pivotMarker.visible = false;
+             }
              this.isDirty = true;
              setTimeout(() => { this.wasDraggingControls = false; }, 150);
         });
@@ -1169,6 +1193,19 @@ export class IFCManager {
             if (this.hasClickMoved()) return;
             event.preventDefault();
             event.stopPropagation();
+
+            // Priority 1: Check if a measurement was clicked
+            if (this.measurementManager) {
+                const measurementId = this.measurementManager.raycast(event);
+                if (measurementId) {
+                    const box = this.measurementManager.getMeasurementBox(measurementId);
+                    if (box && !box.isEmpty()) {
+                        this.zoomToBox(box);
+                    }
+                    return;
+                }
+            }
+
             await this.selectFromPointer(event, event.ctrlKey);
         }
     }
