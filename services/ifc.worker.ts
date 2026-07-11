@@ -767,9 +767,9 @@ self.onmessage = async (e: MessageEvent) => {
             keys.add('Express ID');
 
             const sampleIDs = Array.from(meta.modelMeshExpressIDs);
-            const scanCount = Math.min(300, sampleIDs.length);
+            const step = Math.max(1, Math.floor(sampleIDs.length / 300));
             
-            for (let i = 0; i < scanCount; i++) {
+            for (let i = 0; i < sampleIDs.length; i += step) {
                 const expressID = sampleIDs[i];
                 const psetIDs = meta.propertyMaps.get(expressID);
                 if (psetIDs) {

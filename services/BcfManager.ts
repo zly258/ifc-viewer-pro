@@ -16,6 +16,7 @@ export interface BcfViewpoint {
     cameraPitch?: number;
     isWalkMode: boolean;
     screenshot: string; // Base64 data URL
+    clippingPlanes?: { axis: 'X' | 'Y' | 'Z', min: number, max: number }[];
     timestamp: number;
 }
 
@@ -80,6 +81,28 @@ class BcfManager {
             if (guidProp) guid = String(guidProp.value);
         }
 
+        // 4. Capture active clipping planes
+        const clippingPlanes: { axis: 'X' | 'Y' | 'Z', min: number, max: number }[] = [];
+        if (ifcManager.sectionManager) {
+            const sm = ifcManager.sectionManager as any;
+            const activeAxes = sm.activeAxis as Set<'X' | 'Y' | 'Z'>;
+            activeAxes.forEach(axis => {
+                let min = 0;
+                let max = 0;
+                if (axis === 'X') {
+                    min = -sm.planes.xMin.constant;
+                    max = sm.planes.xMax.constant;
+                } else if (axis === 'Y') {
+                    min = -sm.planes.yMin.constant;
+                    max = sm.planes.yMax.constant;
+                } else if (axis === 'Z') {
+                    min = -sm.planes.zMin.constant;
+                    max = sm.planes.zMax.constant;
+                }
+                clippingPlanes.push({ axis, min, max });
+            });
+        }
+
         const newVp: BcfViewpoint = {
             id: `vp_${Date.now()}`,
             title: title || `视点批注 #${this.viewpoints.length + 1}`,
@@ -94,6 +117,7 @@ class BcfManager {
             cameraPitch,
             isWalkMode,
             screenshot,
+            clippingPlanes: clippingPlanes.length > 0 ? clippingPlanes : undefined,
             timestamp: Date.now()
         };
 
@@ -138,6 +162,20 @@ class BcfManager {
                 (ifcManager as any).controls.update();
                 (ifcManager as any).renderScene();
             }, 50);
+        }
+
+        // Restore clipping planes
+        if (ifcManager.sectionManager) {
+            const sm = ifcManager.sectionManager;
+            sm.togglePlane('X', false, 0, 0);
+            sm.togglePlane('Y', false, 0, 0);
+            sm.togglePlane('Z', false, 0, 0);
+            
+            if (vp.clippingPlanes) {
+                vp.clippingPlanes.forEach(cp => {
+                    sm.togglePlane(cp.axis, true, cp.min, cp.max);
+                });
+            }
         }
 
         // Highlight element
