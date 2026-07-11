@@ -4,7 +4,8 @@ import { ReportConfig, ReportColumn, ReportFilter, ReportTemplate, ReportRow } f
 import { 
     BarChart3, Play, Download, Upload, Trash2, 
     Search, FileSpreadsheet, Save, ChevronDown, 
-    Filter, Layers, Settings, X, AlertCircle, RefreshCw
+    Filter, Layers, Settings, X, AlertCircle, RefreshCw,
+    Plus
 } from 'lucide-react';
 
 // Built-in templates
