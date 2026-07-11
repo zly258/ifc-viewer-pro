@@ -165,33 +165,20 @@ export class IFCManager {
         this.controls.enableDamping = false;
         this.controls.screenSpacePanning = true; 
         
-        // Map mouse buttons for CAD-like experience
+        // Map mouse buttons exactly as specified (NO left rotate, NO right pan)
         this.controls.mouseButtons = {
-            LEFT: THREE.MOUSE.ROTATE, // Left click to select, drag to rotate
-            MIDDLE: THREE.MOUSE.PAN,
+            LEFT: null as any, // Forbidden to rotate
+            MIDDLE: THREE.MOUSE.PAN, // Middle button is pan
             RIGHT: null as any // Disable right drag to allow context menus
         }; 
-
-        // Emulate Shift/Ctrl + Middle for Rotate
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'Shift' || e.key === 'Control') {
-                this.controls.mouseButtons.MIDDLE = THREE.MOUSE.ROTATE;
-            }
-        });
-        window.addEventListener('keyup', (e) => {
-            if (e.key === 'Shift' || e.key === 'Control') {
-                this.controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN;
-            }
-        });
 
         // Custom rotate cursor
         const rotateCursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>') 12 12, auto`;
         
         this.container?.addEventListener('mousedown', (e) => {
-            const isRotateLeft = e.button === 0 && this.controls.mouseButtons.LEFT === THREE.MOUSE.ROTATE;
             const isRotateMiddle = e.button === 1 && this.controls.mouseButtons.MIDDLE === THREE.MOUSE.ROTATE;
             
-            if (isRotateLeft || isRotateMiddle) {
+            if (isRotateMiddle) {
                 this.container!.style.cursor = rotateCursor;
                 
                 // Adjust orbit target to the depth of the hit point to prevent "flying away"
@@ -1040,7 +1027,7 @@ export class IFCManager {
     // --- Interaction ---
     
     // Perform Raycast
-    private castRay(event: MouseEvent): { modelID: number, expressID: number, mesh: THREE.Mesh } | null {
+    private castRay(event: MouseEvent): { modelID: number, expressID: number, mesh: THREE.Mesh, point: THREE.Vector3 } | null {
         const domElement = this.renderer.domElement;
         if (!this.container || !domElement) return null;
         const rect = domElement.getBoundingClientRect();
@@ -1070,7 +1057,7 @@ export class IFCManager {
                 expressID = mesh.userData.expressID;
             }
 
-            return { modelID, expressID, mesh };
+            return { modelID, expressID, mesh, point: hit.point };
         }
         return null;
     }

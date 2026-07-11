@@ -25,8 +25,8 @@ interface BottomToolbarProps {
 const VIEWS = [
     { id: CameraView.TOP,     label: '顶视图',      group: '正投影' },
     { id: CameraView.BOTTOM,  label: '底视图',      group: '正投影' },
-    { id: CameraView.FRONT,   label: '正视图',      group: '正投影' },
-    { id: CameraView.BACK,    label: '背视图',      group: '正投影' },
+    { id: CameraView.FRONT,   label: '前视图',      group: '正投影' },
+    { id: CameraView.BACK,    label: '后视图',      group: '正投影' },
     { id: CameraView.LEFT,    label: '左视图',      group: '正投影' },
     { id: CameraView.RIGHT,   label: '右视图',      group: '正投影' },
     { id: CameraView.ISO_NE,  label: '东北等轴测',  group: '等轴测' },
