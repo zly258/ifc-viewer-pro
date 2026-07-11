@@ -237,35 +237,10 @@ const ReportPanel: React.FC = () => {
     };
 
     return (
-        <div className="panel-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 16 }}>
-            {/* Header Actions */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 8 }}>
-                <div style={{ display: 'flex', gap: 8 }}>
-                    {view === 'config' ? (
-                        <>
-                            <button onClick={importConfig} title="导入列配置" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                                <Upload size={14} /> 导入配置
-                            </button>
-                            <button onClick={exportConfig} title="导出当前列配置" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                                <Download size={14} /> 导出配置
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            <button onClick={() => setView('config')} title="编辑配置" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                                <Edit size={14} /> 修改配置
-                            </button>
-                            <button onClick={exportCsv} disabled={rows.length === 0} title="导出CSV电子表格" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)', opacity: rows.length === 0 ? 0.5 : 1, whiteSpace: 'nowrap' }}>
-                                <FileSpreadsheet size={14} /> 导出为 CSV
-                            </button>
-                        </>
-                    )}
-                </div>
-            </div>
-
+        <div className="panel-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 12 }}>
             {view === 'config' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', flex: 1, background: 'var(--surface-2)', padding: 16, borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', flex: 1, background: 'var(--surface-2)', padding: '12px 16px', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                         <div style={{ fontWeight: 600, fontSize: 13 }}>表格列配置</div>
                         <button 
                             onClick={addColumn} 
@@ -277,7 +252,7 @@ const ReportPanel: React.FC = () => {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, overflow: 'auto', paddingRight: 4 }}>
                         {columns.map((col, idx) => (
-                            <div key={col.id} style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'var(--surface-1)', padding: '8px 12px', borderRadius: 'var(--radius-sm)' }}>
+                            <div key={col.id} style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'var(--surface-1)', padding: '6px 12px', borderRadius: 'var(--radius-sm)' }}>
                                 <div style={{ fontSize: 12, color: 'var(--text-muted)', width: 20 }}>{idx + 1}</div>
                                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
                                     <input 
@@ -305,7 +280,15 @@ const ReportPanel: React.FC = () => {
                         )}
                     </div>
 
-                    <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                    <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button onClick={importConfig} title="导入列配置" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                                <Upload size={14} /> 导入配置
+                            </button>
+                            <button onClick={exportConfig} title="导出当前列配置" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                                <Download size={14} /> 导出配置
+                            </button>
+                        </div>
                         <button 
                             onClick={generateReport} 
                             disabled={isLoading || modelID === -1 || columns.length === 0}
@@ -316,52 +299,63 @@ const ReportPanel: React.FC = () => {
                     </div>
                 </div>
             ) : (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
-                        <span style={{ fontSize: 13, fontWeight: 500 }}>统计结果 {rows.length > 0 && `(${rows.length} 条记录)`}</span>
-                    </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 16px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+                            <span style={{ fontSize: 13, fontWeight: 500 }}>统计结果 {rows.length > 0 && `(${rows.length} 条记录)`}</span>
+                        </div>
 
-                    <div style={{ flex: 1, overflow: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                            <thead style={{ position: 'sticky', top: 0, background: 'var(--surface-2)', zIndex: 10 }}>
-                                <tr>
-                                    <th style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', textAlign: 'left', width: 60 }}>序号</th>
-                                    {columns.map(col => (
-                                        <th key={col.id} style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                                            {col.name}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {rows.map((row, rIdx) => (
-                                    <tr 
-                                        key={rIdx}
-                                        onClick={() => handleRowClick(row, rIdx)}
-                                        onDoubleClick={() => handleRowDoubleClick(row)}
-                                        style={{ 
-                                            cursor: 'pointer',
-                                            background: selectedRowIndex === rIdx ? 'var(--brand-soft)' : (rIdx % 2 === 0 ? 'var(--surface-1)' : 'transparent'),
-                                            borderBottom: '1px solid var(--border-light)'
-                                        }}
-                                    >
-                                        <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>{rIdx + 1}</td>
+                        <div style={{ flex: 1, overflow: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                <thead style={{ position: 'sticky', top: 0, background: 'var(--surface-2)', zIndex: 10 }}>
+                                    <tr>
+                                        <th style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', textAlign: 'left', width: 60 }}>序号</th>
                                         {columns.map(col => (
-                                            <td key={col.id} style={{ padding: '8px 12px' }}>
-                                                {row[col.id]}
-                                            </td>
+                                            <th key={col.id} style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+                                                {col.name}
+                                            </th>
                                         ))}
                                     </tr>
-                                ))}
-                                {rows.length === 0 && !isLoading && (
-                                    <tr>
-                                        <td colSpan={columns.length + 1} style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
-                                            未找到任何记录
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {rows.map((row, rIdx) => (
+                                        <tr 
+                                            key={rIdx}
+                                            onClick={() => handleRowClick(row, rIdx)}
+                                            onDoubleClick={() => handleRowDoubleClick(row)}
+                                            style={{ 
+                                                cursor: 'pointer',
+                                                background: selectedRowIndex === rIdx ? 'var(--brand-soft)' : (rIdx % 2 === 0 ? 'var(--surface-1)' : 'transparent'),
+                                                borderBottom: '1px solid var(--border-light)'
+                                            }}
+                                        >
+                                            <td style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>{rIdx + 1}</td>
+                                            {columns.map(col => (
+                                                <td key={col.id} style={{ padding: '8px 12px' }}>
+                                                    {row[col.id]}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    ))}
+                                    {rows.length === 0 && !isLoading && (
+                                        <tr>
+                                            <td colSpan={columns.length + 1} style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)' }}>
+                                                未找到任何记录
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                        <button onClick={() => setView('config')} title="编辑配置" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                            <Edit size={14} /> 修改配置
+                        </button>
+                        <button onClick={exportCsv} disabled={rows.length === 0} title="导出CSV电子表格" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)', opacity: rows.length === 0 ? 0.5 : 1, whiteSpace: 'nowrap' }}>
+                            <FileSpreadsheet size={14} /> 导出为 CSV
+                        </button>
                     </div>
                 </div>
             )}

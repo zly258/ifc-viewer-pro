@@ -296,8 +296,8 @@ const App: React.FC = () => {
           icon={TableProperties}
           isOpen={showReportPanel}
           onClose={() => setShowReportPanel(false)}
-          initialPosition={{ x: Math.max(20, (window.innerWidth - 600) / 2), y: Math.max(20, (window.innerHeight - 560) / 2) }}
-          initialSize={{ w: 600, h: 560 }}
+          initialPosition={{ x: Math.max(20, (window.innerWidth - 600) / 2), y: Math.max(20, (window.innerHeight - 450) / 2 - 30) }}
+          initialSize={{ w: 600, h: 450 }}
         >
           <ReportPanel />
         </DraggablePanel>
