@@ -466,7 +466,7 @@ select {
 }
 
 .sub-toolbar {
-  padding: 8px;
+  padding: 6px 10px;
   pointer-events: auto;
   background: var(--panel-bg);
   border: 1px solid var(--border);
@@ -475,6 +475,35 @@ select {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   animation: fadeInSlideUp 0.16s ease-out;
+  position: relative;
+  margin-bottom: 8px; /* space for the arrow */
+}
+
+/* Add the bubble triangle */
+.sub-toolbar::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid var(--border);
+}
+.sub-toolbar::before {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid var(--panel-bg);
+  z-index: 1;
 }
 
 /* 主工具栏图标按钮 */

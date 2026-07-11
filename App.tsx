@@ -285,7 +285,7 @@ const App: React.FC = () => {
           icon={Bookmark}
           isOpen={showBcfPanel}
           onClose={() => setShowBcfPanel(false)}
-          initialPosition={{ x: Math.max(20, window.innerWidth - 340), y: 540 }}
+          initialPosition={{ x: Math.max(20, window.innerWidth - 340), y: 120 }}
           initialSize={{ w: 320, h: 480 }}
         >
           <BcfPanel selectedElement={selectedElement} />
@@ -296,8 +296,8 @@ const App: React.FC = () => {
           icon={TableProperties}
           isOpen={showReportPanel}
           onClose={() => setShowReportPanel(false)}
-          initialPosition={{ x: Math.max(20, window.innerWidth - 520), y: 150 }}
-          initialSize={{ w: 500, h: 520 }}
+          initialPosition={{ x: Math.max(20, (window.innerWidth - 600) / 2), y: Math.max(20, (window.innerHeight - 560) / 2) }}
+          initialSize={{ w: 600, h: 560 }}
         >
           <ReportPanel />
         </DraggablePanel>

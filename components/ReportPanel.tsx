@@ -266,10 +266,14 @@ const ReportPanel: React.FC = () => {
 
             {view === 'config' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1, background: 'var(--surface-2)', padding: 16, borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <div style={{ fontWeight: 500, fontSize: 13 }}>表格列配置</div>
-                        <button className="tool-button" onClick={addColumn} style={{ background: 'var(--brand)', color: 'white', border: 'none' }}>
-                            <Plus size={14} /> 添加列
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>表格列配置</div>
+                        <button 
+                            className="tool-button" 
+                            onClick={addColumn} 
+                            style={{ background: 'var(--brand)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: 'var(--radius-sm)' }}
+                        >
+                            <Plus size={14} style={{ marginRight: 4 }}/> 添加列
                         </button>
                     </div>
 
@@ -303,14 +307,14 @@ const ReportPanel: React.FC = () => {
                         )}
                     </div>
 
-                    <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                    <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: 16 }}>
                         <button 
                             className="tool-button" 
                             onClick={generateReport} 
                             disabled={isLoading || modelID === -1 || columns.length === 0}
-                            style={{ background: 'var(--brand)', color: 'white', border: 'none', width: '100%', justifyContent: 'center', fontWeight: 600, padding: '10px' }}
+                            style={{ background: 'var(--brand)', color: 'white', border: 'none', padding: '8px 24px', fontWeight: 600, borderRadius: 'var(--radius-md)' }}
                         >
-                            {isLoading ? '扫描中...' : <><Play size={16} /> 生成报表</>}
+                            {isLoading ? '扫描中...' : <><Play size={16} style={{ marginRight: 6 }}/> 生成报表</>}
                         </button>
                     </div>
                 </div>

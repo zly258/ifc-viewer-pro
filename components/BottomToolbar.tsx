@@ -225,17 +225,17 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
 
       {/* Sub-toolbar: Section */}
       {activeTool === ViewerTool.SECTION && (
-        <div className="sub-toolbar flex flex-col gap-2.5" style={{ minWidth: 280 }}>
+        <div className="sub-toolbar flex flex-col gap-1.5" style={{ minWidth: 280 }}>
           {(['X', 'Y', 'Z'] as const).map(axis => (
-            <div key={axis} className="flex items-center gap-3">
+            <div key={axis} className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => toggleSectionPlane(axis)}
                 style={{
-                  width: 28,
-                  height: 22,
+                  width: 24,
+                  height: 20,
                   borderRadius: 'var(--radius-sm)',
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: 700,
                   border: '1px solid',
                   cursor: 'pointer',
@@ -248,23 +248,23 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
                 {axis}
               </button>
               <div
-                className="flex-1 flex flex-col gap-1"
-                style={{ opacity: activePlanes[axis] ? 1 : 0.35, transition: 'opacity 0.2s', padding: '4px 0' }}
+                className="flex-1 flex flex-col gap-0.5"
+                style={{ opacity: activePlanes[axis] ? 1 : 0.35, transition: 'opacity 0.2s', padding: '2px 0' }}
               >
                 {/* Numeric readout */}
-                <div className="flex justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 px-0.5" style={{ pointerEvents: 'none' }}>
+                <div className="flex justify-between text-[9px] font-bold text-slate-500 dark:text-slate-400 px-0.5" style={{ pointerEvents: 'none' }}>
                   <span>{planeRangeOffsets[axis].min.toFixed(1)}m</span>
                   <span>{planeRangeOffsets[axis].max.toFixed(1)}m</span>
                 </div>
                 
                 {/* Dual Thumb Slider Container */}
-                <div className="relative h-6 w-full flex items-center">
+                <div className="relative h-4 w-full flex items-center">
                   {/* Background Track */}
-                  <div className="absolute left-0 right-0 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 z-0" style={{ pointerEvents: 'none' }} />
+                  <div className="absolute left-0 right-0 h-1 rounded-full bg-slate-200 dark:bg-slate-700 z-0" style={{ pointerEvents: 'none' }} />
                   
                   {/* Active highlight fill range */}
                   <div 
-                    className="absolute h-1.5 rounded-full bg-blue-500 dark:bg-blue-600 z-10" 
+                    className="absolute h-1 rounded-full bg-blue-500 dark:bg-blue-600 z-10" 
                     style={{
                       pointerEvents: 'none',
                       left: `${Math.max(0, Math.min(100, ((planeRangeOffsets[axis].min - planeRangeOffsets[axis].defaultMin) / Math.max(1, planeRangeOffsets[axis].defaultMax - planeRangeOffsets[axis].defaultMin)) * 100))}%`,
