@@ -784,6 +784,20 @@ export class IFCManager {
                 this.onLoading(100, 100);
                 this.onProcessing(null);
                 this.isDirty = true;
+
+                // Back-thread background loading for properties and reports
+                const bgReader = new FileReader();
+                bgReader.onload = () => {
+                    const buffer = bgReader.result as ArrayBuffer;
+                    if (this.worker && buffer) {
+                        this.worker.postMessage({
+                            type: 'LOAD_IFC_MODEL_BACKGROUND',
+                            data: { fileBuffer: buffer, modelID }
+                        }, [buffer]);
+                    }
+                };
+                bgReader.readAsArrayBuffer(file);
+
                 return;
             }
         } catch (e) {

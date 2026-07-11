@@ -46,6 +46,8 @@ const modelsMetadata = new Map<number, {
     modelMeshExpressIDs: Set<number>;
 }>();
 
+const mainToWebIfcModelID = new Map<number, number>();
+
 // onmessage handler
 self.onmessage = async (e: MessageEvent) => {
     const { type, data } = e.data;
@@ -79,6 +81,7 @@ self.onmessage = async (e: MessageEvent) => {
             const openedModelID = ifcApi.OpenModel(dataArray, {
                 COORDINATE_TO_ORIGIN: true
             });
+            mainToWebIfcModelID.set(modelID, openedModelID);
             
             const meta = {
                 parentMap: new Map<string, string>(),
@@ -211,11 +214,50 @@ self.onmessage = async (e: MessageEvent) => {
         }
     }
     
+    else if (type === 'LOAD_IFC_MODEL_BACKGROUND') {
+        const { fileBuffer, modelID } = data;
+        if (!isInitialized) {
+            try {
+                ifcApi.SetWasmPath('https://cdn.jsdelivr.net/npm/web-ifc@0.0.66/');
+                await ifcApi.Init();
+                isInitialized = true;
+            } catch (err: any) {
+                self.postMessage({ type: 'ERROR', message: `INIT_BACKGROUND_FAILED: ${err.message}` });
+                return;
+            }
+        }
+        try {
+            const dataArray = new Uint8Array(fileBuffer);
+            const openedModelID = ifcApi.OpenModel(dataArray, { COORDINATE_TO_ORIGIN: true });
+            mainToWebIfcModelID.set(modelID, openedModelID);
+            
+            const meta = {
+                parentMap: new Map<string, string>(),
+                propertyMaps: new Map<number, number[]>(),
+                modelMeshExpressIDs: new Set<number>()
+            };
+            modelsMetadata.set(openedModelID, meta);
+            
+            // Build property map
+            await buildPropertyMap(openedModelID, meta);
+            
+            // Collect all expressIDs for properties query
+            ifcApi.StreamAllMeshes(openedModelID, (flatMesh: WebIFC.FlatMesh) => {
+                meta.modelMeshExpressIDs.add(flatMesh.expressID);
+            });
+            
+            console.log(`[Worker] Model ${modelID} properties loaded in background.`);
+        } catch (err: any) {
+            console.warn(`[Worker] Background model load failed:`, err);
+        }
+    }
+    
     else if (type === 'GET_PROPERTIES') {
-        const { modelID, expressID } = data;
+        const { modelID: originalModelID, expressID } = data;
+        const modelID = mainToWebIfcModelID.get(originalModelID) ?? originalModelID;
         const meta = modelsMetadata.get(modelID);
         if (!meta) {
-            self.postMessage({ type: 'PROPERTIES_RESULT', data: { expressID, modelID, properties: [], name: 'Unknown', type: 'Object' } });
+            self.postMessage({ type: 'PROPERTIES_RESULT', data: { expressID, modelID: originalModelID, properties: [], name: 'Unknown', type: 'Object' } });
             return;
         }
         
@@ -339,7 +381,7 @@ self.onmessage = async (e: MessageEvent) => {
                 type: 'PROPERTIES_RESULT',
                 data: {
                     expressID,
-                    modelID,
+                    modelID: originalModelID,
                     properties,
                     name: props?.Name?.value || `${formatTypeName(props?.is_a || 'Object')} #${expressID}`,
                     type: props?.is_a || 'Object'
@@ -400,9 +442,11 @@ self.onmessage = async (e: MessageEvent) => {
     
     else if (type === 'COMPARE_MODELS') {
         const { modelA_ID, modelB_ID } = data;
+        const webIfcA = mainToWebIfcModelID.get(modelA_ID) ?? modelA_ID;
+        const webIfcB = mainToWebIfcModelID.get(modelB_ID) ?? modelB_ID;
         try {
-            const metaA = modelsMetadata.get(modelA_ID);
-            const metaB = modelsMetadata.get(modelB_ID);
+            const metaA = modelsMetadata.get(webIfcA);
+            const metaB = modelsMetadata.get(webIfcB);
             if (!metaA || !metaB) {
                 self.postMessage({ type: 'COMPARE_RESULT', error: '模型未找到或未加载完成' });
                 return;
@@ -411,7 +455,7 @@ self.onmessage = async (e: MessageEvent) => {
             const elementsA: { expressID: number; guid: string; name: string; type: string }[] = [];
             metaA.modelMeshExpressIDs.forEach(expressID => {
                 try {
-                    const line = ifcApi.GetLine(modelA_ID, expressID);
+                    const line = ifcApi.GetLine(webIfcA, expressID);
                     if (line && line.GlobalId && line.GlobalId.value) {
                         elementsA.push({
                             expressID,
@@ -426,7 +470,7 @@ self.onmessage = async (e: MessageEvent) => {
             const elementsB: { expressID: number; guid: string; name: string; type: string }[] = [];
             metaB.modelMeshExpressIDs.forEach(expressID => {
                 try {
-                    const line = ifcApi.GetLine(modelB_ID, expressID);
+                    const line = ifcApi.GetLine(webIfcB, expressID);
                     if (line && line.GlobalId && line.GlobalId.value) {
                         elementsB.push({
                             expressID,
@@ -452,14 +496,17 @@ self.onmessage = async (e: MessageEvent) => {
     
     else if (type === 'CLEAR_MODEL') {
         const { modelID } = data;
+        const webIfcID = mainToWebIfcModelID.get(modelID) ?? modelID;
         try {
-            ifcApi.CloseModel(modelID);
-            modelsMetadata.delete(modelID);
+            ifcApi.CloseModel(webIfcID);
+            modelsMetadata.delete(webIfcID);
+            mainToWebIfcModelID.delete(modelID);
         } catch (e) {}
     }
     
     else if (type === 'GENERATE_REPORT') {
-        const { modelID, config } = data;
+        let { modelID, config } = data;
+        modelID = mainToWebIfcModelID.get(modelID) ?? modelID;
         const meta = modelsMetadata.get(modelID);
         if (!meta) {
             self.postMessage({ type: 'REPORT_RESULT_FAILED', error: '模型数据未找到或未加载完成' });
@@ -749,7 +796,8 @@ self.onmessage = async (e: MessageEvent) => {
     }
     
     else if (type === 'GET_ALL_PROPERTY_KEYS') {
-        const { modelID } = data;
+        let { modelID } = data;
+        modelID = mainToWebIfcModelID.get(modelID) ?? modelID;
         const meta = modelsMetadata.get(modelID);
         if (!meta) {
             self.postMessage({ type: 'PROPERTY_KEYS_RESULT', data: { keys: [] } });
