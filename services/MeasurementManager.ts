@@ -7,6 +7,7 @@ interface MeasureItem {
     objects: THREE.Object3D[]; // Markers, Lines, Meshes
     labels: THREE.Sprite[];
     data: MeasurementResult;
+    center?: THREE.Vector3;
 }
 
 export class MeasurementManager {
@@ -151,7 +152,7 @@ export class MeasurementManager {
             m.objects.forEach(o => this.disposeObject(o));
             m.labels.forEach(l => {
                 this.scene.remove(l);
-                if (l.element && l.element.parentNode) l.element.parentNode.removeChild(l.element);
+                if (l.material) l.material.dispose();
             });
         });
         this.measurements = [];
