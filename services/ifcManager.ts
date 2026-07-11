@@ -104,19 +104,7 @@ export class IFCManager {
         emissiveIntensity: 0.5
     });
     
-    // Hover highlight
-    private hoverModel: THREE.Mesh | null = null;
-    private hoverMaterial = new THREE.MeshStandardMaterial({
-        color: 0x64748b,
-        transparent: true,
-        opacity: 0.3,
-        depthTest: false,
-        side: THREE.DoubleSide,
-        emissive: 0x94a3b8,
-        emissiveIntensity: 0.25
-    });
-    private lastHoverID: number = -1;
-    
+
     // Isolation — list of expressIDs to show, rest are dimmed
     private isolatedIDs: Set<number> | null = null;
     private isolationDimMaterial = new THREE.MeshStandardMaterial({
@@ -177,11 +165,11 @@ export class IFCManager {
         this.controls.enableDamping = false;
         this.controls.screenSpacePanning = true; 
         
-        // Map mouse buttons: Left = Rotate, Middle = Pan, Right = disabled (avoids conflict with context menu)
+        // Map mouse buttons: Left = Rotate, Middle = Dolly/Pan, Right = Pan
         this.controls.mouseButtons = {
             LEFT: THREE.MOUSE.ROTATE,
-            MIDDLE: THREE.MOUSE.PAN,
-            RIGHT: undefined as any
+            MIDDLE: THREE.MOUSE.DOLLY,
+            RIGHT: THREE.MOUSE.PAN
         }; 
         
         this.controls.addEventListener('start', () => {
@@ -898,10 +886,7 @@ export class IFCManager {
             this.highlightMaterial.clippingPlanes = planes;
             this.highlightMaterial.needsUpdate = true;
         }
-        if (this.hoverMaterial) {
-            this.hoverMaterial.clippingPlanes = planes;
-            this.hoverMaterial.needsUpdate = true;
-        }
+
         if (this.isolationDimMaterial) {
             this.isolationDimMaterial.clippingPlanes = planes;
             this.isolationDimMaterial.needsUpdate = true;
@@ -1056,7 +1041,7 @@ export class IFCManager {
         return null;
     }
 
-    // Hover Effect
+    // Mouse Move (Cursor & Measure)
     private handleMouseMove = (event: MouseEvent) => {
         if (this.activeTool === ViewerTool.MEASURE) {
             this.measurementManager?.onMouseMove(event, this.cachedRaycastMeshes);
@@ -1064,65 +1049,14 @@ export class IFCManager {
             return;
         }
 
-        // Hover highlight for non-walk tools
         if (this.activeTool !== ViewerTool.WALK) {
-            this.container!.style.cursor = 'default';
             const hit = this.castRay(event);
             if (hit && hit.expressID !== -1) {
-                if (hit.expressID !== this.lastHoverID) {
-                    this.clearHover();
-                    this.lastHoverID = hit.expressID;
-                    // Build hover overlay async
-                    if (this.worker && hit.modelID >= 0) {
-                        this.worker.postMessage({
-                            type: 'GET_HIGHLIGHT_GEOMETRY',
-                            data: { modelID: hit.modelID, expressID: hit.expressID }
-                        });
-                        // Use a one-shot resolver for hover
-                        const prevResolver = this.highlightResolver;
-                        this.highlightResolver = (geometries: any[]) => {
-                            // Restore previous resolver if there was one (selection)
-                            if (prevResolver) prevResolver(geometries);
-                            else this.buildHoverMesh(geometries, hit.modelID);
-                        };
-                    }
-                    this.container!.style.cursor = 'pointer';
-                }
+                this.container!.style.cursor = 'pointer';
             } else {
-                this.clearHover();
-                this.lastHoverID = -1;
+                this.container!.style.cursor = 'default';
             }
         }
-    }
-
-    private buildHoverMesh(geometries: any[], modelID: number) {
-        this.clearHover();
-        if (geometries.length === 0) return;
-        const threeGeometries: THREE.BufferGeometry[] = [];
-        geometries.forEach((g: any) => {
-            const geom = new THREE.BufferGeometry();
-            geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(g.pos), 3));
-            geom.setIndex(new THREE.BufferAttribute(new Uint32Array(g.indices), 1));
-            geom.computeVertexNormals();
-            const matrix = new THREE.Matrix4().fromArray(g.flatTransformation);
-            geom.applyMatrix4(matrix);
-            threeGeometries.push(geom);
-        });
-        const merged = BufferGeometryUtils.mergeGeometries(threeGeometries);
-        threeGeometries.forEach(g => g.dispose());
-        if (!merged) return;
-        const mesh = new THREE.Mesh(merged, this.hoverMaterial);
-        const rootGroup = this.models.get(modelID)?.group;
-        if (rootGroup) {
-            mesh.rotation.copy(rootGroup.rotation);
-            mesh.position.copy(rootGroup.position);
-            mesh.scale.copy(rootGroup.scale);
-        }
-        mesh.renderOrder = 998;
-        mesh.userData = { modelID, isHover: true };
-        this.hoverModel = mesh;
-        this.scene.add(mesh);
-        this.isDirty = true;
     }
 
     private hasClickMoved(): boolean {
@@ -1135,8 +1069,6 @@ export class IFCManager {
         if (hit) {
             const { modelID, expressID, mesh } = hit;
             if (expressID !== -1 && modelID !== undefined) {
-                this.clearHover();
-                this.lastHoverID = -1;
                 await this.highlightElement(modelID, expressID, mesh, shiftKey);
                 await this.selectElement(modelID, expressID, shiftKey);
             } else if (mesh.userData.isGLB) {
@@ -1563,14 +1495,7 @@ export class IFCManager {
         this.isDirty = true;
     }
 
-    private clearHover() {
-        if (this.hoverModel) {
-            this.scene.remove(this.hoverModel);
-            if (this.hoverModel.geometry) this.hoverModel.geometry.dispose();
-            this.hoverModel = null;
-            this.isDirty = true;
-        }
-    }
+
     
     getStatistics() { 
         let gpuMemoryBytes = 0;
@@ -2377,7 +2302,7 @@ export class IFCManager {
             if (mID < 0) return; // skip GLB
             m.group.traverse(obj => {
                 if (!(obj instanceof THREE.Mesh)) return;
-                if (obj.userData.isHover || obj === this.highlightModel || obj === this.hoverModel) return;
+                if (obj.userData.isHover || obj === this.highlightModel) return;
                 
                 // Try to determine this mesh's expressID
                 // For batch meshes we dim the whole thing; in future could do per-element
