@@ -244,19 +244,19 @@ const ReportPanel: React.FC = () => {
                 <div style={{ display: 'flex', gap: 8 }}>
                     {view === 'config' ? (
                         <>
-                            <button className="tool-button" onClick={importConfig} title="导入列配置">
+                            <button onClick={importConfig} title="导入列配置" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)' }}>
                                 <Upload size={14} /> 导入配置
                             </button>
-                            <button className="tool-button" onClick={exportConfig} title="导出当前列配置">
+                            <button onClick={exportConfig} title="导出当前列配置" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)' }}>
                                 <Download size={14} /> 导出配置
                             </button>
                         </>
                     ) : (
                         <>
-                            <button className="tool-button" onClick={() => setView('config')} title="编辑配置">
+                            <button onClick={() => setView('config')} title="编辑配置" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)' }}>
                                 <Edit size={14} /> 修改配置
                             </button>
-                            <button className="tool-button" onClick={exportCsv} disabled={rows.length === 0} title="导出CSV电子表格">
+                            <button onClick={exportCsv} disabled={rows.length === 0} title="导出CSV电子表格" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', fontSize: 12, background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-primary)', opacity: rows.length === 0 ? 0.5 : 1 }}>
                                 <FileSpreadsheet size={14} /> 导出为 CSV
                             </button>
                         </>
@@ -269,11 +269,10 @@ const ReportPanel: React.FC = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                         <div style={{ fontWeight: 600, fontSize: 13 }}>表格列配置</div>
                         <button 
-                            className="tool-button" 
                             onClick={addColumn} 
-                            style={{ background: 'var(--brand)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: 'var(--radius-sm)' }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--brand)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: 12 }}
                         >
-                            <Plus size={14} style={{ marginRight: 4 }}/> 添加列
+                            <Plus size={14} /> 添加列
                         </button>
                     </div>
 
@@ -295,7 +294,7 @@ const ReportPanel: React.FC = () => {
                                         onSelect={val => updateColumn(col.id, { fieldMatch: col.fieldMatch ? `${col.fieldMatch},${val}` : val })}
                                     />
                                 </div>
-                                <button className="tool-button" onClick={() => removeColumn(col.id)} style={{ color: 'var(--danger)', padding: 4 }}>
+                                <button onClick={() => removeColumn(col.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 4 }}>
                                     <X size={16} />
                                 </button>
                             </div>
@@ -309,12 +308,11 @@ const ReportPanel: React.FC = () => {
 
                     <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: 16 }}>
                         <button 
-                            className="tool-button" 
                             onClick={generateReport} 
                             disabled={isLoading || modelID === -1 || columns.length === 0}
-                            style={{ background: 'var(--brand)', color: 'white', border: 'none', padding: '8px 24px', fontWeight: 600, borderRadius: 'var(--radius-md)' }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--brand)', color: 'white', border: 'none', padding: '8px 24px', fontWeight: 600, borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 13, opacity: (isLoading || modelID === -1 || columns.length === 0) ? 0.5 : 1 }}
                         >
-                            {isLoading ? '扫描中...' : <><Play size={16} style={{ marginRight: 6 }}/> 生成报表</>}
+                            {isLoading ? '扫描中...' : <><Play size={16} /> 生成报表</>}
                         </button>
                     </div>
                 </div>

@@ -37,6 +37,7 @@ export class MeasurementManager {
     // Temp objects for current interaction
     private tempPreview: THREE.Object3D | null = null;
     private tempMarkers: THREE.Object3D[] = [];
+    private snapMarker: THREE.Mesh;
 
     constructor(scene: THREE.Scene, camera: THREE.Camera, container: HTMLElement) {
         this.scene = scene;
@@ -44,6 +45,13 @@ export class MeasurementManager {
         this.container = container;
         this.raycaster = new THREE.Raycaster();
         this.raycaster.firstHitOnly = true;
+
+        const snapGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+        const snapMat = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 0.9 });
+        this.snapMarker = new THREE.Mesh(snapGeo, snapMat);
+        this.snapMarker.renderOrder = 1000;
+        this.snapMarker.visible = false;
+        this.scene.add(this.snapMarker);
 
         this.initCursorLabel();
     }
@@ -115,6 +123,7 @@ export class MeasurementManager {
             this.clearTemp();
             this.container.style.cursor = 'default';
             this.updateCursorText('', false);
+            this.snapMarker.visible = false;
         } else {
             this.container.style.cursor = 'default';
             this.clearTemp();
@@ -244,10 +253,10 @@ export class MeasurementManager {
         if (!this.active) return;
         if ((event.target as HTMLElement) !== this.container && (event.target as HTMLElement).tagName !== 'CANVAS') return;
 
-        const point = this.getIntersects(event, models);
-        if (!point) return;
+        const result = this.getIntersects(event, models);
+        if (!result) return;
 
-        this.handleModeClick(point);
+        this.handleModeClick(result.point);
     }
 
     private handleModeClick(point: THREE.Vector3) {
@@ -300,17 +309,33 @@ export class MeasurementManager {
     public onMouseMove(event: MouseEvent, models: THREE.Object3D[]) {
         if (!this.active) return;
         
-        const point = this.getIntersects(event, models);
+        const result = this.getIntersects(event, models);
         
-        if (point) {
+        if (result) {
+            if (result.type !== 'none') {
+                this.snapMarker.position.copy(result.point);
+                this.snapMarker.visible = true;
+                const dist = this.camera.position.distanceTo(result.point);
+                const scale = Math.max(0.2, dist / 30);
+                this.snapMarker.scale.set(scale, scale, scale);
+                // Green for vertex, Orange for edge
+                (this.snapMarker.material as THREE.MeshBasicMaterial).color.setHex(result.type === 'vertex' ? 0x10b981 : 0xf59e0b);
+                // Switch to sphere for edge, box for vertex
+                this.snapMarker.geometry = result.type === 'vertex' ? new THREE.BoxGeometry(0.15, 0.15, 0.15) : new THREE.SphereGeometry(0.1, 16, 16);
+            } else {
+                this.snapMarker.visible = false;
+            }
+
             // Preview handling
             if (this.points.length > 0) {
-                this.updatePreview(point);
+                this.updatePreview(result.point);
             }
+        } else {
+            this.snapMarker.visible = false;
         }
     }
 
-    private getIntersects(event: MouseEvent, models: THREE.Object3D[]): THREE.Vector3 | null {
+    private getIntersects(event: MouseEvent, models: THREE.Object3D[]): { point: THREE.Vector3, type: 'none' | 'vertex' | 'edge' } | null {
         const rect = this.container.getBoundingClientRect();
         const mouse = new THREE.Vector2(
             ((event.clientX - rect.left) / rect.width) * 2 - 1,
@@ -358,7 +383,7 @@ export class MeasurementManager {
 
                     // Snap threshold for Vertex: 0.3 meters
                     if (minDist < 0.3) {
-                        return closest;
+                        return { point: closest, type: 'vertex' };
                     }
 
                     // 2. Edge Snapping
@@ -385,7 +410,7 @@ export class MeasurementManager {
 
                     // Snap threshold for Edge: 0.3 meters
                     if (minDist < 0.3) {
-                        return closest;
+                        return { point: closest, type: 'edge' };
                     }
                 } catch (e) {
                     console.warn("[MeasurementManager] Snapping failed:", e);
@@ -393,17 +418,13 @@ export class MeasurementManager {
             }
         }
 
-        return point;
+        return { point, type: 'none' };
     }
 
     private addTempPoint(point: THREE.Vector3) {
         this.points.push(point);
-        const markerGeo = new THREE.SphereGeometry(0.1, 16, 16);
-        const marker = new THREE.Mesh(markerGeo, this.markerMaterial);
-        marker.position.copy(point);
-        marker.renderOrder = 999;
-        this.scene.add(marker);
-        this.tempMarkers.push(marker);
+        // User requested not to show the spheres for start/end points
+        // Keeping logical point, but not adding marker meshes
     }
 
     // --- Previews ---
