@@ -172,14 +172,14 @@ export class IFCManager {
             RIGHT: null as any // Disable right drag to allow context menus
         }; 
 
-        // Emulate Ctrl+Middle for Rotate
+        // Emulate Shift/Ctrl + Middle for Rotate
         window.addEventListener('keydown', (e) => {
-            if (e.key === 'Control') {
+            if (e.key === 'Shift' || e.key === 'Control') {
                 this.controls.mouseButtons.MIDDLE = THREE.MOUSE.ROTATE;
             }
         });
         window.addEventListener('keyup', (e) => {
-            if (e.key === 'Control') {
+            if (e.key === 'Shift' || e.key === 'Control') {
                 this.controls.mouseButtons.MIDDLE = THREE.MOUSE.PAN;
             }
         });
@@ -188,8 +188,21 @@ export class IFCManager {
         const rotateCursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>') 12 12, auto`;
         
         this.container?.addEventListener('mousedown', (e) => {
-            if (e.button === 0 || (e.button === 1 && e.ctrlKey)) {
+            const isRotateLeft = e.button === 0 && this.controls.mouseButtons.LEFT === THREE.MOUSE.ROTATE;
+            const isRotateMiddle = e.button === 1 && this.controls.mouseButtons.MIDDLE === THREE.MOUSE.ROTATE;
+            
+            if (isRotateLeft || isRotateMiddle) {
                 this.container!.style.cursor = rotateCursor;
+                
+                // Adjust orbit target to the depth of the hit point to prevent "flying away"
+                const hit = this.castRay(e as unknown as MouseEvent);
+                if (hit && hit.point) {
+                    const distance = this.camera.position.distanceTo(hit.point);
+                    const lookDirection = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+                    const newTarget = this.camera.position.clone().add(lookDirection.multiplyScalar(distance));
+                    this.controls.target.copy(newTarget);
+                    this.controls.update();
+                }
             }
         });
         window.addEventListener('mouseup', () => {
