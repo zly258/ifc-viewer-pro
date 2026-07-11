@@ -125,18 +125,17 @@ const DraggablePanel: React.FC<DraggablePanelProps> = ({
     startPosRef.current = { ...position };
   };
 
-  if (!isOpen) return null;
-
   return (
     <div
       ref={panelRef}
-      className={`absolute flex flex-col glass-panel overflow-hidden z-30 animate-fade-in-up ${className}`}
+      className={`absolute flex flex-col glass-panel overflow-hidden z-30 ${isOpen ? 'animate-fade-in-up' : 'hidden'} ${className}`}
       style={{
         left: position.x,
         top: position.y,
         width: size.w,
         height: size.h,
         borderRadius: 'var(--radius-lg)',
+        display: isOpen ? 'flex' : 'none',
       }}
     >
       {/* Header — drag zone */}

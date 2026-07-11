@@ -404,6 +404,43 @@ const ReportPanel: React.FC = () => {
         return list;
     }, [rows, searchQuery, sortConfig]);
 
+    // Compute column totals row
+    const totalRow = useMemo(() => {
+        if (filteredAndSortedRows.length === 0) return null;
+
+        const total: Record<string, any> = {
+            groupValue: '合计 (Total)',
+            count: filteredAndSortedRows.reduce((acc, r) => acc + (r.count || 0), 0)
+        };
+
+        columns.forEach(col => {
+            const vals = filteredAndSortedRows
+                .map(r => r[col.id])
+                .filter(v => typeof v === 'number' && !isNaN(v)) as number[];
+
+            if (vals.length > 0) {
+                if (col.aggregation === 'avg') {
+                    const sum = vals.reduce((a, b) => a + b, 0);
+                    total[col.id] = parseFloat((sum / vals.length).toFixed(col.precision));
+                } else if (col.aggregation === 'min') {
+                    total[col.id] = Math.min(...vals);
+                } else if (col.aggregation === 'max') {
+                    total[col.id] = Math.max(...vals);
+                } else if (col.aggregation === 'count') {
+                    total[col.id] = vals.length;
+                } else {
+                    // Default to sum
+                    const sum = vals.reduce((a, b) => a + b, 0);
+                    total[col.id] = parseFloat(sum.toFixed(col.precision));
+                }
+            } else {
+                total[col.id] = '-';
+            }
+        });
+
+        return total;
+    }, [filteredAndSortedRows, columns]);
+
     // Categorized properties for checklist selection
     const categorizedProps = useMemo(() => {
         const result = {
@@ -961,6 +998,25 @@ const ReportPanel: React.FC = () => {
                                                 </tr>
                                             ))}
                                         </tbody>
+                                        {totalRow && (
+                                            <tfoot style={{ position: 'sticky', bottom: 0, background: 'var(--surface-2)', zIndex: 5, borderTop: '2px solid var(--border)' }}>
+                                                <tr style={{ fontWeight: 'bold' }}>
+                                                    <td style={{ padding: '8px 10px', color: 'var(--text-primary)', fontWeight: 700 }}>
+                                                        {totalRow.groupValue}
+                                                    </td>
+                                                    {mode === 'summary' && (
+                                                        <td style={{ padding: '8px 10px', color: 'var(--text-primary)', textAlign: 'right', fontWeight: 700 }}>
+                                                            {totalRow.count}
+                                                        </td>
+                                                    )}
+                                                    {columns.map(col => (
+                                                        <td key={col.id} style={{ padding: '8px 10px', color: 'var(--text-primary)', textAlign: 'right', fontWeight: 700 }}>
+                                                            {totalRow[col.id]}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            </tfoot>
+                                        )}
                                     </table>
                                 </div>
                                 
