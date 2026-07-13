@@ -279,7 +279,7 @@ const App: React.FC = () => {
         </DraggablePanel>
 
         <DraggablePanel
-          title={t.properties.title}
+          title={t.propertyPanel.title}
           icon={FileText}
           isOpen={showPropertyPanel}
           onClose={() => setShowPropertyPanel(false)}

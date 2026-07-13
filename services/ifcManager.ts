@@ -207,7 +207,7 @@ export class IFCManager {
             const isRotateMiddle = e.button === 1 && this.controls.mouseButtons.MIDDLE === THREE.MOUSE.ROTATE;
             
             if (isRotateMiddle) {
-                this.container!.style.cursor = rotateCursor;
+                if (this.container) this.container.style.cursor = rotateCursor;
                 
                 // Adjust orbit target to the depth of the hit point to prevent "flying away"
                 let depthDistance = -1;
@@ -247,7 +247,7 @@ export class IFCManager {
             }
         }, { capture: true });
         window.addEventListener('mouseup', () => {
-            this.container!.style.cursor = 'default';
+            if (this.container) this.container.style.cursor = 'default';
         });
         
         this.controls.addEventListener('start', () => {
@@ -1154,9 +1154,9 @@ export class IFCManager {
 
             const hit = this.castRay(event);
             if (hit && hit.expressID !== -1) {
-                this.container!.style.cursor = 'pointer';
+                if (this.container) this.container.style.cursor = 'pointer';
             } else {
-                this.container!.style.cursor = 'default';
+                if (this.container) this.container.style.cursor = 'default';
             }
         }
     }
@@ -1688,7 +1688,7 @@ export class IFCManager {
             // Fallback timeout in case of errors
             setTimeout(() => {
                 if (this.propertyKeysResolver === resolve) {
-                    resolve(['构件类型', '构件名称', '所在空间', '材质', 'Express ID']);
+                    resolve([]);
                     this.propertyKeysResolver = null;
                 }
             }, 3000);

@@ -137,13 +137,9 @@ const zh = {
     copyHint: '右键复制该属性值',
     copied: '已复制!',
     basicInfo: '基本信息',
-    basicProps: '基本属性',
-    materialInfo: '材质信息',
-    spaceLocation: '所在空间',
-    elementType: '构件类型',
-    expressId: 'Express ID',
-    globalId: '全局唯一标识 (GUID)',
-    elementName: '构件名称',
+    groupGeneral: '常规属性',
+    groupDimensions: '尺寸标注',
+    groupIdentity: '标识数据',
   },
 
   // Context Menu

@@ -19,6 +19,7 @@ const PropertyGroup: React.FC<{
     defaultOpen = false,
     forceOpen = false,
 }) => {
+    const { t } = useLanguage();
     const [isOpen, setIsOpen] = useState(defaultOpen);
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const showContent = forceOpen || isOpen;
@@ -171,16 +172,38 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ data, selectedCount = 1 }
         );
     });
 
-    // Group properties, sort: Info first, then alphabetical
+    // Normalize IFC property set names → translated group names
+    // Merges Chinese-named groups (基本信息/基本属性/材质信息 etc.) into unified display names
+    const getGroupName = (setName: string | undefined): string => {
+        if (!setName) return t.propertyPanel.groupGeneral;
+        const s = setName.trim();
+        // IFC standard English names that should merge into basic info
+        if (/^Pset_.*Common$/i.test(s)) return t.propertyPanel.basicInfo;
+        // Chinese & English names → unified groups
+        if (/^(基本信息|基本属性|材质信息|材质|材质属性|材料|材料信息)$/.test(s)) return t.propertyPanel.basicInfo;
+        if (/^(common|material|materials|base\s*quantit)/i.test(s)) return t.propertyPanel.basicInfo;
+        if (/^(尺寸标注|尺寸|几何信息|几何|几何属性)$/.test(s)) return t.propertyPanel.groupDimensions;
+        if (/^(dimension|geometry|quantit)/i.test(s)) return t.propertyPanel.groupDimensions;
+        if (/^(标识数据|标识|身份|身份信息)$/.test(s)) return t.propertyPanel.groupIdentity;
+        if (/^(identity|identification)$/i.test(s)) return t.propertyPanel.groupIdentity;
+        // Keep original for unmatched names
+        return s;
+    };
+
+    const BASIC_KEY = t.propertyPanel.basicInfo;
+
+    // Group properties, sort: Basic Info first, then alphabetical
     const groupedProps: Record<string, any[]> = {};
     const sortedProps = [...filteredProps].sort((a, b) => {
-        if (a.setName === 'Info') return -1;
-        if (b.setName === 'Info') return 1;
-        return (a.setName || '').localeCompare(b.setName || '');
+        const na = getGroupName(a.setName);
+        const nb = getGroupName(b.setName);
+        if (na === BASIC_KEY && nb !== BASIC_KEY) return -1;
+        if (nb === BASIC_KEY && na !== BASIC_KEY) return 1;
+        return na.localeCompare(nb);
     });
 
     sortedProps.forEach(prop => {
-        const set = prop.setName || 'General';
+        const set = getGroupName(prop.setName);
         if (!groupedProps[set]) groupedProps[set] = [];
         groupedProps[set].push(prop);
     });
@@ -293,7 +316,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ data, selectedCount = 1 }
                             key={setName}
                             name={setName}
                             props={props}
-                            defaultOpen={setName === 'Info' || setName.includes('Common')}
+                            defaultOpen={setName === BASIC_KEY}
                             forceOpen={!!searchQuery}
                         />
                     ))

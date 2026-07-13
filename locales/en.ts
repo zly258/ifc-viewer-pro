@@ -139,13 +139,9 @@ const en: LocaleMessages = {
     copyHint: 'Right-click to copy property value',
     copied: 'Copied!',
     basicInfo: 'Basic Info',
-    basicProps: 'Basic Properties',
-    materialInfo: 'Material Info',
-    spaceLocation: 'Space Location',
-    elementType: 'Element Type',
-    expressId: 'Express ID',
-    globalId: 'Global Unique ID (GUID)',
-    elementName: 'Element Name',
+    groupGeneral: 'General',
+    groupDimensions: 'Dimensions',
+    groupIdentity: 'Identity',
   },
 
   // Context Menu
