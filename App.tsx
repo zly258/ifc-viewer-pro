@@ -34,6 +34,26 @@ const App: React.FC = () => {
     (window as any).showAboutModal = () => setShowAbout(true);
   }, []);
 
+  // Sync measurement tips translations when language changes
+  useEffect(() => {
+    if (ifcManager.measurementManager) {
+      ifcManager.measurementManager.tipsTranslations = {
+        startPoint: t.measureTips.startPoint,
+        clickStart: t.measureTips.clickStart,
+        clickEnd: t.measureTips.clickEnd,
+        clickVertex: t.measureTips.clickVertex,
+        clickNext: t.measureTips.clickNext,
+        clickCorner1: t.measureTips.clickCorner1,
+        clickCorner2: t.measureTips.clickCorner2,
+        clickAnyPoint: t.measureTips.clickAnyPoint,
+        length: t.measureTips.length,
+        angle: t.measureTips.angle,
+        area: t.measureTips.area,
+        volume: t.measureTips.volume,
+      };
+    }
+  }, [t, ifcManager.measurementManager]);
+
   // Modal States
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 

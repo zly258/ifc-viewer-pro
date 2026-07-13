@@ -3,12 +3,14 @@ import { bcfManager, BcfViewpoint } from '../services/BcfManager';
 import { ifcManager } from '../services/ifcManager';
 import { Camera, Trash2, Download, Upload, Plus, Eye, AlertCircle } from 'lucide-react';
 import { IFCElementData } from '../types';
+import { useLanguage } from '../locales/LanguageContext';
 
 interface BcfPanelProps {
     selectedElement: IFCElementData | null;
 }
 
 const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
+    const { t } = useLanguage();
     const [viewpoints, setViewpoints] = useState<BcfViewpoint[]>([]);
     const [isAdding, setIsAdding] = useState(false);
     const [title, setTitle] = useState('');
@@ -29,7 +31,7 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
             setIsAdding(false);
             setError(null);
         } else {
-            setError('视点拍摄失败，请确保模型已加载！');
+            setError(t.bcf.captureFailed);
         }
     };
 
@@ -60,7 +62,7 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
         reader.onload = (event) => {
             const content = event.target?.result as string;
             if (!bcfManager.importFromJson(content)) {
-                alert('BCF 导入失败，请检查文件格式是否正确。');
+                alert(t.bcf.importFailed);
             }
         };
         reader.readAsText(file);
@@ -86,7 +88,7 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>
-                        视点书签
+                        {t.bcf.bookmarks}
                     </span>
                     {viewpoints.length > 0 && (
                         <span style={{
@@ -108,7 +110,7 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
                         onClick={handleExport}
                         disabled={viewpoints.length === 0}
                         className="icon-button"
-                        title="导出书签 (JSON)"
+                        title={t.bcf.exportBookmarks}
                         style={{
                             width: 28,
                             height: 28,
@@ -119,7 +121,7 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
                     </button>
                     <label
                         className="icon-button"
-                        title="导入书签 (JSON)"
+                        title={t.bcf.importBookmarks}
                         style={{ width: 28, height: 28, cursor: 'pointer' }}
                     >
                         <Upload size={14} />
@@ -128,11 +130,11 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
                     <button
                         onClick={() => setIsAdding(true)}
                         className="primary-button"
-                        title="拍摄新视点"
+                        title={t.bcf.captureView}
                         style={{ minHeight: 28, padding: '4px 10px', gap: 4, fontSize: 11 }}
                     >
                         <Plus size={13} />
-                        <span>拍摄</span>
+                        <span>{t.bcf.capture}</span>
                     </button>
                 </div>
             </div>
@@ -174,14 +176,14 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
                 >
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 5 }}>
                         <Camera size={13} style={{ color: 'var(--brand)' }} />
-                        记录当前相机视点
+                        {t.bcf.recordView}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>书签名称</label>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>{t.bcf.bookmarkName}</label>
                         <input
                             type="text"
                             required
-                            placeholder="如：三层结构柱钢筋冲突"
+                            placeholder={t.bcf.namePlaceholder}
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             className="input-control"
@@ -189,10 +191,10 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
                         />
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>问题批注</label>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>{t.bcf.issueComment}</label>
                         <textarea
                             rows={2}
-                            placeholder="描述具体问题或标注细节..."
+                            placeholder={t.bcf.commentPlaceholder}
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
                             className="input-control"
@@ -202,19 +204,18 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
                     {selectedElement && (
                         <div style={{
                             fontSize: 10,
-                            
                             color: 'var(--brand)',
                             background: 'var(--brand-soft)',
                             border: '1px solid var(--brand-border)',
                             borderRadius: 'var(--radius-sm)',
                             padding: '5px 8px',
                         }}>
-                            关联构件：#{selectedElement.expressID} ({selectedElement.type})
+                            {t.bcf.linkedElement}：#{selectedElement.expressID} ({selectedElement.type})
                         </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 7 }}>
-                        <button type="button" onClick={() => setIsAdding(false)} className="secondary-button" style={{ minHeight: 28, padding: '4px 12px' }}>取消</button>
-                        <button type="submit" className="primary-button" style={{ minHeight: 28, padding: '4px 12px' }}>拍摄保存</button>
+                        <button type="button" onClick={() => setIsAdding(false)} className="secondary-button" style={{ minHeight: 28, padding: '4px 12px' }}>{t.bcf.cancel}</button>
+                        <button type="submit" className="primary-button" style={{ minHeight: 28, padding: '4px 12px' }}>{t.bcf.saveView}</button>
                     </div>
                 </form>
             )}
@@ -235,8 +236,8 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
                         }}>
                             <Camera size={20} style={{ color: 'var(--text-muted)' }} />
                         </div>
-                        <span className="empty-state-title">暂无视点书签</span>
-                        <span className="empty-state-desc">点击"拍摄"记录当前相机位置与构件选择状态</span>
+                        <span className="empty-state-title">{t.bcf.noBookmarks}</span>
+                        <span className="empty-state-desc">{t.bcf.noBookmarksDesc}</span>
                     </div>
                 ) : (
                     viewpoints.map(vp => (
@@ -296,7 +297,7 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
                                         gap: 3,
                                     }}>
                                         <Eye size={8} />
-                                        {vp.isWalkMode ? '漫游' : '轴测'}
+                                        {vp.isWalkMode ? t.bcf.walkMode : t.bcf.isoView}
                                     </div>
                                 </div>
                             ) : (
@@ -352,7 +353,7 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
                             <button
                                 onClick={(e) => handleDelete(e, vp.id)}
                                 className="icon-button danger-button"
-                                title="删除书签"
+                                title={t.bcf.deleteBookmark}
                                 style={{
                                     width: 26,
                                     height: 26,

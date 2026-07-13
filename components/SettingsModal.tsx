@@ -1,5 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import { useLanguage } from '../locales/LanguageContext';
 
 export interface ViewSettings {
     ifcUpAxis: 'Y' | 'Z';
@@ -35,6 +36,7 @@ const SettingSection = ({ label, help, children }: { label: string; help?: strin
 );
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings, onSave }) => {
+    const { t } = useLanguage();
     const [localSettings, setLocalSettings] = React.useState<ViewSettings>(settings);
 
     React.useEffect(() => {
@@ -67,7 +69,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
             <div className="modal-card animate-fade-in-up">
                 {/* Header */}
                 <div className="modal-header">
-                    <span className="modal-title">视图设置</span>
+                    <span className="modal-title">{t.settings.title}</span>
                     <button onClick={onClose} className="icon-button" style={{ width: 28, height: 28 }}>
                         <X size={15} />
                     </button>
@@ -77,13 +79,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                 <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
                     <SettingSection
-                        label="IFC 模型朝向"
-                        help="决定导入 IFC 文件时默认的世界坐标向上轴，标准 IFC 应选 Z 轴向上。"
+                        label={t.settings.modelOrientation}
+                        help={t.settings.orientationHelp}
                     >
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                             {[
-                                { val: 'Y', label: 'Y 轴向上' },
-                                { val: 'Z', label: 'Z 轴向上（标准）' },
+                                { val: 'Y', label: t.settings.yAxisUp },
+                                { val: 'Z', label: t.settings.zAxisUp },
                             ].map(({ val, label }) => (
                                 <button
                                     key={val}
@@ -98,13 +100,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
 
 
 
-
                 </div>
 
                 {/* Footer */}
                 <div className="modal-footer">
-                    <button onClick={onClose} className="secondary-button">取消</button>
-                    <button onClick={() => onSave(localSettings)} className="primary-button">保存设置</button>
+                    <button onClick={onClose} className="secondary-button">{t.settings.cancel}</button>
+                    <button onClick={() => onSave(localSettings)} className="primary-button">{t.settings.save}</button>
                 </div>
             </div>
         </div>

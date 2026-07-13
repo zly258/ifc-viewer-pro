@@ -84,30 +84,19 @@ const zh = {
     distance: '距离测距',
     angle: '角度测量',
     coordinate: '坐标拾取',
+    reportTitle: 'BIMVision Pro 测量与分析报告',
+    fileName: '文件名称',
+    exportTime: '导出时间',
+    reportNo: '报告编号',
+    measureRecords: '测量记录列表',
+    snapshot: '视点快照',
+    printPdf: '打印报告 / 导出 PDF',
+    footer: '此报告由 BIMVision Pro 平台自动生成。版权所有 © 2026.',
   },
 
-  // Model Tree
-  modelTree: {
-    title: '模型结构',
-  },
-
-  // Properties
-  properties: {
-    title: '属性详情',
-  },
-
-  // BCF
-  bcf: {
-    title: '视点与批注',
-  },
-
-  // Report
-  report: {
-    title: '工程量报表',
-  },
-
-  // Tips
-  tips: {
+  // Measurement tips (service layer)
+  measureTips: {
+    startPoint: '起点',
     clickStart: '点击起点',
     clickEnd: '点击终点',
     clickVertex: '点击顶点',
@@ -115,6 +104,171 @@ const zh = {
     clickCorner1: '点击角点 1',
     clickCorner2: '点击角点 2',
     clickAnyPoint: '点击任意点获取坐标',
+    length: '长度',
+    angle: '角度',
+    area: '面积',
+    volume: '体积',
+    combinedScene: '合并模型场景',
+  },
+
+  // Model Tree
+  modelTree: {
+    title: '模型结构',
+    hideModel: '隐藏模型',
+    showModel: '显示模型',
+    rotateUpAxis: '旋转修正 Up 轴',
+    removeModel: '移除模型',
+    searchPlaceholder: '检索构件名称、类型或 #ID',
+    noMatch: '无匹配构件',
+    removeTitle: '移除模型',
+    removeDesc: '确定要移除此模型吗？模型的网格与空间结构数据都将被清除，且无法撤销。',
+    confirmRemove: '确认移除',
+    otherElements: '其他未分类构件',
+  },
+
+  // Properties Panel
+  propertyPanel: {
+    title: '属性详情',
+    noSelection: '未选择构件',
+    noSelectionDesc: '在 3D 视图中单击模型构件，查看详细属性信息',
+    multiSelect: '多选',
+    searchPlaceholder: '检索属性名或属性值...',
+    noMatch: '无匹配属性',
+    copyHint: '右键复制该属性值',
+    copied: '已复制!',
+    basicInfo: '基本信息',
+    basicProps: '基本属性',
+    materialInfo: '材质信息',
+    spaceLocation: '所在空间',
+    elementType: '构件类型',
+    expressId: 'Express ID',
+    globalId: '全局唯一标识 (GUID)',
+    elementName: '构件名称',
+  },
+
+  // Context Menu
+  contextMenu: {
+    elementOps: '构件操作',
+    isolateElement: '隔离此构件',
+    hideElement: '隐藏此构件',
+    unisolate: '取消隔离',
+    addAnnotation: '添加批注',
+    sceneOps: '场景操作',
+    restoreAllHidden: '恢复显示所有隐藏构件',
+    fitView: '适应全景',
+    closeMenu: '关闭菜单',
+  },
+
+  // BCF Panel
+  bcf: {
+    title: '视点与批注',
+    bookmarks: '视点书签',
+    exportBookmarks: '导出书签 (JSON)',
+    importBookmarks: '导入书签 (JSON)',
+    captureView: '拍摄新视点',
+    capture: '拍摄',
+    captureFailed: '视点拍摄失败，请确保模型已加载！',
+    importFailed: 'BCF 导入失败，请检查文件格式是否正确。',
+    recordView: '记录当前相机视点',
+    bookmarkName: '书签名称',
+    namePlaceholder: '如：三层结构柱钢筋冲突',
+    issueComment: '问题批注',
+    commentPlaceholder: '描述具体问题或标注细节...',
+    linkedElement: '关联构件',
+    cancel: '取消',
+    saveView: '拍摄保存',
+    noBookmarks: '暂无视点书签',
+    noBookmarksDesc: '点击"拍摄"记录当前相机位置与构件选择状态',
+    deleteBookmark: '删除书签',
+    walkMode: '漫游',
+    isoView: '轴测',
+    viewComment: '视点批注',
+    noComment: '无描述',
+  },
+
+  // Report Panel
+  report: {
+    title: '工程量报表',
+    columnConfig: '表格列配置',
+    addColumn: '添加列',
+    colDisplayName: '表头显示名称 (例如：体积)',
+    colFieldMatch: '匹配的 IFC 字段名 (可多写，逗号分隔)',
+    noColumns: '尚未添加任何表格列',
+    importConfig: '导入配置',
+    exportConfig: '导出当前列配置',
+    scanning: '扫描中...',
+    generateReport: '生成报表',
+    tableTitle: '统计结果',
+    records: '条记录',
+    index: '序号',
+    noRecords: '未找到任何记录',
+    editConfig: '修改配置',
+    exportCsv: '导出为 CSV',
+    invalidConfig: '配置文件格式不正确',
+    newColumn: '新列',
+    elementName: '构件名称',
+    elementType: '类型',
+  },
+
+  // Settings Modal
+  settings: {
+    title: '视图设置',
+    modelOrientation: 'IFC 模型朝向',
+    orientationHelp: '决定导入 IFC 文件时默认的世界坐标向上轴，标准 IFC 应选 Z 轴向上。',
+    yAxisUp: 'Y 轴向上',
+    zAxisUp: 'Z 轴向上（标准）',
+    cancel: '取消',
+    save: '保存设置',
+  },
+
+  // About Modal
+  about: {
+    title: '关于 BIMVision Pro',
+    introduction: '软件介绍',
+    introText: 'BIMVision Pro 是一款基于纯前端架构的高性能 IFC 建筑信息模型（BIM）查看器。无需依赖繁重的后端服务，即可在浏览器中实现复杂三维建筑模型的毫秒级解析、超大模型的流畅渲染以及专业级的工程量统计。',
+    operations: '操作说明 (类 CAD/Revit 习惯)',
+    leftClick: '左键点击',
+    leftClickDesc: '选中构件并高亮显示（按住 Ctrl 可多选）。',
+    middleDrag: '中键拖拽',
+    middleDragDesc: '平移视图 (Pan)。',
+    ctrlMiddle: 'Ctrl + 中键拖拽',
+    ctrlMiddleDesc: '旋转视图 (Orbit)。',
+    scroll: '滚轮',
+    scrollDesc: '缩放视图 (Zoom)。',
+    rightClick: '右键点击',
+    rightClickDesc: '显示右键菜单。',
+    doubleClick: '双击构件',
+    doubleClickDesc: '快速聚焦到该构件。',
+    features: '核心功能',
+    featureRendering: '高性能渲染',
+    featureRenderingDesc: '支持多线程后台解析，不阻塞主界面。支持数百兆级 IFC 模型渲染。',
+    featureQuantities: '极简工程量统计',
+    featureQuantitiesDesc: '一键生成基于 IFC 属性的详尽数据清单，支持导出至 Excel。',
+    featureStructure: '深度空间结构',
+    featureStructureDesc: '自动解析 IfcProject → IfcSite → IfcBuilding → IfcBuildingStorey 的空间关系树。',
+    featureMeasure: '精确测量工具',
+    featureMeasureDesc: '提供坐标、距离、面积和体积的多维测算功能。',
+    techStack: '技术栈',
+  },
+
+  // Viewer3D
+  viewer3d: {
+    error: '错误提示',
+  },
+
+  // Report export (shared)
+  reportExport: {
+    title: 'BIMVision Pro 测量与分析报告',
+    measureRecords: '测量记录列表',
+    snapshot: '视点快照',
+    printPdf: '打印报告 / 导出 PDF',
+    footer: '此报告由 BIMVision Pro 平台自动生成。版权所有 © 2026.',
+    index: '序号',
+    type: '测量类型',
+    value: '测量值',
+    fileName: '文件名称',
+    exportTime: '导出时间',
+    reportNo: '报告编号',
   },
 
   // Theme
@@ -128,24 +282,31 @@ const zh = {
     save: '截图保存',
   },
 
-  // About
-  about: {
-    title: '关于软件与操作说明',
+  // Service messages
+  services: {
+    workerInitFailed: 'Worker 初始化失败',
+    readingFile: '读取 IFC 文件...',
+    checkingCache: '检查缓存...',
+    restoreCache: '从缓存恢复模型...',
+    readGlb: '读取 GLB/GLTF 文件...',
+    glbLoadFailed: 'GLB 加载失败',
+    reportFailed: '报表计算失败',
+    parseProps: '解析模型属性映射关系...',
+    countElements: '统计模型构件数量...',
+    generatingGeom: '正在生成几何体',
+    buildingTree: '构建空间树结构...',
+    noLimit: '无下限',
+    noUpper: '无上限',
+    modelNotFound: '模型未找到或未加载完成',
   },
 
-  // Report export
-  reportExport: {
-    title: 'BIMVision Pro 测量与分析报告',
-    measureRecords: '测量记录列表',
-    snapshot: '视点快照',
-    printPdf: '打印报告 / 导出 PDF',
-    footer: '此报告由 BIMVision Pro 平台自动生成。版权所有 © 2026.',
-    index: '序号',
-    type: '测量类型',
-    value: '测量值',
-    fileName: '文件名称',
-    exportTime: '导出时间',
-    reportNo: '报告编号',
+  // Model info
+  modelInfo: {
+    unnamedElement: '未命名构件',
+    unassignedElements: '其他未分类构件',
+    unassignedSpace: '未分配空间',
+    noMaterial: '未指定材质',
+    globalIdShort: 'GUID',
   },
 };
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ifcManager } from '../services/ifcManager';
 import { ReportConfig, ReportColumn, ReportRow } from '../types';
+import { useLanguage } from '../locales/LanguageContext';
 import { 
     Play, Download, Upload, Edit, 
     FileSpreadsheet, ChevronDown, 
@@ -94,13 +95,14 @@ const SearchSelect: React.FC<SearchSelectProps> = ({ options, placeholder, onSel
 };
 
 const ReportPanel: React.FC = () => {
+    const { t } = useLanguage();
     const [modelID, setModelID] = useState<number>(-1);
     const [availableProps, setAvailableProps] = useState<string[]>([]);
     const [view, setView] = useState<'config' | 'result'>('config');
     
     const [columns, setColumns] = useState<ReportColumn[]>([
-        { id: 'col_name', name: '构件名称', fieldMatch: 'Name,构件名称' },
-        { id: 'col_type', name: '类型', fieldMatch: 'type,构件类型' }
+        { id: 'col_name', name: t.report.elementName, fieldMatch: 'Name,构件名称' },
+        { id: 'col_type', name: t.report.elementType, fieldMatch: 'type,构件类型' }
     ]);
 
     const [rows, setRows] = useState<ReportRow[]>([]);
@@ -137,7 +139,7 @@ const ReportPanel: React.FC = () => {
 
     const addColumn = () => {
         const id = `col_${Date.now()}`;
-        setColumns(prev => [...prev, { id, name: '新列', fieldMatch: '' }]);
+        setColumns(prev => [...prev, { id, name: t.report.newColumn, fieldMatch: '' }]);
     };
 
     const updateColumn = (id: string, updates: Partial<ReportColumn>) => {
@@ -214,7 +216,7 @@ const ReportPanel: React.FC = () => {
                         setColumns(parsed);
                     }
                 } catch (err) {
-                    alert("配置文件格式不正确");
+                    alert(t.report.invalidConfig);
                 }
             };
             reader.readAsText(file);
@@ -240,9 +242,9 @@ const ReportPanel: React.FC = () => {
             {view === 'config' ? (
                 <div className="report-config-container">
                     <div className="report-section-header">
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>表格列配置</div>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{t.report.columnConfig}</div>
                         <button onClick={addColumn} className="btn-primary">
-                            <Plus size={14} /> 添加列
+                            <Plus size={14} /> {t.report.addColumn}
                         </button>
                     </div>
 
@@ -255,11 +257,11 @@ const ReportPanel: React.FC = () => {
                                         className="input-control report-column-input-name" 
                                         value={col.name} 
                                         onChange={e => updateColumn(col.id, { name: e.target.value })}
-                                        placeholder="表头显示名称 (例如：体积)"
+                                        placeholder={t.report.colDisplayName}
                                     />
                                     <SearchSelect 
                                         options={availableProps} 
-                                        placeholder="匹配的 IFC 字段名 (可多写，逗号分隔)"
+                                        placeholder={t.report.colFieldMatch}
                                         onSelect={val => updateColumn(col.id, { fieldMatch: col.fieldMatch ? `${col.fieldMatch},${val}` : val })}
                                     />
                                 </div>
@@ -270,18 +272,18 @@ const ReportPanel: React.FC = () => {
                         ))}
                         {columns.length === 0 && (
                             <div className="report-table-empty" style={{ padding: 12 }}>
-                                尚未添加任何表格列
+                                {t.report.noColumns}
                             </div>
                         )}
                     </div>
 
                     <div className="report-footer">
                         <div style={{ display: 'flex', gap: 8 }}>
-                            <button onClick={importConfig} title="导入列配置" className="btn-secondary">
-                                <Upload size={14} /> 导入配置
+                            <button onClick={importConfig} title={t.report.importConfig} className="btn-secondary">
+                                <Upload size={14} /> {t.report.importConfig}
                             </button>
-                            <button onClick={exportConfig} title="导出当前列配置" className="btn-secondary">
-                                <Download size={14} /> 导出配置
+                            <button onClick={exportConfig} title={t.report.exportConfig} className="btn-secondary">
+                                <Download size={14} /> {t.report.exportConfig}
                             </button>
                         </div>
                         <button 
@@ -289,7 +291,7 @@ const ReportPanel: React.FC = () => {
                             disabled={isLoading || modelID === -1 || columns.length === 0}
                             className="btn-primary btn-large"
                         >
-                            {isLoading ? '扫描中...' : <><Play size={16} /> 生成报表</>}
+                            {isLoading ? t.report.scanning : <><Play size={16} /> {t.report.generateReport}</>}
                         </button>
                     </div>
                 </div>
@@ -297,14 +299,14 @@ const ReportPanel: React.FC = () => {
                 <div className="report-result-wrapper">
                     <div className="report-table-container">
                         <div className="report-table-header">
-                            <span className="report-table-header-title">统计结果 {rows.length > 0 && `(${rows.length} 条记录)`}</span>
+                            <span className="report-table-header-title">{t.report.tableTitle} {rows.length > 0 && `(${rows.length} ${t.report.records})`}</span>
                         </div>
 
                         <div className="report-table-scroll">
                             <table className="report-table">
                                 <thead>
                                     <tr>
-                                        <th className="col-index">序号</th>
+                                        <th className="col-index">{t.report.index}</th>
                                         {columns.map(col => (
                                             <th key={col.id}>{col.name}</th>
                                         ))}
@@ -329,7 +331,7 @@ const ReportPanel: React.FC = () => {
                                     {rows.length === 0 && !isLoading && (
                                         <tr>
                                             <td colSpan={columns.length + 1} className="report-table-empty">
-                                                未找到任何记录
+                                                {t.report.noRecords}
                                             </td>
                                         </tr>
                                     )}
@@ -339,11 +341,11 @@ const ReportPanel: React.FC = () => {
                     </div>
 
                     <div className="report-footer">
-                        <button onClick={() => setView('config')} title="编辑配置" className="btn-secondary">
-                            <Edit size={14} /> 修改配置
+                        <button onClick={() => setView('config')} title={t.report.editConfig} className="btn-secondary">
+                            <Edit size={14} /> {t.report.editConfig}
                         </button>
-                        <button onClick={exportCsv} disabled={rows.length === 0} title="导出CSV电子表格" className="btn-secondary">
-                            <FileSpreadsheet size={14} /> 导出为 CSV
+                        <button onClick={exportCsv} disabled={rows.length === 0} title={t.report.exportCsv} className="btn-secondary">
+                            <FileSpreadsheet size={14} /> {t.report.exportCsv}
                         </button>
                     </div>
                 </div>

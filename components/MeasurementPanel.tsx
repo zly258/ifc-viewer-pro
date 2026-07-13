@@ -37,7 +37,7 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
             console.error('Failed to capture screenshot for report:', e);
         }
 
-        const modelName = ifcManager.models.size === 1 ? Array.from(ifcManager.models.values())[0].name : '合并模型场景';
+        const modelName = ifcManager.models.size === 1 ? Array.from(ifcManager.models.values())[0].name : t.measureTips.combinedScene;
         const dateStr = new Date().toLocaleString();
         
         const htmlContent = `
@@ -45,7 +45,7 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>BIMVision Pro - 测量报告</title>
+    <title>BIMVision Pro - ${t.measurement.reportTitle}</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #1e293b; line-height: 1.5; padding: 35px; background: #f8fafc; }
         .card { background: #ffffff; border-radius: 14px; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05); padding: 32px; max-width: 800px; margin: 0 auto; border: 1px solid #e2e8f0; }
@@ -73,22 +73,22 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
     <div class="card">
         <div class="header">
             <div>
-                <h1 class="title">BIMVision Pro 测量与分析报告</h1>
-                <div style="font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 500;">文件名称: ${modelName}</div>
+                <h1 class="title">BIMVision Pro ${t.measurement.reportTitle}</h1>
+                <div style="font-size: 13px; color: #64748b; margin-top: 4px; font-weight: 500;">${t.measurement.fileName}: ${modelName}</div>
             </div>
             <div class="meta-info">
-                <div>导出时间: ${dateStr}</div>
-                <div>报告编号: BIM-${Date.now().toString().slice(-6)}</div>
+                <div>${t.measurement.exportTime}: ${dateStr}</div>
+                <div>${t.measurement.reportNo}: BIM-${Date.now().toString().slice(-6)}</div>
             </div>
         </div>
 
-        <div class="section-title">📊 测量记录列表</div>
+        <div class="section-title">📊 ${t.measurement.measureRecords}</div>
         <table>
             <thead>
                 <tr>
-                    <th style="width: 80px;">序号</th>
-                    <th>测量类型</th>
-                    <th>测量值</th>
+                    <th style="width: 80px;">${t.reportExport.index}</th>
+                    <th>${t.reportExport.type}</th>
+                    <th>${t.reportExport.value}</th>
                 </tr>
             </thead>
             <tbody>
@@ -103,18 +103,18 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
         </table>
 
         ${screenshotDataUrl ? `
-        <div class="section-title">🖼️ 视点快照</div>
+        <div class="section-title">🖼️ ${t.measurement.snapshot}</div>
         <div class="screenshot-container">
             <img class="screenshot" src="${screenshotDataUrl}" alt="BIM Snapshot" />
         </div>
         ` : ''}
 
         <div style="margin-top: 28px; text-align: right;">
-            <button class="print-btn" onclick="window.print()">🖨️ 打印报告 / 导出 PDF</button>
+            <button class="print-btn" onclick="window.print()">🖨️ ${t.measurement.printPdf}</button>
         </div>
 
         <div class="footer">
-            此报告由 BIMVision Pro 平台自动生成。版权所有 © 2026.
+            ${t.measurement.footer}
         </div>
     </div>
 </body>

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { EyeOff, Eye, Copy, MessageSquarePlus, X, Expand } from "lucide-react";
 import { ifcManager } from "../services/ifcManager";
+import { useLanguage } from "../locales/LanguageContext";
 
 interface ContextMenuProps {
     x: number;
@@ -14,6 +15,7 @@ interface ContextMenuProps {
 }
 
 const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, hit, onClose, onAddAnnotation, onSelect, isIsolated, onHideElement }) => {
+    const { t } = useLanguage();
     const menuRef = useRef<HTMLDivElement>(null);
     const adjustedX = Math.min(x, window.innerWidth - 200);
     const adjustedY = Math.min(y, window.innerHeight - 260);
@@ -55,47 +57,47 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, hit, onClose, onAddAnno
         <div ref={menuRef} className="context-menu" style={{ left: adjustedX, top: adjustedY }} onContextMenu={e => e.preventDefault()}>
             {hit ? (
                 <>
-                    <div className="context-menu-header">构件操作</div>
+                    <div className="context-menu-header">{t.contextMenu.elementOps}</div>
 
                     <button className="context-menu-item" onClick={handleIsolate}>
-                        <Eye size={13} /> 隔离此构件
+                        <Eye size={13} /> {t.contextMenu.isolateElement}
                     </button>
                     <button className="context-menu-item" onClick={handleHide}>
-                        <EyeOff size={13} /> 隐藏此构件
+                        <EyeOff size={13} /> {t.contextMenu.hideElement}
                     </button>
                     {isIsolated && (
                         <button className="context-menu-item" onClick={handleUnisolate}>
-                            <EyeOff size={13} /> 取消隔离
+                            <EyeOff size={13} /> {t.contextMenu.unisolate}
                         </button>
                     )}
 
                     {onAddAnnotation && (
                         <button className="context-menu-item" onClick={handleAnnotation}>
-                            <MessageSquarePlus size={13} /> 添加批注
+                            <MessageSquarePlus size={13} /> {t.contextMenu.addAnnotation}
                         </button>
                     )}
                 </>
             ) : (
                 <>
-                    <div className="context-menu-header">场景操作</div>
+                    <div className="context-menu-header">{t.contextMenu.sceneOps}</div>
                     {isIsolated && (
                         <button className="context-menu-item" onClick={handleUnisolate}>
-                            <EyeOff size={13} /> 取消隔离
+                            <EyeOff size={13} /> {t.contextMenu.unisolate}
                         </button>
                     )}
                     {ifcManager.hasHiddenElements && (
                         <button className="context-menu-item" onClick={handleRestoreHidden}>
-                            <Eye size={13} /> 恢复显示所有隐藏构件
+                            <Eye size={13} /> {t.contextMenu.restoreAllHidden}
                         </button>
                     )}
                     <button className="context-menu-item" onClick={() => { ifcManager.fitModelToFrame(); onClose(); }}>
-                        <Expand size={13} /> 适应全景
+                        <Expand size={13} /> {t.contextMenu.fitView}
                     </button>
                 </>
             )}
             <div className="context-menu-separator" />
             <button className="context-menu-item" style={{ color: "var(--text-muted)" }} onClick={onClose}>
-                <X size={13} /> 关闭菜单
+                <X size={13} /> {t.contextMenu.closeMenu}
             </button>
         </div>
     );

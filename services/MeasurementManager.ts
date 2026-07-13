@@ -19,6 +19,22 @@ export class MeasurementManager {
     private active: boolean = false;
     private mode: MeasurementMode = 'DISTANCE';
 
+    // i18n tips translations
+    public tipsTranslations: Record<string, string> = {
+        startPoint: '起点',
+        clickStart: '点击起点',
+        clickEnd: '点击终点',
+        clickVertex: '点击顶点',
+        clickNext: '点击下一个点 (双击结束)',
+        clickCorner1: '点击角点 1',
+        clickCorner2: '点击角点 2',
+        clickAnyPoint: '点击任意点获取坐标',
+        length: '长度',
+        angle: '角度',
+        area: '面积',
+        volume: '体积',
+    };
+
     // State for interactive drawing
     private points: THREE.Vector3[] = [];
     private measurements: MeasureItem[] = []; // Store completed measurements
@@ -155,7 +171,7 @@ export class MeasurementManager {
         div.style.opacity = '0';
         div.style.display = 'none';
         
-        div.textContent = '起点';
+        div.textContent = this.tipsTranslations.startPoint || '起点';
         this.container.appendChild(div);
         this.tipElement = div;
     }
@@ -212,11 +228,11 @@ export class MeasurementManager {
         const count = this.points.length;
 
         switch (this.mode) {
-            case 'DISTANCE': text = count === 0 ? '点击起点' : '点击终点'; break;
-            case 'ANGLE': text = count === 0 ? '点击起点' : count === 1 ? '点击顶点' : '点击终点'; break;
-            case 'AREA': text = count === 0 ? '点击起点' : '点击下一个点 (双击结束)'; break;
-            case 'VOLUME': text = count === 0 ? '点击角点 1' : '点击角点 2'; break;
-            case 'COORDINATE': text = '点击任意点获取坐标'; break;
+            case 'DISTANCE': text = count === 0 ? this.tipsTranslations.clickStart : this.tipsTranslations.clickEnd; break;
+            case 'ANGLE': text = count === 0 ? this.tipsTranslations.clickStart : count === 1 ? this.tipsTranslations.clickVertex : this.tipsTranslations.clickEnd; break;
+            case 'AREA': text = count === 0 ? this.tipsTranslations.clickStart : this.tipsTranslations.clickNext; break;
+            case 'VOLUME': text = count === 0 ? this.tipsTranslations.clickCorner1 : this.tipsTranslations.clickCorner2; break;
+            case 'COORDINATE': text = this.tipsTranslations.clickAnyPoint; break;
         }
         this.updateCursorText(text, true);
     }
@@ -640,7 +656,7 @@ export class MeasurementManager {
         const label = this.createLabel(center, valStr);
         labels.push(label);
 
-        this.addMeasurementRecord('DISTANCE', valStr, `长度: ${valStr}`, objects, labels);
+        this.addMeasurementRecord('DISTANCE', valStr, `${this.tipsTranslations.length}: ${valStr}`, objects, labels);
     }
 
     private createAngleMeasurement(p1: THREE.Vector3, center: THREE.Vector3, p2: THREE.Vector3) {
@@ -662,7 +678,7 @@ export class MeasurementManager {
         const label = this.createLabel(center, valStr);
         labels.push(label);
 
-        this.addMeasurementRecord('ANGLE', valStr, `角度: ${valStr}`, objects, labels);
+        this.addMeasurementRecord('ANGLE', valStr, `${this.tipsTranslations.angle}: ${valStr}`, objects, labels);
     }
 
     private createAreaMeasurement(points: THREE.Vector3[]) {
@@ -692,7 +708,7 @@ export class MeasurementManager {
         const label = this.createLabel(center, valStr);
         labels.push(label);
 
-        this.addMeasurementRecord('AREA', valStr, `面积: ${valStr}`, objects, labels);
+        this.addMeasurementRecord('AREA', valStr, `${this.tipsTranslations.area}: ${valStr}`, objects, labels);
     }
 
     private createVolumeMeasurement(p1: THREE.Vector3, p2: THREE.Vector3) {
@@ -720,7 +736,7 @@ export class MeasurementManager {
         const label = this.createLabel(center, `${valStr}\n${dims}`);
         labels.push(label);
 
-        this.addMeasurementRecord('VOLUME', valStr, `体积: ${valStr}`, objects, labels);
+        this.addMeasurementRecord('VOLUME', valStr, `${this.tipsTranslations.volume}: ${valStr}`, objects, labels);
     }
 
     private createCoordinateMeasurement(p: THREE.Vector3) {

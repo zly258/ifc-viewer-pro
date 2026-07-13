@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { IFCElementData } from '../types';
 import { ChevronDown, ChevronRight, Search } from 'lucide-react';
+import { useLanguage } from '../locales/LanguageContext';
 
 interface PropertyPanelProps {
   data: IFCElementData | null;
@@ -92,7 +93,7 @@ const PropertyGroup: React.FC<{
                                 transition: 'background 0.2s',
                             }}
                             onContextMenu={(e) => handleContextMenu(e, prop, idx)}
-                            title="右键复制该属性值"
+                            title={t.propertyPanel.copyHint}
                         >
                             <div
                                 style={{
@@ -123,7 +124,7 @@ const PropertyGroup: React.FC<{
                                 }}
                                 title={String(prop.value)}
                             >
-                                {copiedIndex === idx ? <span style={{color: 'var(--brand)', fontWeight: 600}}>已复制!</span> : String(prop.value)}
+                                {copiedIndex === idx ? <span style={{color: 'var(--brand)', fontWeight: 600}}>{t.propertyPanel.copied}</span> : String(prop.value)}
                             </div>
                         </div>
                     ))}
@@ -134,6 +135,7 @@ const PropertyGroup: React.FC<{
 };
 
 const PropertyPanel: React.FC<PropertyPanelProps> = ({ data, selectedCount = 1 }) => {
+    const { t } = useLanguage();
     const [searchQuery, setSearchQuery] = useState('');
 
     if (!data) {
@@ -152,8 +154,8 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ data, selectedCount = 1 }
                     }}>
                         <Search size={18} style={{ color: 'var(--text-muted)' }} />
                     </div>
-                    <span className="empty-state-title">未选择构件</span>
-                    <span className="empty-state-desc">在 3D 视图中单击模型构件，查看详细属性信息</span>
+                    <span className="empty-state-title">{t.propertyPanel.noSelection}</span>
+                    <span className="empty-state-desc">{t.propertyPanel.noSelectionDesc}</span>
                 </div>
             </div>
         );
@@ -223,7 +225,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ data, selectedCount = 1 }
                             whiteSpace: 'nowrap',
                             flexShrink: 0,
                         }}>
-                            多选 ({selectedCount})
+                            {t.propertyPanel.multiSelect} ({selectedCount})
                         </span>
                     )}
                 </div>
@@ -263,7 +265,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ data, selectedCount = 1 }
                 <div style={{ position: 'relative' }}>
                     <input
                         type="text"
-                        placeholder="检索属性名或属性值..."
+                        placeholder={t.propertyPanel.searchPlaceholder}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="input-control"
@@ -297,7 +299,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ data, selectedCount = 1 }
                     ))
                 ) : (
                     <div className="empty-state" style={{ paddingTop: 40, paddingBottom: 40 }}>
-                        <span className="empty-state-desc">无匹配属性</span>
+                        <span className="empty-state-desc">{t.propertyPanel.noMatch}</span>
                     </div>
                 )}
                 <div style={{ height: 20 }} />

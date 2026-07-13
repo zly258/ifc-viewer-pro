@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { ifcManager } from '../services/ifcManager';
 import { IFCSpatialStructure, IFCElementData } from '../types';
 import { ChevronRight, ChevronDown, RotateCw, Trash2, Eye, EyeOff } from 'lucide-react';
+import { useLanguage } from '../locales/LanguageContext';
 
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
@@ -46,6 +47,7 @@ function getTypeColor(type: string): string {
 }
 
 const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
+    const { t } = useLanguage();
     const [fileStructures, setFileStructures] = useState<LoadedFileStructure[]>([]);
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
     const [parentMap, setParentMap] = useState<Map<string, string>>(new Map());
@@ -341,7 +343,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
                                 <button
                                     onClick={handleToggleVisibility}
-                                    title={isVisible ? '隐藏模型' : '显示模型'}
+                                    title={isVisible ? t.modelTree.hideModel : t.modelTree.showModel}
                                     className="icon-button"
                                     style={{
                                         width: 24,
@@ -353,7 +355,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
                                 </button>
                                 <button
                                     onClick={(e) => handleRotate(e, modelID!)}
-                                    title="旋转修正 Up 轴"
+                                    title={t.modelTree.rotateUpAxis}
                                     className="icon-button"
                                     style={{ width: 24, height: 24 }}
                                 >
@@ -361,7 +363,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
                                 </button>
                                 <button
                                     onClick={(e) => handleRemove(e, modelID!)}
-                                    title="移除模型"
+                                    title={t.modelTree.removeModel}
                                     className="icon-button danger-button"
                                     style={{ width: 24, height: 24 }}
                                 >
@@ -399,7 +401,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
             }}>
                 <input
                     type="text"
-                    placeholder="检索构件名称、类型或 #ID"
+                    placeholder={t.modelTree.searchPlaceholder}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="input-control"
@@ -425,7 +427,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
                     </AutoSizer>
                 ) : (
                     <div className="empty-state" style={{ paddingTop: 40 }}>
-                        <span className="empty-state-desc">无匹配构件</span>
+                        <span className="empty-state-desc">{t.modelTree.noMatch}</span>
                     </div>
                 )}
             </div>
@@ -444,12 +446,12 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
                     padding: 16,
                 }}>
                     <div className="panel-surface animate-fade-in-up" style={{ width: '100%', maxWidth: 360, padding: 20 }}>
-                        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>移除模型</h3>
+                        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>{t.modelTree.removeTitle}</h3>
                         <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 16 }}>
-                            确定要移除此模型吗？模型的网格与空间结构数据都将被清除，且无法撤销。
+                            {t.modelTree.removeDesc}
                         </p>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                            <button onClick={() => setModelToRemove(null)} className="secondary-button">取消</button>
+                            <button onClick={() => setModelToRemove(null)} className="secondary-button">{t.app.cancel}</button>
                             <button
                                 onClick={() => {
                                     ifcManager.removeModel(modelToRemove);
@@ -458,7 +460,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
                                 }}
                                 className="danger-primary-button"
                             >
-                                确认移除
+                                {t.modelTree.confirmRemove}
                             </button>
                         </div>
                     </div>
