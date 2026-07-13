@@ -3,6 +3,7 @@ import React from 'react';
 import { MeasurementResult } from '../types';
 import { Trash2, Ruler, DraftingCompass, MapPin, Download } from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
+import { useLanguage } from '../locales/LanguageContext';
 
 interface MeasurementPanelProps {
     measurements: MeasurementResult[];
@@ -10,6 +11,7 @@ interface MeasurementPanelProps {
 }
 
 const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onClear }) => {
+    const { t } = useLanguage();
     
     const handleDelete = (id: string) => {
         ifcManager.measurementManager?.deleteMeasurement(id);
@@ -141,9 +143,9 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
 
     const getLabel = (type: string) => {
         switch (type) {
-            case 'DISTANCE': return '距离测距';
-            case 'ANGLE': return '角度测量';
-            case 'COORDINATE': return '坐标拾取';
+            case 'DISTANCE': return t.measurement.distance;
+            case 'ANGLE': return t.measurement.angle;
+            case 'COORDINATE': return t.measurement.coordinate;
             default: return type;
         }
     };
@@ -164,8 +166,8 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
                     }}>
                         <Ruler size={18} style={{ color: 'var(--text-muted)' }} />
                     </div>
-                    <span className="empty-state-title">暂无测量记录</span>
-                    <span className="empty-state-desc">在下方工具栏中选择测量工具，并在模型表面单击取点进行测量。</span>
+                    <span className="empty-state-title">{t.measurement.empty}</span>
+                    <span className="empty-state-desc">{t.measurement.emptyDesc}</span>
                 </div>
             </div>
         );
@@ -184,7 +186,7 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>
-                        测量结果列表
+                        {t.measurement.panelTitle}
                     </span>
                     <span style={{
                         fontSize: 10,
@@ -202,7 +204,7 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
                 <button
                     onClick={handleExportReport}
                     className="icon-button"
-                    title="导出 HTML 报告 (含三维快照)"
+                    title={t.measurement.exportReport}
                     style={{ width: 24, height: 24 }}
                 >
                     <Download size={12} />
@@ -235,7 +237,7 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
                         onDoubleClick={() => {
                             window.dispatchEvent(new CustomEvent('zoom-to-measurement', { detail: { id: m.id } }));
                         }}
-                        title="双击定位到该测量记录"
+                        title={t.measurement.locateHint}
                     >
                         {/* Icon */}
                         <div style={{
@@ -273,7 +275,7 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
                         <button
                             onClick={() => handleDelete(m.id)}
                             className="icon-button danger-button"
-                            title="删除单条测量"
+                            title={t.measurement.deleteSingle}
                             style={{
                                 alignSelf: 'center',
                                 width: 24,
@@ -306,7 +308,7 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
                     }}
                  >
                      <Trash2 size={13} />
-                     <span>清空所有测量记录</span>
+                     <span>{t.measurement.clearAll}</span>
                  </button>
             </div>
         </div>

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
 import { CameraView, ViewerTool, MeasurementMode } from '../types';
+import { useLanguage } from '../locales/LanguageContext';
 
 interface BottomToolbarProps {
   onOpenFile: (files: File[]) => void;
@@ -22,24 +23,24 @@ interface BottomToolbarProps {
 }
 
 // Camera views list
-const VIEWS = [
-    { id: CameraView.TOP,     label: '顶视图',      group: '正投影' },
-    { id: CameraView.BOTTOM,  label: '底视图',      group: '正投影' },
-    { id: CameraView.FRONT,   label: '前视图',      group: '正投影' },
-    { id: CameraView.BACK,    label: '后视图',      group: '正投影' },
-    { id: CameraView.LEFT,    label: '左视图',      group: '正投影' },
-    { id: CameraView.RIGHT,   label: '右视图',      group: '正投影' },
-    { id: CameraView.ISO_NE,  label: '东北等轴测',  group: '等轴测' },
-    { id: CameraView.ISO_NW,  label: '西北等轴测',  group: '等轴测' },
-    { id: CameraView.ISO_SE,  label: '东南等轴测',  group: '等轴测' },
-    { id: CameraView.ISO_SW,  label: '西南等轴测',  group: '等轴测' },
+const getViews = (t: any) => [
+    { id: CameraView.TOP,     label: t.views.top,      group: t.views.orthographic },
+    { id: CameraView.BOTTOM,  label: t.views.bottom,   group: t.views.orthographic },
+    { id: CameraView.FRONT,   label: t.views.front,    group: t.views.orthographic },
+    { id: CameraView.BACK,    label: t.views.back,     group: t.views.orthographic },
+    { id: CameraView.LEFT,    label: t.views.left,     group: t.views.orthographic },
+    { id: CameraView.RIGHT,   label: t.views.right,    group: t.views.orthographic },
+    { id: CameraView.ISO_NE,  label: t.views.isoNE,    group: t.views.isometric },
+    { id: CameraView.ISO_NW,  label: t.views.isoNW,    group: t.views.isometric },
+    { id: CameraView.ISO_SE,  label: t.views.isoSE,    group: t.views.isometric },
+    { id: CameraView.ISO_SW,  label: t.views.isoSW,    group: t.views.isometric },
 ];
 
-const SAMPLES = [
-    { file: 'Structure_Model.ifc', label: '结构体系模型 (0.7MB)' },
-    { file: 'LED_Screen.ifc', label: 'LED大屏结构 (5.2MB)' },
-    { file: 'Energy_Tower.ifc', label: '能源大楼 (10.6MB)' },
-    { file: 'Wellness_Center.ifc', label: '康体中心 (21.3MB)' },
+const getSamples = (t: any) => [
+    { file: 'Structure_Model.ifc', label: t.samples.structureModel },
+    { file: 'LED_Screen.ifc', label: t.samples.ledScreen },
+    { file: 'Energy_Tower.ifc', label: t.samples.energyTower },
+    { file: 'Wellness_Center.ifc', label: t.samples.wellnessCenter },
 ];
 
 const BottomToolbar: React.FC<BottomToolbarProps> = ({
@@ -54,6 +55,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
     onToggleReportPanel,
     isReportPanelOpen,
 }) => {
+  const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
@@ -82,7 +84,8 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
   const handleLoadSample = async (fileName: string, displayName: string) => {
     setIsLoadingSample(true);
     try {
-      const response = await fetch(`/samples/${fileName}`);
+      const baseUrl = import.meta.env.BASE_URL;
+      const response = await fetch(`${baseUrl}samples/${fileName}`);
       if (!response.ok) throw new Error('Fetch failed');
       const blob = await response.blob();
       const file = new File([blob], displayName, { type: 'application/octet-stream' });
@@ -90,7 +93,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
       setSampleMenuOpen(false);
     } catch (e) {
       console.error(e);
-      alert('下载案例模型失败，请检查网络！');
+      alert(t.app.downloadSampleFailed);
     } finally {
       setIsLoadingSample(false);
     }
@@ -108,6 +111,18 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
     if (viewMenuOpen || sampleMenuOpen) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [viewMenuOpen, sampleMenuOpen]);
+
+  // Listen for tool changes from keyboard shortcuts (e.g. ESC)
+  useEffect(() => {
+    const handleToolChanged = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.tool !== undefined) {
+        setActiveTool(detail.tool);
+      }
+    };
+    window.addEventListener('tool-changed', handleToolChanged);
+    return () => window.removeEventListener('tool-changed', handleToolChanged);
+  }, []);
 
   useEffect(() => {
     if (activeTool === ViewerTool.SECTION) {
@@ -173,6 +188,9 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
 
   // ---- Sub-components ----
 
+  const VIEWS = getViews(t);
+  const SAMPLES = getSamples(t);
+
   // Main toolbar button: icon + label
   const ToolButton = ({
     icon: Icon, label, onClick, active = false, danger = false,
@@ -209,16 +227,16 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
       {/* Sub-toolbar: Measurement */}
       {activeTool === ViewerTool.MEASURE && (
         <div className="sub-toolbar flex items-center gap-1">
-          <SubBtn icon={Ruler} onClick={() => handleMeasureMode('DISTANCE')} active={measureMode === 'DISTANCE'} title="距离测量" />
-          <SubBtn icon={DraftingCompass} onClick={() => handleMeasureMode('ANGLE')} active={measureMode === 'ANGLE'} title="角度测量" />
-          <SubBtn icon={MapPin} onClick={() => handleMeasureMode('COORDINATE')} active={measureMode === 'COORDINATE'} title="坐标拾取" />
+          <SubBtn icon={Ruler} onClick={() => handleMeasureMode('DISTANCE')} active={measureMode === 'DISTANCE'} title={t.toolbar.distance} />
+          <SubBtn icon={DraftingCompass} onClick={() => handleMeasureMode('ANGLE')} active={measureMode === 'ANGLE'} title={t.toolbar.angle} />
+          <SubBtn icon={MapPin} onClick={() => handleMeasureMode('COORDINATE')} active={measureMode === 'COORDINATE'} title={t.toolbar.coordinate} />
           <div className="toolbar-divider" />
-          <SubBtn icon={List} onClick={() => window.dispatchEvent(new Event('open-measure-panel'))} title="测量结果列表" />
+          <SubBtn icon={List} onClick={() => window.dispatchEvent(new Event('open-measure-panel'))} title={t.toolbar.measureList} />
           <SubBtn
             icon={Trash2}
             danger
             onClick={() => { ifcManager.measurementManager?.clear(); ifcManager.renderScene(); }}
-            title="清除全部测量"
+            title={t.toolbar.clearAllMeasure}
           />
         </div>
       )}
@@ -324,7 +342,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
               (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
             }}
           >
-            重置并关闭所有剖切面
+            {t.toolbar.resetSection}
           </button>
         </div>
       )}
@@ -341,7 +359,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
         />
 
         {/* File Group */}
-        <ToolButton icon={Plus} label="加载" onClick={() => fileInputRef.current?.click()} />
+        <ToolButton icon={Plus} label={t.toolbar.load} onClick={() => fileInputRef.current?.click()} />
 
         <div className="relative" ref={sampleMenuRef}>
           {sampleMenuOpen && (
@@ -359,12 +377,12 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
                 background: 'var(--surface-1)',
                 borderBottom: '1px solid var(--border-soft)',
               }}>
-                选择预设案例
+                {t.toolbar.selectSample}
               </div>
               {isLoadingSample ? (
                 <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div className="animate-spin" style={{ width: 12, height: 12, border: '2px solid var(--brand)', borderTopColor: 'transparent', borderRadius: '50%' }} />
-                  正在拉取案例模型...
+                  {t.app.uploadingSample}
                 </div>
               ) : (
                 SAMPLES.map(s => (
@@ -399,28 +417,28 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
               )}
             </div>
           )}
-          <ToolButton icon={Database} label="案例" active={sampleMenuOpen} onClick={() => setSampleMenuOpen(!sampleMenuOpen)} />
+          <ToolButton icon={Database} label={t.toolbar.sample} active={sampleMenuOpen} onClick={() => setSampleMenuOpen(!sampleMenuOpen)} />
         </div>
 
         <div className="toolbar-divider" />
 
         {/* Panel Group */}
-        <ToolButton icon={FolderTree} label="模型" active={isModelTreeOpen} onClick={onToggleModelTree} />
-        <ToolButton icon={FileText} label="属性" active={activeRightPanel === 'properties'} onClick={() => onToggleRightPanel()} />
-        <ToolButton icon={Bookmark} label="批注" active={isBcfPanelOpen} onClick={onToggleBcfPanel} />
-        <ToolButton icon={TableProperties} label="报表" active={isReportPanelOpen} onClick={onToggleReportPanel} />
+        <ToolButton icon={FolderTree} label={t.toolbar.model} active={isModelTreeOpen} onClick={onToggleModelTree} />
+        <ToolButton icon={FileText} label={t.toolbar.properties} active={activeRightPanel === 'properties'} onClick={() => onToggleRightPanel()} />
+        <ToolButton icon={Bookmark} label={t.toolbar.annotations} active={isBcfPanelOpen} onClick={onToggleBcfPanel} />
+        <ToolButton icon={TableProperties} label={t.toolbar.report} active={isReportPanelOpen} onClick={onToggleReportPanel} />
 
         <div className="toolbar-divider" />
 
         {/* Tool Group */}
-        <ToolButton icon={Navigation} label="漫游" active={activeTool === ViewerTool.WALK} onClick={() => handleToolChange(ViewerTool.WALK)} />
-        <ToolButton icon={Ruler} label="测量" active={activeTool === ViewerTool.MEASURE} onClick={() => handleToolChange(ViewerTool.MEASURE)} />
-        <ToolButton icon={Scissors} label="剖切" active={activeTool === ViewerTool.SECTION} onClick={() => handleToolChange(ViewerTool.SECTION)} />
+        <ToolButton icon={Navigation} label={t.toolbar.walk} active={activeTool === ViewerTool.WALK} onClick={() => handleToolChange(ViewerTool.WALK)} />
+        <ToolButton icon={Ruler} label={t.toolbar.measure} active={activeTool === ViewerTool.MEASURE} onClick={() => handleToolChange(ViewerTool.MEASURE)} />
+        <ToolButton icon={Scissors} label={t.toolbar.section} active={activeTool === ViewerTool.SECTION} onClick={() => handleToolChange(ViewerTool.SECTION)} />
 
         <div className="toolbar-divider" />
 
         {/* View Group */}
-        <ToolButton icon={Maximize} label="充满" onClick={() => ifcManager.fitModelToFrame()} />
+        <ToolButton icon={Maximize} label={t.toolbar.fit} onClick={() => ifcManager.fitModelToFrame()} />
 
         <div className="relative" ref={viewMenuRef}>
           {viewMenuOpen && (
@@ -428,7 +446,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
               className="absolute mb-3 py-1 w-44 overflow-hidden z-50 animate-fade-in-up panel-surface"
               style={{ bottom: '100%', left: '50%', transform: 'translateX(-50%)' }}
             >
-              {['正投影', '等轴测'].map(group => (
+              {[t.views.orthographic, t.views.isometric].map(group => (
                 <div key={group}>
                   <div style={{
                     padding: '4px 12px',
@@ -475,7 +493,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
               ))}
             </div>
           )}
-          <ToolButton icon={LayoutGrid} label="视图" active={viewMenuOpen} onClick={() => setViewMenuOpen(!viewMenuOpen)} />
+          <ToolButton icon={LayoutGrid} label={t.toolbar.view} active={viewMenuOpen} onClick={() => setViewMenuOpen(!viewMenuOpen)} />
         </div>
 
         <div className="toolbar-divider" />
@@ -483,7 +501,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
         {/* Danger Group */}
         <ToolButton
           icon={Trash2}
-          label="清空"
+          label={t.toolbar.clear}
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClear(); }}
           danger
         />

@@ -37,7 +37,7 @@ export class MeasurementManager {
     // Temp objects for current interaction
     private tempPreview: THREE.Object3D | null = null;
     private tempMarkers: THREE.Object3D[] = [];
-    private snapMarker: THREE.Mesh;
+    private snapMarker: THREE.Sprite;
 
     constructor(scene: THREE.Scene, camera: THREE.Camera, container: HTMLElement) {
         this.scene = scene;
@@ -46,14 +46,66 @@ export class MeasurementManager {
         this.raycaster = new THREE.Raycaster();
         this.raycaster.firstHitOnly = true;
 
-        const snapGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
-        const snapMat = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 0.9 });
-        this.snapMarker = new THREE.Mesh(snapGeo, snapMat);
+        // Create snap marker as Canvas-based Sprite (much smaller than Three.js geometry)
+        this.snapMarker = this.createSnapMarkerSprite();
         this.snapMarker.renderOrder = 1000;
         this.snapMarker.visible = false;
         this.scene.add(this.snapMarker);
 
         this.initCursorLabel();
+    }
+
+    private createSnapMarkerSprite(): THREE.Sprite {
+        const size = 64;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d')!;
+        
+        const center = size / 2;
+        const outerR = size / 2 - 4;
+        const innerR = outerR * 0.35;
+        
+        // Outer glow ring
+        ctx.beginPath();
+        ctx.arc(center, center, outerR + 2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.2)';
+        ctx.fill();
+        
+        // Outer ring
+        ctx.beginPath();
+        ctx.arc(center, center, outerR, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        
+        // Filled center
+        ctx.beginPath();
+        ctx.arc(center, center, innerR, 0, Math.PI * 2);
+        ctx.fillStyle = '#10b981';
+        ctx.fill();
+        
+        // White dot in center
+        ctx.beginPath();
+        ctx.arc(center, center, innerR * 0.33, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        
+        const material = new THREE.SpriteMaterial({
+            map: texture,
+            depthTest: false,
+            depthWrite: false,
+            transparent: true,
+            blending: THREE.NormalBlending,
+        });
+        
+        const sprite = new THREE.Sprite(material);
+        sprite.scale.set(0.25, 0.25, 1);
+        return sprite;
     }
 
     public updateContainer(container: HTMLElement) {
@@ -318,13 +370,15 @@ export class MeasurementManager {
             if (result.type !== 'none') {
                 this.snapMarker.position.copy(result.point);
                 this.snapMarker.visible = true;
+                // Scale sprite based on distance for consistent screen size
                 const dist = this.camera.position.distanceTo(result.point);
-                const scale = Math.max(0.2, dist / 30);
-                this.snapMarker.scale.set(scale, scale, scale);
-                // Green for vertex, Orange for edge
-                (this.snapMarker.material as THREE.MeshBasicMaterial).color.setHex(result.type === 'vertex' ? 0x10b981 : 0xf59e0b);
-                // Switch to sphere for edge, box for vertex
-                this.snapMarker.geometry = result.type === 'vertex' ? new THREE.BoxGeometry(0.15, 0.15, 0.15) : new THREE.SphereGeometry(0.1, 16, 16);
+                const scale = Math.max(0.08, dist / 80);
+                this.snapMarker.scale.set(scale, scale, 1);
+                // Update sprite color based on snap type
+                const material = this.snapMarker.material as THREE.SpriteMaterial;
+                if (material.map) {
+                    this.updateSnapMarkerColor(result.type === 'vertex' ? '#10b981' : '#f59e0b');
+                }
             } else {
                 this.snapMarker.visible = false;
             }
@@ -336,6 +390,55 @@ export class MeasurementManager {
         } else {
             this.snapMarker.visible = false;
         }
+    }
+
+    private updateSnapMarkerColor(hexColor: string) {
+        const size = 64;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d')!;
+        
+        const center = size / 2;
+        const outerR = size / 2 - 4;
+        const innerR = outerR * 0.35;
+        
+        // Outer glow
+        ctx.beginPath();
+        ctx.arc(center, center, outerR + 2, 0, Math.PI * 2);
+        ctx.fillStyle = hexColor.replace(')', ', 0.2)').replace('rgb', 'rgba');
+        if (hexColor.startsWith('#')) {
+            ctx.fillStyle = hexColor + '33';
+        }
+        ctx.fill();
+        
+        // Outer ring
+        ctx.beginPath();
+        ctx.arc(center, center, outerR, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        
+        // Filled center
+        ctx.beginPath();
+        ctx.arc(center, center, innerR, 0, Math.PI * 2);
+        ctx.fillStyle = hexColor;
+        ctx.fill();
+        
+        // White dot
+        ctx.beginPath();
+        ctx.arc(center, center, innerR * 0.33, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        
+        const oldTexture = (this.snapMarker.material as THREE.SpriteMaterial).map;
+        if (oldTexture) oldTexture.dispose();
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        (this.snapMarker.material as THREE.SpriteMaterial).map = texture;
+        (this.snapMarker.material as THREE.SpriteMaterial).needsUpdate = true;
     }
 
     private getIntersects(event: MouseEvent, models: THREE.Object3D[]): { point: THREE.Vector3, type: 'none' | 'vertex' | 'edge' } | null {

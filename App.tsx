@@ -14,8 +14,10 @@ import { ifcManager } from './services/ifcManager';
 import BcfPanel from './components/BcfPanel';
 import ReportPanel from './components/ReportPanel';
 import AboutModal from './components/AboutModal';
+import { useLanguage } from './locales/LanguageContext';
 
 const App: React.FC = () => {
+  const { t } = useLanguage();
   const [selectedElement, setSelectedElement] = useState<IFCElementData | null>(null);
   const [selectedElements, setSelectedElements] = useState<Array<{ modelID: number; expressID: number }>>([]);
 
@@ -121,9 +123,9 @@ const App: React.FC = () => {
     if (allModels.length === 0) {
       setLastFileName(null);
     } else if (allModels.length === 1) {
-      setLastFileName(allModels[0].group.name || '未命名模型');
+      setLastFileName(allModels[0].group.name || t.app.unnamedModel);
     } else {
-      setLastFileName(`${allModels.length} 个活动模型`);
+      setLastFileName(`${allModels.length} ${t.app.activeModels}`);
     }
 
     ifcManager.fitModelToFrame();
@@ -242,7 +244,7 @@ const App: React.FC = () => {
         {/* Draggable Panels */}
 
         <DraggablePanel
-          title="模型结构"
+          title={t.modelTree.title}
           icon={Network}
           isOpen={showModelTree}
           onClose={() => setShowModelTree(false)}
@@ -257,7 +259,7 @@ const App: React.FC = () => {
         </DraggablePanel>
 
         <DraggablePanel
-          title="属性详情"
+          title={t.properties.title}
           icon={FileText}
           isOpen={showPropertyPanel}
           onClose={() => setShowPropertyPanel(false)}
@@ -268,7 +270,7 @@ const App: React.FC = () => {
         </DraggablePanel>
 
         <DraggablePanel
-          title="测量结果"
+          title={t.measurement.title}
           icon={Ruler}
           isOpen={showMeasurePanel}
           onClose={() => setShowMeasurePanel(false)}
@@ -281,7 +283,7 @@ const App: React.FC = () => {
 
 
         <DraggablePanel
-          title="视点与批注"
+          title={t.bcf.title}
           icon={Bookmark}
           isOpen={showBcfPanel}
           onClose={() => setShowBcfPanel(false)}
@@ -292,7 +294,7 @@ const App: React.FC = () => {
         </DraggablePanel>
 
         <DraggablePanel
-          title="工程量报表"
+          title={t.report.title}
           icon={TableProperties}
           isOpen={showReportPanel}
           onClose={() => setShowReportPanel(false)}
@@ -339,7 +341,7 @@ const App: React.FC = () => {
                   animation: 'appSpinner 0.8s linear infinite', marginBottom: 20,
                 }} />
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
-                  {processingStatus || '正在读取文件…'}
+                  {processingStatus || t.app.loading}
                 </div>
                 {/* Gradient progress bar */}
                 <div className="loading-bar-container" style={{ marginBottom: 8 }}>
@@ -361,9 +363,9 @@ const App: React.FC = () => {
                   ))}
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
-                  {processingStatus || '解析模型数据…'}
+                  {processingStatus || t.app.parsing}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>正在构建几何体与属性索引</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t.app.buildingGeometry}</div>
               </>
             )}
           </div>
@@ -392,10 +394,10 @@ const App: React.FC = () => {
               }}>
                 <Upload size={26} style={{ color: 'var(--brand)' }} />
               </div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>打开 BIM 模型</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{t.app.openModel}</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.7 }}>
-                支持 IFC 格式<br />
-                点击底部工具栏「加载」导入，或直接<strong style={{ color: 'var(--brand)' }}>拖放文件</strong>到此处
+                {t.app.supportFormat}<br />
+                {t.app.dragHint} <strong style={{ color: 'var(--brand)' }}>{t.app.dragHere}</strong>{t.app.dragEnd}
               </div>
               {/* Format badges */}
               <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
@@ -419,8 +421,8 @@ const App: React.FC = () => {
               <div className="drop-overlay-icon">
                 <Upload size={28} />
               </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>释放以加载模型</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>支持 IFC 格式</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{t.app.releaseToLoad}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.app.supportedFormat}</div>
             </div>
           </div>
         )}
@@ -429,7 +431,7 @@ const App: React.FC = () => {
         {isIsolated && (
           <div className="isolation-banner" onClick={() => { ifcManager.unisolateAll(); setIsIsolated(false); }}>
             <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#d97706' }} />
-            隔离模式激活 — 点击退出
+            {t.app.isolationBanner}
             <XIcon size={12} />
           </div>
         )}
@@ -467,17 +469,17 @@ const App: React.FC = () => {
           padding: 16,
         }}>
           <div className="panel-surface animate-fade-in-up" style={{ width: '100%', maxWidth: 360, padding: 20 }}>
-            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>清空当前场景</h3>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>{t.app.clearScene}</h3>
             <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 18 }}>
-              此操作将清除所有已加载模型与测量记录，且无法撤销。
+              {t.app.clearSceneDesc}
             </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button onClick={() => setShowClearConfirm(false)} className="secondary-button">取消</button>
+              <button onClick={() => setShowClearConfirm(false)} className="secondary-button">{t.app.cancel}</button>
               <button
                 onClick={() => { handleClearScene(); setShowClearConfirm(false); }}
                 className="danger-primary-button"
               >
-                清空场景
+                {t.app.confirmClear}
               </button>
             </div>
           </div>

@@ -510,6 +510,18 @@ export class IFCManager {
         const key = e.key.toLowerCase();
 
         if (e.key === 'Escape') {
+            // If in measurement mode, exit measurement first
+            if (this.activeTool === ViewerTool.MEASURE) {
+                this.setTool(ViewerTool.NONE);
+                window.dispatchEvent(new CustomEvent('tool-changed', { detail: { tool: ViewerTool.NONE } }));
+                return;
+            }
+            // If in section mode, exit section
+            if (this.activeTool === ViewerTool.SECTION) {
+                this.setTool(ViewerTool.NONE);
+                window.dispatchEvent(new CustomEvent('tool-changed', { detail: { tool: ViewerTool.NONE } }));
+                return;
+            }
             this.clearSelection();
             this.onSelect(null);
             if (this.onMultiSelect) this.onMultiSelect([]);
@@ -1329,12 +1341,30 @@ export class IFCManager {
         
         this.controls.target.copy(center);
         
-        const dir = new THREE.Vector3();
-        this.camera.getWorldDirection(dir);
-        
         const maxDim = Math.max(size.x, size.y, size.z);
-        const distance = maxDim > 0 ? maxDim * 2.5 : 5;
-        this.camera.position.copy(center).addScaledVector(dir.negate(), distance === 0 ? 5 : distance);
+        
+        if (this.camera instanceof THREE.OrthographicCamera) {
+            // For orthographic camera: keep frustum unchanged,
+            // adjust zoom to bring measurement closer without changing range
+            const container = this.container;
+            if (container) {
+                const viewW = Math.abs(this.camera.right - this.camera.left);
+                const viewH = Math.abs(this.camera.top - this.camera.bottom);
+                const minViewDim = Math.min(viewW, viewH);
+                // Make measurement fill ~50% of the viewport
+                const targetZoom = minViewDim / (maxDim * 2.0);
+                const minZoom = 0.1;
+                const maxZoom = 20.0;
+                this.camera.zoom = THREE.MathUtils.clamp(targetZoom, minZoom, maxZoom);
+                this.camera.updateProjectionMatrix();
+            }
+        } else {
+            // For perspective camera: move closer
+            const dir = new THREE.Vector3();
+            this.camera.getWorldDirection(dir);
+            const distance = maxDim > 0 ? maxDim * 1.5 : 5;
+            this.camera.position.copy(center).addScaledVector(dir.negate(), distance);
+        }
         
         this.controls.update();
         this.renderScene();

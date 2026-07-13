@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ifcManager } from "../services/ifcManager";
-import { Moon, Sun, Camera, Box, Cpu, Info } from "lucide-react";
+import { Moon, Sun, Camera, Box, Cpu, Info, Globe } from "lucide-react";
+import { useLanguage, Language } from "../locales/LanguageContext";
 
 interface TopStatusBarProps {
   fileName: string | null;
@@ -10,7 +11,12 @@ interface TopStatusBarProps {
 }
 
 export const TopStatusBar = ({ fileName, isDarkTheme, onToggleTheme, onScreenshot }: TopStatusBarProps) => {
+    const { t, lang, setLanguage } = useLanguage();
     const hasModel = !!fileName;
+
+    const toggleLanguage = () => {
+        setLanguage(lang === 'zh' ? 'en' : 'zh');
+    };
 
     return (
         <div
@@ -21,7 +27,7 @@ export const TopStatusBar = ({ fileName, isDarkTheme, onToggleTheme, onScreensho
             <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="flex items-center gap-0 leading-none">
                     <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-                        BIMVision
+                        {t.app.brand}
                     </span>
                     <span style={{
                         fontSize: 11, fontWeight: 700, color: "var(--brand)",
@@ -50,10 +56,22 @@ export const TopStatusBar = ({ fileName, isDarkTheme, onToggleTheme, onScreensho
 
             {/* Right: Controls */}
             <div className="flex items-center justify-end flex-1 gap-2">
+                {/* Language Switch */}
+                <button
+                    onClick={toggleLanguage}
+                    title={lang === 'zh' ? 'Switch to English' : '切换到中文'}
+                    className="icon-button"
+                    style={{
+                        width: 28, height: 28, border: "1px solid var(--border)",
+                        fontWeight: 700, fontSize: 11,
+                    }}
+                >
+                    {lang === 'zh' ? 'EN' : '中'}
+                </button>
                 {onScreenshot && (
                     <button
                         onClick={onScreenshot}
-                        title="\u622a\u56fe\u4fdd\u5b58"
+                        title={t.screenshot.save}
                         className="icon-button"
                         style={{ width: 28, height: 28, border: "1px solid var(--border)" }}
                     >
@@ -63,7 +81,7 @@ export const TopStatusBar = ({ fileName, isDarkTheme, onToggleTheme, onScreensho
                 {onToggleTheme && (
                     <button
                         onClick={onToggleTheme}
-                        title={isDarkTheme ? "\u5207\u6362\u4e3a\u6d45\u8272\u4e3b\u9898" : "\u5207\u6362\u4e3a\u6df1\u8272\u4e3b\u9898"}
+                        title={isDarkTheme ? t.theme.switchToLight : t.theme.switchToDark}
                         className="icon-button"
                         style={{ width: 28, height: 28, border: "1px solid var(--border)" }}
                     >
@@ -71,8 +89,8 @@ export const TopStatusBar = ({ fileName, isDarkTheme, onToggleTheme, onScreensho
                     </button>
                 )}
                 <button
-                    onClick={(window as any).showAboutModal}
-                    title="关于软件与操作说明"
+                    onClick={() => (window as any).showAboutModal?.()}
+                    title={t.about.title}
                     className="icon-button"
                     style={{ width: 28, height: 28, border: "1px solid var(--border)", marginLeft: 8 }}
                 >
