@@ -271,6 +271,26 @@ export class MeasurementManager {
         }
     }
 
+    // Remove all measurements belonging to a specific model
+    public removeMeasurementsByModel(modelID: number) {
+        const toRemove = this.measurements.filter(m => m.data.modelID === modelID);
+        if (toRemove.length === 0) return;
+        toRemove.forEach(m => {
+            m.objects.forEach(o => {
+                this.scene.remove(o);
+                if (o instanceof THREE.Mesh || o instanceof THREE.Line) {
+                    o.geometry.dispose();
+                }
+            });
+            m.labels.forEach(l => {
+                this.scene.remove(l);
+                if (l.material) l.material.dispose();
+            });
+        });
+        this.measurements = this.measurements.filter(m => m.data.modelID !== modelID);
+        this.notifyChange();
+    }
+
     public raycast(event: MouseEvent): string | null {
         const rect = this.container.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return null;
@@ -339,15 +359,15 @@ export class MeasurementManager {
         const result = this.getIntersects(event, models);
         if (!result) return;
 
-        this.handleModeClick(result.point);
+        this.handleModeClick(result.point, result.modelID);
     }
 
-    private handleModeClick(point: THREE.Vector3) {
+    private handleModeClick(point: THREE.Vector3, modelID?: number) {
         switch(this.mode) {
             case 'DISTANCE':
                 this.addTempPoint(point);
                 if (this.points.length === 2) {
-                    this.createDistanceMeasurement(this.points[0], this.points[1]);
+                    this.createDistanceMeasurement(this.points[0], this.points[1], modelID);
                     this.points = []; 
                     this.clearTemp();
                 }
@@ -356,16 +376,15 @@ export class MeasurementManager {
             case 'ANGLE':
                 this.addTempPoint(point);
                 if (this.points.length === 3) {
-                    this.createAngleMeasurement(this.points[0], this.points[1], this.points[2]);
+                    this.createAngleMeasurement(this.points[0], this.points[1], this.points[2], modelID);
                     this.points = [];
                     this.clearTemp();
                 }
                 break;
 
             case 'AREA':
-                // Check if closing loop (near first point) - Legacy method, Double Click is preferred now
                 if (this.points.length > 2 && point.distanceTo(this.points[0]) < 0.5) {
-                    this.createAreaMeasurement(this.points);
+                    this.createAreaMeasurement(this.points, modelID);
                     this.points = [];
                     this.clearTemp();
                 } else {
@@ -376,14 +395,14 @@ export class MeasurementManager {
             case 'VOLUME':
                 this.addTempPoint(point);
                 if (this.points.length === 2) {
-                    this.createVolumeMeasurement(this.points[0], this.points[1]);
+                    this.createVolumeMeasurement(this.points[0], this.points[1], modelID);
                     this.points = [];
                     this.clearTemp();
                 }
                 break;
 
             case 'COORDINATE':
-                this.createCoordinateMeasurement(point);
+                this.createCoordinateMeasurement(point, modelID);
                 break;
         }
         this.updateInstructions();
@@ -466,7 +485,7 @@ export class MeasurementManager {
         (this.snapMarker.material as THREE.SpriteMaterial).needsUpdate = true;
     }
 
-    private getIntersects(event: MouseEvent, models: THREE.Object3D[]): { point: THREE.Vector3, type: 'none' | 'vertex' | 'edge' } | null {
+    private getIntersects(event: MouseEvent, models: THREE.Object3D[]): { point: THREE.Vector3, type: 'none' | 'vertex' | 'edge', modelID?: number } | null {
         const rect = this.container.getBoundingClientRect();
         const mouse = new THREE.Vector2(
             ((event.clientX - rect.left) / rect.width) * 2 - 1,
@@ -479,6 +498,7 @@ export class MeasurementManager {
 
         const hit = intersects[0];
         const point = hit.point;
+        const modelID = (hit.object as any).userData?.modelID as number | undefined;
 
         // Perform Vertex Snapping if face geometry is available
         if (hit.face && hit.object && (hit.object as THREE.Mesh).geometry) {
@@ -514,7 +534,7 @@ export class MeasurementManager {
 
                     // Snap threshold for Vertex: 0.3 meters
                     if (minDist < 0.3) {
-                        return { point: closest, type: 'vertex' };
+                        return { point: closest, type: 'vertex', modelID };
                     }
 
                     // 2. Edge Snapping
@@ -541,7 +561,7 @@ export class MeasurementManager {
 
                     // Snap threshold for Edge: 0.3 meters
                     if (minDist < 0.3) {
-                        return { point: closest, type: 'edge' };
+                        return { point: closest, type: 'edge', modelID };
                     }
                 } catch (e) {
                     console.warn("[MeasurementManager] Snapping failed:", e);
@@ -549,7 +569,7 @@ export class MeasurementManager {
             }
         }
 
-        return { point, type: 'none' };
+        return { point, type: 'none', modelID };
     }
 
     private addTempPoint(point: THREE.Vector3) {
@@ -604,7 +624,7 @@ export class MeasurementManager {
 
     // --- Creation Logic ---
 
-    private addMeasurementRecord(type: MeasurementMode, value: string, label: string, objects: THREE.Object3D[], labels: THREE.Sprite[], center?: THREE.Vector3, deltas?: { x: number; y: number; z: number }) {
+    private addMeasurementRecord(type: MeasurementMode, value: string, label: string, objects: THREE.Object3D[], labels: THREE.Sprite[], center?: THREE.Vector3, deltas?: { x: number; y: number; z: number }, modelID?: number) {
         const id = `m_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
         
         // Calculate center if not provided
@@ -623,7 +643,7 @@ export class MeasurementManager {
             id,
             objects,
             labels,
-            data: { id, type, value, label, timestamp: Date.now(), deltas },
+            data: { id, type, value, label, timestamp: Date.now(), deltas, modelID },
             center: center || new THREE.Vector3()
         });
         this.notifyChange();
@@ -635,7 +655,7 @@ export class MeasurementManager {
         }
     }
 
-    private createDistanceMeasurement(p1: THREE.Vector3, p2: THREE.Vector3) {
+    private createDistanceMeasurement(p1: THREE.Vector3, p2: THREE.Vector3, modelID?: number) {
         const objects: THREE.Object3D[] = [];
         const labels: THREE.Sprite[] = [];
 
@@ -659,10 +679,10 @@ export class MeasurementManager {
         const dz = p2.z - p1.z;
         const deltas = { x: dx, y: dy, z: dz };
 
-        this.addMeasurementRecord('DISTANCE', valStr, `${this.tipsTranslations.length}: ${valStr}`, objects, labels, undefined, deltas);
+        this.addMeasurementRecord('DISTANCE', valStr, `${this.tipsTranslations.length}: ${valStr}`, objects, labels, undefined, deltas, modelID);
     }
 
-    private createAngleMeasurement(p1: THREE.Vector3, center: THREE.Vector3, p2: THREE.Vector3) {
+    private createAngleMeasurement(p1: THREE.Vector3, center: THREE.Vector3, p2: THREE.Vector3, modelID?: number) {
         const objects: THREE.Object3D[] = [];
         const labels: THREE.Sprite[] = [];
 
@@ -681,10 +701,10 @@ export class MeasurementManager {
         const label = this.createLabel(center, valStr);
         labels.push(label);
 
-        this.addMeasurementRecord('ANGLE', valStr, `${this.tipsTranslations.angle}: ${valStr}`, objects, labels);
+        this.addMeasurementRecord('ANGLE', valStr, `${this.tipsTranslations.angle}: ${valStr}`, objects, labels, undefined, undefined, modelID);
     }
 
-    private createAreaMeasurement(points: THREE.Vector3[]) {
+    private createAreaMeasurement(points: THREE.Vector3[], modelID?: number) {
         const objects: THREE.Object3D[] = [];
         const labels: THREE.Sprite[] = [];
 
@@ -711,10 +731,10 @@ export class MeasurementManager {
         const label = this.createLabel(center, valStr);
         labels.push(label);
 
-        this.addMeasurementRecord('AREA', valStr, `${this.tipsTranslations.area}: ${valStr}`, objects, labels);
+        this.addMeasurementRecord('AREA', valStr, `${this.tipsTranslations.area}: ${valStr}`, objects, labels, undefined, undefined, modelID);
     }
 
-    private createVolumeMeasurement(p1: THREE.Vector3, p2: THREE.Vector3) {
+    private createVolumeMeasurement(p1: THREE.Vector3, p2: THREE.Vector3, modelID?: number) {
         const objects: THREE.Object3D[] = [];
         const labels: THREE.Sprite[] = [];
 
@@ -739,10 +759,10 @@ export class MeasurementManager {
         const label = this.createLabel(center, `${valStr}\n${dims}`);
         labels.push(label);
 
-        this.addMeasurementRecord('VOLUME', valStr, `${this.tipsTranslations.volume}: ${valStr}`, objects, labels);
+        this.addMeasurementRecord('VOLUME', valStr, `${this.tipsTranslations.volume}: ${valStr}`, objects, labels, undefined, undefined, modelID);
     }
 
-    private createCoordinateMeasurement(p: THREE.Vector3) {
+    private createCoordinateMeasurement(p: THREE.Vector3, modelID?: number) {
         const objects: THREE.Object3D[] = [];
         const labels: THREE.Sprite[] = [];
 
@@ -768,7 +788,7 @@ export class MeasurementManager {
         const label = this.createLabel(labelPos, txt);
         labels.push(label);
 
-        this.addMeasurementRecord('COORDINATE', `(${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)})`, txt, objects, labels);
+        this.addMeasurementRecord('COORDINATE', `(${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)})`, txt, objects, labels, undefined, undefined, modelID);
     }
 
     private createLabel(pos: THREE.Vector3, text: string) {

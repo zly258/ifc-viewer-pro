@@ -248,39 +248,8 @@ select {
 }
 
 /* ============================================================
-   Form Components
+   Input Controls
    ============================================================ */
-
-.form-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-label {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.form-help {
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
-  line-height: 1.55;
-}
-
-/* Aliases for backward compatibility */
-.section-title {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.section-help {
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
-  line-height: 1.55;
-}
 
 .input-control {
   width: 100%;
@@ -307,20 +276,6 @@ select {
 /* ============================================================
    Button Variants
    ============================================================ */
-
-/* 共享按钮基础 */
-.btn-base {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  border-radius: var(--radius-md);
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-  cursor: pointer;
-  white-space: nowrap;
-}
 
 .primary-button {
   min-height: 32px;
@@ -564,49 +519,8 @@ select {
 }
 
 /* ============================================================
-   Panel Sections & Utility Components
+   Empty State
    ============================================================ */
-
-/* 区段标题 */
-.panel-section-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-/* 控制卡片 */
-.control-card {
-  padding: 10px 12px;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
-}
-
-/* 状态徽章 */
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  min-height: 18px;
-  padding: 1px 6px;
-  border-radius: 99px;
-  font-size: 10px;
-  line-height: 1;
-  font-weight: 600;
-}
-
-.status-badge-on {
-  background: var(--brand-soft);
-  color: var(--brand);
-}
-
-.status-badge-off {
-  background: var(--surface-2);
-  color: var(--text-muted);
-}
 
 /* 空状态 */
 .empty-state {
@@ -631,13 +545,6 @@ select {
   color: var(--text-muted);
   line-height: 1.55;
   max-width: 180px;
-}
-
-/* 区段分隔线 */
-.section-divider {
-  height: 1px;
-  background: var(--border-soft);
-  margin: 2px 0;
 }
 
 /* 骨架屏动画 */
@@ -675,19 +582,6 @@ select {
 
 .animate-fade-in-up {
   animation: fadeInSlideUp 0.18s ease-out forwards;
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.2s ease-out forwards;
-}
-
-/* ============================================================
-   Three.js Viewer
-   ============================================================ */
-
-.viewer-canvas-container canvas {
-  outline: none;
-  display: block;
 }
 
 /* ============================================================
@@ -807,20 +701,6 @@ select {
 }
 @keyframes dropIconFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 
-/* Tooltip */
-.tooltip-wrapper { position: relative; display: inline-flex; }
-.tooltip-text {
-  position: absolute; bottom: calc(100% + 8px); left: 50%;
-  transform: translateX(-50%) translateY(4px);
-  background: rgba(15, 23, 42, 0.93); color: #f1f5f9;
-  font-size: 11px; font-weight: 600;
-  padding: 4px 8px; border-radius: var(--radius-sm);
-  white-space: nowrap; pointer-events: none;
-  opacity: 0; transition: opacity 0.15s ease, transform 0.15s ease;
-  z-index: 200; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-}
-.tooltip-wrapper:hover .tooltip-text { opacity: 1; transform: translateX(-50%) translateY(0); }
-
 /* Loading Bar */
 .loading-bar-container { width: 240px; height: 4px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
 .loading-bar-fill {
@@ -836,18 +716,6 @@ select {
 }
 @keyframes loadingShimmer { 0% { left: -100%; } 100% { left: 100%; } }
 
-/* Camera mode badges */
-.camera-mode-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 99px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; border: 1px solid; }
-.camera-mode-badge.ortho { background: var(--surface-1); border-color: var(--border); color: var(--text-muted); }
-.camera-mode-badge.persp { background: var(--brand-soft); border-color: var(--brand-border); color: var(--brand); }
-.camera-mode-badge.walk  { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.3); color: #d97706; }
-
-/* FPS badge */
-.fps-badge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface-1); color: var(--text-muted); }
-.fps-badge.good { color: #16a34a; border-color: rgba(22,163,74,0.3); background: rgba(22,163,74,0.08); }
-.fps-badge.ok   { color: #d97706; border-color: rgba(217,119,6,0.3);  background: rgba(217,119,6,0.08); }
-.fps-badge.poor { color: #dc2626; border-color: rgba(220,38,38,0.3);  background: rgba(220,38,38,0.08); }
-
 /* Isolation Banner */
 .isolation-banner {
   position: fixed; top: calc(var(--topbar-h) + 8px); left: 50%; transform: translateX(-50%);
@@ -859,19 +727,6 @@ select {
   white-space: nowrap; cursor: pointer; user-select: none;
 }
 .isolation-banner:hover { background: rgba(245,158,11,0.22); }
-
-/* Type filter pills */
-.type-filter-pill {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 9px; border-radius: 99px;
-  font-size: 10px; font-weight: 600;
-  border: 1px solid var(--border); background: var(--surface-1);
-  color: var(--text-muted); cursor: pointer;
-  transition: all 0.12s ease; white-space: nowrap; flex-shrink: 0;
-}
-.type-filter-pill:hover, .type-filter-pill.active {
-  border-color: var(--brand-border); background: var(--brand-soft); color: var(--brand);
-}
 
 /* Dual range slider styles */
 .dual-range-input {

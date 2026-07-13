@@ -16,10 +16,8 @@ export class ModelService {
   public savedStructures: Map<number, IFCSpatialStructure> = new Map();
   public partialGroups: Map<number, THREE.Group> = new Map();
 
-  public ifcUpAxis: 'Y' | 'Z' = 'Z';
-  public glbUpAxis: 'Y' | 'Z' = 'Y';
-
   public modelIdCounter: number = 1;
+  public glbUpAxis: 'Y' | 'Z' = 'Y'; // GLB orientation default
 
   // ── Hidden elements ──
   private hiddenElementPositions: Map<
@@ -358,19 +356,6 @@ export class ModelService {
     return geom;
   }
 
-  // ── Orientation ──
-  setOrientations(ifcUpAxis: 'Y' | 'Z', glbUpAxis: 'Y' | 'Z') {
-    this.ifcUpAxis = ifcUpAxis;
-    this.glbUpAxis = glbUpAxis;
-    this.models.forEach((model) => model.group.rotation.set(0, 0, 0));
-    this.models.forEach((model) => model.group.updateMatrixWorld(true));
-  }
-
-  setUpAxis(axis: 'Y' | 'Z') {
-    if (axis === 'Z') this.setOrientations('Z', 'Z');
-    else this.setOrientations('Y', 'Y');
-  }
-
   // ── Rotate ──
   rotateModel(id: number, axis: string, angle: number) {
     const m = this.models.get(id);
@@ -424,26 +409,6 @@ export class ModelService {
 
     if (didHide) this.updateRaycastMeshes();
     return didHide;
-  }
-
-  showElement(modelID: number, expressID: number) {
-    const key = `${modelID}_${expressID}`;
-    const cache = this.hiddenElementPositions.get(key);
-    if (!cache) return;
-
-    const { mesh, indices, originalPositions } = cache;
-    const geom = mesh.geometry;
-    const positionAttr = geom.attributes.position;
-    indices.forEach((vIdx, i) => {
-      positionAttr.setXYZ(vIdx, originalPositions[i * 3], originalPositions[i * 3 + 1], originalPositions[i * 3 + 2]);
-    });
-    positionAttr.needsUpdate = true;
-    this.hiddenElementPositions.delete(key);
-
-    geom.computeBoundingBox();
-    geom.computeBoundingSphere();
-    if ((geom as any).computeBoundsTree) (geom as any).computeBoundsTree();
-    this.updateRaycastMeshes();
   }
 
   showAllElements() {

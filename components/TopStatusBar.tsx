@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { ifcManager } from "../services/ifcManager";
-import { Moon, Sun, Camera, Box, Cpu, Info, Globe, Settings } from "lucide-react";
+import React from "react";
+import { Moon, Sun, Camera, Info, Settings } from "lucide-react";
 import { useLanguage, Language } from "../locales/LanguageContext";
 
 interface TopStatusBarProps {

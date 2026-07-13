@@ -17,8 +17,6 @@ export class SceneService {
   private backLight: THREE.DirectionalLight;
   private hemiLight: THREE.HemisphereLight;
 
-  public ambientIntensity: number = 0.7;
-  public sunIntensity: number = 1.3;
   public shadowQuality: 'high' | 'low' | 'off' = 'off';
 
   private pivotMarker: THREE.Mesh;
@@ -440,21 +438,6 @@ export class SceneService {
     this.dirLight.shadow.camera.top = size;
     this.dirLight.shadow.camera.bottom = -size;
     this.dirLight.shadow.camera.updateProjectionMatrix();
-  }
-
-  // ── Lighting ──
-  setAmbientIntensity(val: number) {
-    this.ambientIntensity = val;
-    this.ambientLight.intensity = val;
-  }
-
-  setSunIntensity(val: number) {
-    this.sunIntensity = val;
-    // DirLight intensity handled in render
-  }
-
-  updateLighting(_timeOfDay: number, _azimuth: number, _altitude: number) {
-    // No-op — sun/lighting panel removed
   }
 
   // ── Screenshot ──

@@ -133,12 +133,6 @@ class BcfManager {
         this.onViewpointsChange([...this.viewpoints]);
     }
 
-    clearViewpoints() {
-        this.viewpoints = [];
-        this.saveToStorage();
-        this.onViewpointsChange([]);
-    }
-
     restoreViewpoint(vp: BcfViewpoint) {
         if (vp.isWalkMode) {
             ifcManager.setTool(ViewerTool.WALK);

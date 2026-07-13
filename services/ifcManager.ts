@@ -1,8 +1,6 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 import {
   IFCElementData,
@@ -139,31 +137,6 @@ export class IFCManager {
     return this.modelService.isIsolated;
   }
 
-  get ifcUpAxis(): 'Y' | 'Z' {
-    return this.modelService.ifcUpAxis;
-  }
-  set ifcUpAxis(v: 'Y' | 'Z') {
-    this.modelService.ifcUpAxis = v;
-  }
-  get glbUpAxis(): 'Y' | 'Z' {
-    return this.modelService.glbUpAxis;
-  }
-  set glbUpAxis(v: 'Y' | 'Z') {
-    this.modelService.glbUpAxis = v;
-  }
-
-  get ambientIntensity(): number {
-    return this.sceneService.ambientIntensity;
-  }
-  set ambientIntensity(v: number) {
-    this.sceneService.ambientIntensity = v;
-  }
-  get sunIntensity(): number {
-    return this.sceneService.sunIntensity;
-  }
-  set sunIntensity(v: number) {
-    this.sceneService.sunIntensity = v;
-  }
   get shadowQuality(): 'high' | 'low' | 'off' {
     return this.sceneService.shadowQuality;
   }
@@ -371,37 +344,9 @@ export class IFCManager {
     this.sceneService.setCameraView(view, center, size);
   }
 
-  zoomToHighlight() {
-    this.interactionService.zoomToSelection();
-  }
-
-  setOrientations(ifcUpAxis: 'Y' | 'Z', glbUpAxis: 'Y' | 'Z') {
-    this.modelService.setOrientations(ifcUpAxis, glbUpAxis);
-    this.sceneService.camera.up.set(0, 1, 0);
-    this.sceneService.camera.updateProjectionMatrix();
-    this.renderScene();
-  }
-
-  setUpAxis(axis: 'Y' | 'Z') {
-    this.modelService.setUpAxis(axis);
-    this.sceneService.camera.up.set(0, 1, 0);
-    this.sceneService.camera.updateProjectionMatrix();
-    this.renderScene();
-  }
-
   // ═══════════════════════════════════════════
   //  Lighting / Shadow
   // ═══════════════════════════════════════════
-
-  setAmbientIntensity(val: number) {
-    this.sceneService.setAmbientIntensity(val);
-    this.renderScene();
-  }
-
-  setSunIntensity(val: number) {
-    this.sceneService.setSunIntensity(val);
-    this.renderScene();
-  }
 
   setShadowQuality(quality: 'high' | 'low' | 'off') {
     this.sceneService.setShadowQuality(quality);
@@ -423,8 +368,6 @@ export class IFCManager {
     });
   }
 
-  updateLighting(_timeOfDay: number, _azimuth: number, _altitude: number) {}
-
   // ═══════════════════════════════════════════
   //  Loading
   // ═══════════════════════════════════════════
@@ -444,6 +387,8 @@ export class IFCManager {
   clearModels() {
     this.modelService.clearAll();
     this.interactionService.clearSelection();
+    this.measurementManager?.clear();
+    this.annotationManager?.clear();
     if (this.onMultiSelect) this.onMultiSelect([]);
     this.sectionManager?.clear();
     this.sceneService.renderer.clear();
@@ -459,6 +404,7 @@ export class IFCManager {
   removeModel(modelID: number) {
     this.loadingService.clearModelInWorker(modelID);
     this.modelService.unregisterModel(modelID);
+    this.measurementManager?.removeMeasurementsByModel(modelID);
 
     const hlMesh = this.interactionService.highlightModelMesh;
     if (hlMesh && hlMesh.userData.modelID === modelID) {
@@ -505,10 +451,6 @@ export class IFCManager {
     await this.interactionService.selectByID(modelID, expressID, zoomTo);
   }
 
-  async selectElementsByExpressIDs(modelID: number, expressIDs: number[], zoomTo = false) {
-    await this.interactionService.selectElementsByExpressIDs(modelID, expressIDs, zoomTo);
-  }
-
   clearSelection() {
     this.interactionService.clearSelection();
   }
@@ -524,11 +466,6 @@ export class IFCManager {
       this.onSelect(null);
       this.renderScene();
     }
-  }
-
-  showElement(modelID: number, expressID: number) {
-    this.modelService.showElement(modelID, expressID);
-    this.renderScene();
   }
 
   showAllElements() {

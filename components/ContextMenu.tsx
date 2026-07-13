@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { EyeOff, Eye, Copy, MessageSquarePlus, X, Expand } from "lucide-react";
+import { EyeOff, Eye, MessageSquarePlus, X, Expand } from "lucide-react";
 import { ifcManager } from "../services/ifcManager";
 import { useLanguage } from "../locales/LanguageContext";
 

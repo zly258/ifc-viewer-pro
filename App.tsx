@@ -9,7 +9,7 @@ import DraggablePanel from './components/common/DraggablePanel';
 import { TopStatusBar } from './components/TopStatusBar';
 import ContextMenu from './components/ContextMenu';
 import { IFCElementData, MeasurementResult, ViewerTool } from './types';
-import { Network, FileText, Ruler, Bookmark, Upload, Moon, Camera, TableProperties, X as XIcon, MessageSquare } from 'lucide-react';
+import { Network, FileText, Ruler, Bookmark, Upload, TableProperties, X as XIcon, MessageSquare } from 'lucide-react';
 import { ifcManager } from './services/ifcManager';
 import BcfPanel from './components/BcfPanel';
 import ReportPanel from './components/ReportPanel';

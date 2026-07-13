@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
-  FolderTree, FileText, Maximize, Settings, MousePointer2,
+  FolderTree, FileText, Maximize, Settings,
   Ruler, Scissors, Trash2, Plus, DraftingCompass, MapPin,
   List, Navigation, Bookmark, LayoutGrid, TableProperties,
   Database, MessageSquare,

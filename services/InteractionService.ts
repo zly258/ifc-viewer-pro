@@ -405,21 +405,6 @@ export class InteractionService {
     }
   }
 
-  async selectElementsByExpressIDs(modelID: number, expressIDs: number[], zoomTo = false) {
-    this.clearSelection();
-    if (expressIDs.length === 0) {
-      this.onMultiSelect?.([]);
-      return;
-    }
-
-    for (const expressID of expressIDs) {
-      await this.highlightElement(modelID, expressID, undefined, true);
-    }
-
-    if (zoomTo) this.zoomToSelection();
-    this.onMultiSelect?.(this.selectedElements);
-  }
-
   clearSelection() {
     this.clearHoverHighlight();
     this.multiHighlightMeshes.forEach((mesh) => {

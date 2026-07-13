@@ -11,31 +11,7 @@ export interface IFCElementData {
   globalId?: string;
   name?: string;
   properties: IFCProperty[];
-  mats?: string[];
   modelID?: number; // Track which model this belongs to
-}
-
-export interface LoadedModelRecord {
-    modelID: number;
-    fileName: string;
-    mesh: any;
-}
-
-export interface ViewerConfig {
-  backgroundColor: number;
-  gridColor: number;
-}
-
-export enum AppMode {
-  VIEW = 'VIEW',
-  ANALYZE = 'ANALYZE'
-}
-
-export interface LogMessage {
-  id: string;
-  type: 'info' | 'error' | 'success';
-  text: string;
-  timestamp: Date;
 }
 
 export enum CameraView {
@@ -89,6 +65,7 @@ export interface MeasurementResult {
     label: string; // Detailed formatted string
     timestamp: number;
     deltas?: { x: number; y: number; z: number };
+    modelID?: number; // Track which model this measurement belongs to
 }
 
 export interface ReportColumn {
