@@ -36,7 +36,6 @@ const en: LocaleMessages = {
     annotationTool: 'Annot.',
     bcf: 'BCF',
     report: 'Rpt.',
-    compare: 'Diff',
     walk: 'Walk',
     measure: 'Meas.',
     section: 'Sect.',
@@ -334,22 +333,6 @@ const en: LocaleMessages = {
     globalIdShort: 'GUID',
   },
 
-  // Compare models
-  compare: {
-    title: 'Model Compare',
-    needTwoModels: 'At least two models must be loaded to compare.',
-    selectModelsHint: 'Compare the two currently loaded models by GUID.',
-    startCompare: 'Start Compare',
-    comparing: 'Comparing...',
-    error: 'Compare failed',
-    uniqueToA: 'Unique to A',
-    uniqueToB: 'Unique to B',
-    common: 'Common',
-    guid: 'GUID',
-    name: 'Name',
-    type: 'Type',
-    noResults: 'No results',
-  },
 };
 
 export default en;

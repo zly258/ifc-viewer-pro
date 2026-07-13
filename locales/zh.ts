@@ -34,7 +34,6 @@ const zh = {
     annotationTool: '批注',
     bcf: 'BCF',
     report: '报表',
-    compare: '对比',
     walk: '漫游',
     measure: '测量',
     section: '剖切',
@@ -332,22 +331,6 @@ const zh = {
     globalIdShort: 'GUID',
   },
 
-  // Compare models
-  compare: {
-    title: '模型对比',
-    needTwoModels: '需要加载至少两个模型才能进行对比。',
-    selectModelsHint: '将对当前加载的两个模型进行 GUID 对比。',
-    startCompare: '开始对比',
-    comparing: '对比中...',
-    error: '对比失败',
-    uniqueToA: '仅模型 A',
-    uniqueToB: '仅模型 B',
-    common: '共同构件',
-    guid: 'GUID',
-    name: '名称',
-    type: '类型',
-    noResults: '无结果',
-  },
 };
 
 export default zh;

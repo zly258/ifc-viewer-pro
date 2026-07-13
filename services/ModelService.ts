@@ -552,9 +552,9 @@ export class ModelService {
     };
   }
 
-  // ── Dispose ──
+  // ── Dispose (safe for remount) ──
   dispose() {
     this.clearAll();
-    this.isolationDimMaterial.dispose();
+    // NOTE: isolationDimMaterial survives remount — don't dispose it here.
   }
 }

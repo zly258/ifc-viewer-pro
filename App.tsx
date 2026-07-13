@@ -9,14 +9,13 @@ import DraggablePanel from './components/common/DraggablePanel';
 import { TopStatusBar } from './components/TopStatusBar';
 import ContextMenu from './components/ContextMenu';
 import { IFCElementData, MeasurementResult, ViewerTool } from './types';
-import { Network, FileText, Ruler, Bookmark, Upload, Moon, Camera, TableProperties, X as XIcon, GitCompare, MessageSquare } from 'lucide-react';
+import { Network, FileText, Ruler, Bookmark, Upload, Moon, Camera, TableProperties, X as XIcon, MessageSquare } from 'lucide-react';
 import { ifcManager } from './services/ifcManager';
 import BcfPanel from './components/BcfPanel';
 import ReportPanel from './components/ReportPanel';
 import AnnotationPanel from './components/AnnotationPanel';
 import AboutModal from './components/AboutModal';
 import SettingsModal, { ViewSettings, DEFAULT_VIEW_SETTINGS, applyThemeColor, applyThemeMode } from './components/SettingsModal';
-import ComparePanel from './components/ComparePanel';
 import { useLanguage } from './locales/LanguageContext';
 
 const App: React.FC = () => {
@@ -30,7 +29,6 @@ const App: React.FC = () => {
   const [showMeasurePanel, setShowMeasurePanel] = useState(false);
   const [showBcfPanel, setShowBcfPanel] = useState(false);
   const [showReportPanel, setShowReportPanel] = useState(false);
-  const [showComparePanel, setShowComparePanel] = useState(false);
   const [showAnnotationPanel, setShowAnnotationPanel] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -366,7 +364,7 @@ const App: React.FC = () => {
         </DraggablePanel>
 
         <DraggablePanel
-          title={t.compare.title || 'Model Compare'}
+          title={t.report.title || t.report.title}
           icon={TableProperties}
           isOpen={showReportPanel}
           onClose={() => setShowReportPanel(false)}
@@ -374,17 +372,6 @@ const App: React.FC = () => {
           initialSize={{ w: 600, h: 450 }}
         >
           <ReportPanel />
-        </DraggablePanel>
-
-        <DraggablePanel
-          title={t.compare.title || 'Model Compare'}
-          icon={GitCompare}
-          isOpen={showComparePanel}
-          onClose={() => setShowComparePanel(false)}
-          initialPosition={{ x: Math.max(20, (window.innerWidth - 520) / 2 + 100), y: Math.max(20, (window.innerHeight - 400) / 2) }}
-          initialSize={{ w: 520, h: 400 }}
-        >
-          <ComparePanel />
         </DraggablePanel>
 
         {/* Annotation Panel */}
@@ -411,8 +398,6 @@ const App: React.FC = () => {
           isBcfPanelOpen={showBcfPanel}
           onToggleReportPanel={() => setShowReportPanel(!showReportPanel)}
           isReportPanelOpen={showReportPanel}
-          onToggleComparePanel={() => setShowComparePanel(!showComparePanel)}
-          isComparePanelOpen={showComparePanel}
           onToggleAnnotation={() => {
             setShowAnnotationPanel(!showAnnotationPanel);
             if (!showAnnotationPanel) {

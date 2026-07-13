@@ -684,10 +684,10 @@ export class InteractionService {
     return this.hoveredElement;
   }
 
-  // ── Dispose ──
+  // ── Dispose (safe for remount — only clear temp state) ──
   dispose() {
     this.clearSelection();
-    this.highlightMaterial.dispose();
-    this.hoverMaterial.dispose();
+    // NOTE: highlightMaterial and hoverMaterial survive remount,
+    // so don't dispose them here.
   }
 }

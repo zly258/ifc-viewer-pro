@@ -194,29 +194,37 @@ export class IFCManager {
       this.sceneService.initContainer(container);
       this.sceneService.attachContainerListeners(container);
 
-      // Sub-services that need scene/camera/renderer
-      this.sectionManager = new SectionManager(
-        this.sceneService.renderer,
-        this.sceneService.scene,
-        (planes) => this.interactionService.updateClippingPlanesForMaterials(planes)
-      );
-      this.measurementManager = new MeasurementManager(
-        this.sceneService.scene,
-        this.sceneService.camera,
-        container
-      );
-      this.annotationManager = new AnnotationManager();
-      this.annotationManager.init(
-        this.sceneService.scene,
-        this.sceneService.camera,
-        this.sceneService.labelRenderer,
-        container
-      );
-      this.postProcessing = new PostProcessingManager(
-        this.sceneService.renderer,
-        this.sceneService.scene,
-        this.sceneService.camera
-      );
+      // Sub-services that need scene/camera/renderer (only create once)
+      if (!this.sectionManager) {
+        this.sectionManager = new SectionManager(
+          this.sceneService.renderer,
+          this.sceneService.scene,
+          (planes) => this.interactionService.updateClippingPlanesForMaterials(planes)
+        );
+      }
+      if (!this.measurementManager) {
+        this.measurementManager = new MeasurementManager(
+          this.sceneService.scene,
+          this.sceneService.camera,
+          container
+        );
+      }
+      if (!this.annotationManager) {
+        this.annotationManager = new AnnotationManager();
+        this.annotationManager.init(
+          this.sceneService.scene,
+          this.sceneService.camera,
+          this.sceneService.labelRenderer,
+          container
+        );
+      }
+      if (!this.postProcessing) {
+        this.postProcessing = new PostProcessingManager(
+          this.sceneService.renderer,
+          this.sceneService.scene,
+          this.sceneService.camera
+        );
+      }
 
       // Wire sub-services to interaction service
       this.interactionService.measurementManager = this.measurementManager;
@@ -291,6 +299,14 @@ export class IFCManager {
       this.sceneService.reattachContainer(container);
       if (this.measurementManager) {
         this.measurementManager.updateContainer(container);
+      }
+      if (this.annotationManager) {
+        this.annotationManager.init(
+          this.sceneService.scene,
+          this.sceneService.camera,
+          this.sceneService.labelRenderer,
+          container
+        );
       }
       if (this.resizeObserver) this.resizeObserver.disconnect();
       this.resizeObserver = new ResizeObserver(() => this.handleResize());
@@ -563,10 +579,6 @@ export class IFCManager {
 
   generateReport(modelID: number, config: any): Promise<any[]> {
     return this.loadingService.generateReport(modelID, config);
-  }
-
-  compareModels(modelA_ID: number, modelB_ID: number) {
-    return this.loadingService.compareModels(modelA_ID, modelB_ID);
   }
 
   // ═══════════════════════════════════════════

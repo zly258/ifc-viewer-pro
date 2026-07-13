@@ -440,60 +440,6 @@ self.onmessage = async (e: MessageEvent) => {
         }
     }
     
-    else if (type === 'COMPARE_MODELS') {
-        const { modelA_ID, modelB_ID } = data;
-        const webIfcA = mainToWebIfcModelID.get(modelA_ID) ?? modelA_ID;
-        const webIfcB = mainToWebIfcModelID.get(modelB_ID) ?? modelB_ID;
-        try {
-            const metaA = modelsMetadata.get(webIfcA);
-            const metaB = modelsMetadata.get(webIfcB);
-            if (!metaA || !metaB) {
-                self.postMessage({ type: 'COMPARE_RESULT', error: '模型未找到或未加载完成' });
-                return;
-            }
-            
-            const elementsA: { expressID: number; guid: string; name: string; type: string }[] = [];
-            metaA.modelMeshExpressIDs.forEach(expressID => {
-                try {
-                    const line = ifcApi.GetLine(webIfcA, expressID);
-                    if (line && line.GlobalId && line.GlobalId.value) {
-                        elementsA.push({
-                            expressID,
-                            guid: line.GlobalId.value,
-                            name: line.Name?.value || '',
-                            type: line.is_a || ''
-                        });
-                    }
-                } catch(e) {}
-            });
-
-            const elementsB: { expressID: number; guid: string; name: string; type: string }[] = [];
-            metaB.modelMeshExpressIDs.forEach(expressID => {
-                try {
-                    const line = ifcApi.GetLine(webIfcB, expressID);
-                    if (line && line.GlobalId && line.GlobalId.value) {
-                        elementsB.push({
-                            expressID,
-                            guid: line.GlobalId.value,
-                            name: line.Name?.value || '',
-                            type: line.is_a || ''
-                        });
-                    }
-                } catch(e) {}
-            });
-            
-            self.postMessage({
-                type: 'COMPARE_RESULT',
-                data: {
-                    elementsA,
-                    elementsB
-                }
-            });
-        } catch (err: any) {
-            self.postMessage({ type: 'ERROR', message: `COMPARE_MODELS_FAILED: ${err.message}` });
-        }
-    }
-    
     else if (type === 'CLEAR_MODEL') {
         const { modelID } = data;
         const webIfcID = mainToWebIfcModelID.get(modelID) ?? modelID;

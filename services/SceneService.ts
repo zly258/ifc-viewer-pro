@@ -499,7 +499,7 @@ export class SceneService {
     this.pivotMarker.visible = false;
   }
 
-  // ── Cleanup ──
+  // ── Cleanup (safe, does NOT destroy WebGL context) ──
   dispose() {
     this.stopRenderLoop();
     if (this.resizeObserver) {
@@ -509,14 +509,15 @@ export class SceneService {
     if (this._onPointerDown && this.container) {
       this.container.removeEventListener('pointerdown', this._onPointerDown);
     }
+    // Remove canvas elements from DOM without destroying WebGL context
     if (this.renderer?.domElement?.parentNode) {
       this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
     }
     if (this.labelRenderer?.domElement?.parentNode) {
       this.labelRenderer.domElement.parentNode.removeChild(this.labelRenderer.domElement);
     }
-    this.renderer.dispose();
-    this.controls.dispose();
+    // NOTE: DO NOT call renderer.dispose() or controls.dispose() here —
+    // they destroy the WebGL context, breaking React StrictMode re-mount.
   }
 
   getContainer(): HTMLElement | null {

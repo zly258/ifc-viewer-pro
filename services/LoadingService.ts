@@ -569,65 +569,6 @@ export class LoadingService {
     });
   }
 
-  // ── Model Comparison ──
-  compareModels(
-    modelA_ID: number,
-    modelB_ID: number
-  ): Promise<{
-    modelAName: string;
-    modelBName: string;
-    uniqueToA: Array<any>;
-    uniqueToB: Array<any>;
-    common: Array<any>;
-  } | null> {
-    if (!this.worker) return Promise.resolve(null);
-
-    const modelA = this.modelService.models.get(modelA_ID);
-    const modelB = this.modelService.models.get(modelB_ID);
-    const modelAName = modelA?.name || `Model ${modelA_ID}`;
-    const modelBName = modelB?.name || `Model ${modelB_ID}`;
-
-    return new Promise((resolve) => {
-      const handler = (e: MessageEvent) => {
-        if (e.data.type === 'COMPARE_RESULT') {
-          this.worker!.removeEventListener('message', handler);
-          if (e.data.error) {
-            console.error(e.data.error);
-            resolve(null);
-            return;
-          }
-          const { elementsA, elementsB } = e.data.data;
-          const guidMapA = new Map<string, any>();
-          const guidMapB = new Map<string, any>();
-          elementsA.forEach((el: any) => guidMapA.set(el.guid, el));
-          elementsB.forEach((el: any) => guidMapB.set(el.guid, el));
-
-          const uniqueToA: any[] = [];
-          const uniqueToB: any[] = [];
-          const common: any[] = [];
-
-          for (const el of elementsA) {
-            if (!guidMapB.has(el.guid)) uniqueToA.push(el);
-          }
-          for (const el of elementsB) {
-            if (!guidMapA.has(el.guid)) uniqueToB.push(el);
-            else {
-              const elA = guidMapA.get(el.guid)!;
-              common.push({ guid: el.guid, nameA: elA.name, nameB: el.name, typeA: elA.type, typeB: el.type });
-            }
-          }
-          resolve({ modelAName, modelBName, uniqueToA, uniqueToB, common });
-        }
-        if (e.data.type === 'ERROR' && e.data.message?.includes('COMPARE_MODELS_FAILED')) {
-          this.worker!.removeEventListener('message', handler);
-          resolve(null);
-        }
-      };
-      this.worker!.addEventListener('message', handler);
-      this.worker!.postMessage({ type: 'COMPARE_MODELS', data: { modelA_ID, modelB_ID } });
-    });
-  }
-
   // ── Worker message helpers ──
   sendWorkerMessage(msg: any, transfer?: Transferable[]) {
     this.worker?.postMessage(msg, transfer || []);
@@ -643,18 +584,13 @@ export class LoadingService {
     }
   }
 
-  // ── Dispose ──
+  // ── Dispose (safe for remount — only clear runtime state) ──
   dispose() {
     if (this.worker) {
       this.worker.terminate();
       this.worker = null;
     }
-    try {
-      this.batcher.dispose();
-    } catch (e) {
-      console.warn('Batcher dispose error', e);
-    }
-    this.materialCache.forEach((mat) => mat.dispose());
-    this.materialCache.clear();
+    // NOTE: batcher and materialCache survive remount,
+    // so don't dispose them here.
   }
 }

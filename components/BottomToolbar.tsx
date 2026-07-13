@@ -3,7 +3,7 @@ import {
   FolderTree, FileText, Maximize, Settings, MousePointer2,
   Ruler, Scissors, Trash2, Plus, DraftingCompass, MapPin,
   List, Navigation, Bookmark, LayoutGrid, TableProperties,
-  Database, GitCompare, MessageSquare,
+  Database, MessageSquare,
 } from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
 import { CameraView, ViewerTool, MeasurementMode } from '../types';
@@ -20,8 +20,6 @@ interface BottomToolbarProps {
   isBcfPanelOpen: boolean;
   onToggleReportPanel: () => void;
   isReportPanelOpen: boolean;
-  onToggleComparePanel: () => void;
-  isComparePanelOpen: boolean;
   onToggleAnnotation: () => void;
   isAnnotationActive: boolean;
 }
@@ -58,8 +56,6 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
     isBcfPanelOpen,
     onToggleReportPanel,
     isReportPanelOpen,
-    onToggleComparePanel,
-    isComparePanelOpen,
     onToggleAnnotation,
     isAnnotationActive,
 }) => {
@@ -436,7 +432,6 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
         <ToolButton icon={MessageSquare} label={t.toolbar.annotationTool} active={isAnnotationActive} onClick={onToggleAnnotation} />
         <ToolButton icon={Bookmark} label={t.toolbar.bcf} active={isBcfPanelOpen} onClick={onToggleBcfPanel} />
         <ToolButton icon={TableProperties} label={t.toolbar.report} active={isReportPanelOpen} onClick={onToggleReportPanel} />
-        <ToolButton icon={GitCompare} label={t.toolbar.compare} active={isComparePanelOpen} onClick={onToggleComparePanel} />
 
         <div className="toolbar-divider" />
 
