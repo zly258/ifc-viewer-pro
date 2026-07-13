@@ -172,38 +172,33 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ data, selectedCount = 1 }
         );
     });
 
-    // Normalize IFC property set names → translated group names
-    // Merges Chinese-named groups (基本信息/基本属性/材质信息 etc.) into unified display names
-    const getGroupName = (setName: string | undefined): string => {
-        if (!setName) return t.propertyPanel.groupGeneral;
+    // Normalize IFC property set names — merge similar groups, keep data as-is (no i18n)
+    const normalizeGroupName = (setName: string | undefined): string => {
+        if (!setName) return '常规属性';
         const s = setName.trim();
-        // IFC standard English names that should merge into basic info
-        if (/^Pset_.*Common$/i.test(s)) return t.propertyPanel.basicInfo;
-        // Chinese & English names → unified groups
-        if (/^(基本信息|基本属性|材质信息|材质|材质属性|材料|材料信息)$/.test(s)) return t.propertyPanel.basicInfo;
-        if (/^(common|material|materials|base\s*quantit)/i.test(s)) return t.propertyPanel.basicInfo;
-        if (/^(尺寸标注|尺寸|几何信息|几何|几何属性)$/.test(s)) return t.propertyPanel.groupDimensions;
-        if (/^(dimension|geometry|quantit)/i.test(s)) return t.propertyPanel.groupDimensions;
-        if (/^(标识数据|标识|身份|身份信息)$/.test(s)) return t.propertyPanel.groupIdentity;
-        if (/^(identity|identification)$/i.test(s)) return t.propertyPanel.groupIdentity;
-        // Keep original for unmatched names
+        // Merge Chinese & English variants into unified names (data-driven, not translated)
+        if (/^Pset_.*Common$/i.test(s)) return '基本信息';
+        if (/^(基本信息|基本属性|材质信息|材质|材质属性|材料|材料信息)$/.test(s)) return '基本信息';
+        if (/^(common|material|materials|base\s*quantit)/i.test(s)) return '基本信息';
+        if (/^(尺寸标注|尺寸|几何信息|几何|几何属性)$/.test(s)) return '尺寸标注';
+        if (/^(dimension|geometry|quantit)/i.test(s)) return '尺寸标注';
+        if (/^(标识数据|标识|身份|身份信息)$/.test(s)) return '标识数据';
+        if (/^(identity|identification)$/i.test(s)) return '标识数据';
         return s;
     };
-
-    const BASIC_KEY = t.propertyPanel.basicInfo;
 
     // Group properties, sort: Basic Info first, then alphabetical
     const groupedProps: Record<string, any[]> = {};
     const sortedProps = [...filteredProps].sort((a, b) => {
-        const na = getGroupName(a.setName);
-        const nb = getGroupName(b.setName);
-        if (na === BASIC_KEY && nb !== BASIC_KEY) return -1;
-        if (nb === BASIC_KEY && na !== BASIC_KEY) return 1;
+        const na = normalizeGroupName(a.setName);
+        const nb = normalizeGroupName(b.setName);
+        if (na === '基本信息' && nb !== '基本信息') return -1;
+        if (nb === '基本信息' && na !== '基本信息') return 1;
         return na.localeCompare(nb);
     });
 
     sortedProps.forEach(prop => {
-        const set = getGroupName(prop.setName);
+        const set = normalizeGroupName(prop.setName);
         if (!groupedProps[set]) groupedProps[set] = [];
         groupedProps[set].push(prop);
     });
@@ -316,7 +311,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({ data, selectedCount = 1 }
                             key={setName}
                             name={setName}
                             props={props}
-                            defaultOpen={setName === BASIC_KEY}
+                            defaultOpen={setName === '基本信息'}
                             forceOpen={!!searchQuery}
                         />
                     ))

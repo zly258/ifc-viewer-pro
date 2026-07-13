@@ -368,9 +368,9 @@ export class IFCManager {
             this.controls.update();
         }
         
-        // Demand rendering: only render when dirty or recent interaction (within 200ms)
+        // Demand rendering: only render when dirty or recent interaction (within 150ms)
         const now = performance.now();
-        const recentInteraction = (now - this.lastUserInteraction) < 200;
+        const recentInteraction = (now - this.lastUserInteraction) < 150;
         
         if (this.isDirty || recentInteraction) {
             if (this.postProcessing) {
@@ -380,6 +380,18 @@ export class IFCManager {
             }
             if (this.measurementManager) this.labelRenderer.render(this.scene, this.camera);
             this.isDirty = false;
+        }
+
+        // Idle-stop: cancel RAF loop after 500ms of no interaction to save CPU
+        if (!this.isWalking && !this.isDirty && (now - this.lastUserInteraction) > 500) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+    }
+
+    private ensureRenderLoop() {
+        if (this.animationFrameId === null && this.renderer) {
+            this.animate();
         }
     }
 
@@ -434,6 +446,13 @@ export class IFCManager {
                 this.isDirty = true;
                 this.lastUserInteraction = performance.now();
             });
+
+            // Restart render loop on pointer interaction (after idle-stop)
+            container.addEventListener('pointerdown', () => {
+                this.lastUserInteraction = performance.now();
+                this.isDirty = true;
+                this.ensureRenderLoop();
+            }, { passive: true });
         } else {
             // Re-mounting
             this.renderer.setSize(container.clientWidth, container.clientHeight);
@@ -454,7 +473,7 @@ export class IFCManager {
         container.appendChild(this.labelRenderer.domElement);
 
         if (!this.animationFrameId) {
-            this.animate();
+            this.ensureRenderLoop();
         }
 
         // Ensure Init is only called once and errors are handled
@@ -2396,8 +2415,9 @@ export class IFCManager {
     }
     
     renderScene() { 
-        // Mark dirty so the animate loop renders on next frame (demand rendering)
+        // Mark dirty and restart render loop if idle-stopped
         this.isDirty = true;
+        this.ensureRenderLoop();
     }
     
     /**
