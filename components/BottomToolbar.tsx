@@ -3,7 +3,7 @@ import {
   FolderTree, FileText, Maximize, Settings, MousePointer2,
   Ruler, Scissors, Trash2, Plus, DraftingCompass, MapPin,
   List, Navigation, Bookmark, LayoutGrid, TableProperties,
-  Database,
+  Database, GitCompare, MessageSquare,
 } from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
 import { CameraView, ViewerTool, MeasurementMode } from '../types';
@@ -20,6 +20,10 @@ interface BottomToolbarProps {
   isBcfPanelOpen: boolean;
   onToggleReportPanel: () => void;
   isReportPanelOpen: boolean;
+  onToggleComparePanel: () => void;
+  isComparePanelOpen: boolean;
+  onToggleAnnotation: () => void;
+  isAnnotationActive: boolean;
 }
 
 // Camera views list
@@ -54,6 +58,10 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
     isBcfPanelOpen,
     onToggleReportPanel,
     isReportPanelOpen,
+    onToggleComparePanel,
+    isComparePanelOpen,
+    onToggleAnnotation,
+    isAnnotationActive,
 }) => {
   const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -425,8 +433,10 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
         {/* Panel Group */}
         <ToolButton icon={FolderTree} label={t.toolbar.model} active={isModelTreeOpen} onClick={onToggleModelTree} />
         <ToolButton icon={FileText} label={t.toolbar.properties} active={activeRightPanel === 'properties'} onClick={() => onToggleRightPanel()} />
-        <ToolButton icon={Bookmark} label={t.toolbar.annotations} active={isBcfPanelOpen} onClick={onToggleBcfPanel} />
+        <ToolButton icon={MessageSquare} label={t.toolbar.annotationTool} active={isAnnotationActive} onClick={onToggleAnnotation} />
+        <ToolButton icon={Bookmark} label={t.toolbar.bcf} active={isBcfPanelOpen} onClick={onToggleBcfPanel} />
         <ToolButton icon={TableProperties} label={t.toolbar.report} active={isReportPanelOpen} onClick={onToggleReportPanel} />
+        <ToolButton icon={GitCompare} label={t.toolbar.compare} active={isComparePanelOpen} onClick={onToggleComparePanel} />
 
         <div className="toolbar-divider" />
 

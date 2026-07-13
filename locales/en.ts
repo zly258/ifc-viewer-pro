@@ -33,8 +33,10 @@ const en: LocaleMessages = {
     selectSample: 'Select Sample',
     model: 'Model',
     properties: 'Prop.',
-    annotations: 'Notes',
+    annotationTool: 'Annot.',
+    bcf: 'BCF',
     report: 'Rpt.',
+    compare: 'Diff',
     walk: 'Walk',
     measure: 'Meas.',
     section: 'Sect.',
@@ -217,6 +219,31 @@ const en: LocaleMessages = {
     zAxisUp: 'Z Axis Up (Standard)',
     cancel: 'Cancel',
     save: 'Save Settings',
+    hoverHighlight: 'Hover Highlight',
+    hoverHighlightHelp: 'Show an amber highlight when hovering over elements for quick visual identification.',
+    enabled: 'Enabled',
+    disabled: 'Disabled',
+    themeColor: 'Accent Color',
+    themeColorHelp: 'Choose a primary accent color for buttons, selections, highlights, and links.',
+    themeMode: 'Theme Mode',
+    themeModeHelp: 'Switch between light and dark appearance to suit ambient lighting.',
+    light: 'Light',
+    dark: 'Dark',
+    language: 'Language',
+    languageHelp: 'Switch the interface display language. All menus, tooltips, and panel text will update.',
+    shadowQuality: 'Shadow Quality',
+    shadowQualityHelp: 'Real-time shadows significantly enhance spatial depth. Low quality is performant; high quality is more refined but may affect framerate.',
+    off: 'Off',
+    low: 'Low',
+    high: 'High',
+  },
+
+  // Annotations
+  annotations: {
+    title: 'Annotations',
+    empty: 'Click on model surface to place annotation',
+    focus: 'Focus',
+    delete: 'Delete',
   },
 
   // About Modal
@@ -305,6 +332,23 @@ const en: LocaleMessages = {
     unassignedSpace: 'Unassigned Space',
     noMaterial: 'No Material',
     globalIdShort: 'GUID',
+  },
+
+  // Compare models
+  compare: {
+    title: 'Model Compare',
+    needTwoModels: 'At least two models must be loaded to compare.',
+    selectModelsHint: 'Compare the two currently loaded models by GUID.',
+    startCompare: 'Start Compare',
+    comparing: 'Comparing...',
+    error: 'Compare failed',
+    uniqueToA: 'Unique to A',
+    uniqueToB: 'Unique to B',
+    common: 'Common',
+    guid: 'GUID',
+    name: 'Name',
+    type: 'Type',
+    noResults: 'No results',
   },
 };
 

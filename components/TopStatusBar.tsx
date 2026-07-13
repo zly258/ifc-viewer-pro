@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ifcManager } from "../services/ifcManager";
-import { Moon, Sun, Camera, Box, Cpu, Info, Globe } from "lucide-react";
+import { Moon, Sun, Camera, Box, Cpu, Info, Globe, Settings } from "lucide-react";
 import { useLanguage, Language } from "../locales/LanguageContext";
 
 interface TopStatusBarProps {
@@ -88,6 +88,14 @@ export const TopStatusBar = ({ fileName, isDarkTheme, onToggleTheme, onScreensho
                         {isDarkTheme ? <Sun size={13} /> : <Moon size={13} />}
                     </button>
                 )}
+                <button
+                    onClick={() => (window as any).showSettingsModal?.()}
+                    title={t.settings.title}
+                    className="icon-button"
+                    style={{ width: 28, height: 28, border: "1px solid var(--border)" }}
+                >
+                    <Settings size={13} />
+                </button>
                 <button
                     onClick={() => (window as any).showAboutModal?.()}
                     title={t.about.title}

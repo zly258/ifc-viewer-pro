@@ -8,12 +8,15 @@ import BottomToolbar from './components/BottomToolbar';
 import DraggablePanel from './components/common/DraggablePanel';
 import { TopStatusBar } from './components/TopStatusBar';
 import ContextMenu from './components/ContextMenu';
-import { IFCElementData, MeasurementResult } from './types';
-import { Network, FileText, Ruler, Bookmark, Upload, Moon, Camera, TableProperties, X as XIcon } from 'lucide-react';
+import { IFCElementData, MeasurementResult, ViewerTool } from './types';
+import { Network, FileText, Ruler, Bookmark, Upload, Moon, Camera, TableProperties, X as XIcon, GitCompare, MessageSquare } from 'lucide-react';
 import { ifcManager } from './services/ifcManager';
 import BcfPanel from './components/BcfPanel';
 import ReportPanel from './components/ReportPanel';
+import AnnotationPanel from './components/AnnotationPanel';
 import AboutModal from './components/AboutModal';
+import SettingsModal, { ViewSettings, DEFAULT_VIEW_SETTINGS, applyThemeColor, applyThemeMode } from './components/SettingsModal';
+import ComparePanel from './components/ComparePanel';
 import { useLanguage } from './locales/LanguageContext';
 
 const App: React.FC = () => {
@@ -27,11 +30,37 @@ const App: React.FC = () => {
   const [showMeasurePanel, setShowMeasurePanel] = useState(false);
   const [showBcfPanel, setShowBcfPanel] = useState(false);
   const [showReportPanel, setShowReportPanel] = useState(false);
+  const [showComparePanel, setShowComparePanel] = useState(false);
+  const [showAnnotationPanel, setShowAnnotationPanel] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
-  // Expose showAboutModal globally for TopStatusBar
+  // View Settings (persisted in localStorage)
+  const [viewSettings, setViewSettings] = useState<ViewSettings>(() => {
+    try {
+      const saved = localStorage.getItem('bimvision_settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...DEFAULT_VIEW_SETTINGS, ...parsed };
+      }
+    } catch {}
+    return DEFAULT_VIEW_SETTINGS;
+  });
+
+  // Sync hover highlight setting to ifcManager
+  useEffect(() => {
+    ifcManager.enableHoverHighlight = viewSettings.enableHoverHighlight;
+  }, [viewSettings.enableHoverHighlight]);
+
+  // Sync shadow quality setting to ifcManager
+  useEffect(() => {
+    ifcManager.setShadowQuality(viewSettings.shadowQuality);
+  }, [viewSettings.shadowQuality]);
+
+  // Expose showSettingsModal + showAboutModal globally
   useEffect(() => {
     (window as any).showAboutModal = () => setShowAbout(true);
+    (window as any).showSettingsModal = () => setShowSettings(true);
   }, []);
 
   // Sync measurement tips translations when language changes
@@ -57,19 +86,34 @@ const App: React.FC = () => {
   // Modal States
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
-  // Dark Theme
+  // Dark Theme — sync with settings
   const [isDarkTheme, setIsDarkTheme] = useState(() => {
+    // Prefer view settings, fall back to legacy key
+    try {
+      const saved = localStorage.getItem('bimvision_settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.themeMode) return parsed.themeMode === 'dark';
+      }
+    } catch {}
     return localStorage.getItem('bimvision_theme') === 'dark';
   });
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', isDarkTheme ? 'dark' : 'light');
+    applyThemeMode(isDarkTheme ? 'dark' : 'light');
+    applyThemeColor(viewSettings.themeColor, isDarkTheme ? 'dark' : 'light');
     localStorage.setItem('bimvision_theme', isDarkTheme ? 'dark' : 'light');
     // Update Three.js scene background color
     ifcManager.scene && (ifcManager.scene as any).background?.set && 
       (ifcManager.scene as any).background.set(isDarkTheme ? 0x111827 : 0xf8fafc);
     ifcManager.renderScene();
-  }, [isDarkTheme]);
+  }, [isDarkTheme, viewSettings.themeColor]);
+
+  // Apply theme on first load
+  useEffect(() => {
+    applyThemeMode(viewSettings.themeMode);
+    applyThemeColor(viewSettings.themeColor, viewSettings.themeMode);
+  }, []);
 
   // Drag & Drop state
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -193,6 +237,7 @@ const App: React.FC = () => {
     try {
       ifcManager.clearModels();
       ifcManager.measurementManager?.clear();
+      ifcManager.annotationManager?.clear();
     } catch (e) {
       console.warn('Failed to fully clear 3D scene:', e);
     }
@@ -234,7 +279,14 @@ const App: React.FC = () => {
       <TopStatusBar
         fileName={lastFileName}
         isDarkTheme={isDarkTheme}
-        onToggleTheme={() => setIsDarkTheme(d => !d)}
+        onToggleTheme={() => {
+          const next = !isDarkTheme;
+          setIsDarkTheme(next);
+          // Sync to settings
+          const updated = { ...viewSettings, themeMode: (next ? 'dark' : 'light') as 'light' | 'dark' };
+          setViewSettings(updated);
+          localStorage.setItem('bimvision_settings', JSON.stringify(updated));
+        }}
         onScreenshot={lastFileName ? handleScreenshot : undefined}
       />
 
@@ -314,7 +366,7 @@ const App: React.FC = () => {
         </DraggablePanel>
 
         <DraggablePanel
-          title={t.report.title}
+          title={t.compare.title || 'Model Compare'}
           icon={TableProperties}
           isOpen={showReportPanel}
           onClose={() => setShowReportPanel(false)}
@@ -322,6 +374,29 @@ const App: React.FC = () => {
           initialSize={{ w: 600, h: 450 }}
         >
           <ReportPanel />
+        </DraggablePanel>
+
+        <DraggablePanel
+          title={t.compare.title || 'Model Compare'}
+          icon={GitCompare}
+          isOpen={showComparePanel}
+          onClose={() => setShowComparePanel(false)}
+          initialPosition={{ x: Math.max(20, (window.innerWidth - 520) / 2 + 100), y: Math.max(20, (window.innerHeight - 400) / 2) }}
+          initialSize={{ w: 520, h: 400 }}
+        >
+          <ComparePanel />
+        </DraggablePanel>
+
+        {/* Annotation Panel */}
+        <DraggablePanel
+          title={t.annotations.title}
+          icon={MessageSquare}
+          isOpen={showAnnotationPanel}
+          onClose={() => setShowAnnotationPanel(false)}
+          initialPosition={{ x: window.innerWidth - 320, y: 80 }}
+          initialSize={{ w: 280, h: 300 }}
+        >
+          <AnnotationPanel />
         </DraggablePanel>
 
         {/* Bottom Toolbar */}
@@ -336,6 +411,17 @@ const App: React.FC = () => {
           isBcfPanelOpen={showBcfPanel}
           onToggleReportPanel={() => setShowReportPanel(!showReportPanel)}
           isReportPanelOpen={showReportPanel}
+          onToggleComparePanel={() => setShowComparePanel(!showComparePanel)}
+          isComparePanelOpen={showComparePanel}
+          onToggleAnnotation={() => {
+            setShowAnnotationPanel(!showAnnotationPanel);
+            if (!showAnnotationPanel) {
+              ifcManager.setTool(ViewerTool.ANNOTATION);
+            } else {
+              ifcManager.setTool(ViewerTool.SELECT);
+            }
+          }}
+          isAnnotationActive={showAnnotationPanel}
         />
 
         {/* Loading Overlay */}
@@ -507,6 +593,22 @@ const App: React.FC = () => {
       )}
       {/* About Modal */}
       <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        settings={viewSettings}
+        onSave={(newSettings) => {
+          setViewSettings(newSettings);
+          localStorage.setItem('bimvision_settings', JSON.stringify(newSettings));
+          // Keep dark theme toggle in sync
+          if (newSettings.themeMode !== undefined) {
+            setIsDarkTheme(newSettings.themeMode === 'dark');
+          }
+          setShowSettings(false);
+        }}
+      />
 
     </div>
   );

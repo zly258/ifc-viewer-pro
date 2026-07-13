@@ -31,8 +31,10 @@ const zh = {
     selectSample: '选择预设案例',
     model: '模型',
     properties: '属性',
-    annotations: '批注',
+    annotationTool: '批注',
+    bcf: 'BCF',
     report: '报表',
+    compare: '对比',
     walk: '漫游',
     measure: '测量',
     section: '剖切',
@@ -215,6 +217,31 @@ const zh = {
     zAxisUp: 'Z 轴向上（标准）',
     cancel: '取消',
     save: '保存设置',
+    hoverHighlight: '悬停高亮',
+    hoverHighlightHelp: '鼠标悬停在构件上时显示橙色高亮效果，方便快速识别可交互元素。',
+    enabled: '已开启',
+    disabled: '已关闭',
+    themeColor: '主题颜色',
+    themeColorHelp: '选择应用的主色调，将影响按钮、选中高亮、链接等元素的颜色。',
+    themeMode: '主题模式',
+    themeModeHelp: '切换浅色或深色外观，适应不同环境光线。',
+    light: '浅色',
+    dark: '深色',
+    language: '界面语言',
+    languageHelp: '切换界面显示语言，所有菜单、提示和面板文字将同步更新。',
+    shadowQuality: '阴影质量',
+    shadowQualityHelp: '开启实时阴影可显著增强三维空间感。低质量性能好，高质量更精细但可能影响帧率。',
+    off: '关闭',
+    low: '低',
+    high: '高',
+  },
+
+  // Annotations
+  annotations: {
+    title: '批注',
+    empty: '点击模型表面放置批注标记',
+    focus: '定位',
+    delete: '删除',
   },
 
   // About Modal
@@ -303,6 +330,23 @@ const zh = {
     unassignedSpace: '未分配空间',
     noMaterial: '未指定材质',
     globalIdShort: 'GUID',
+  },
+
+  // Compare models
+  compare: {
+    title: '模型对比',
+    needTwoModels: '需要加载至少两个模型才能进行对比。',
+    selectModelsHint: '将对当前加载的两个模型进行 GUID 对比。',
+    startCompare: '开始对比',
+    comparing: '对比中...',
+    error: '对比失败',
+    uniqueToA: '仅模型 A',
+    uniqueToB: '仅模型 B',
+    common: '共同构件',
+    guid: 'GUID',
+    name: '名称',
+    type: '类型',
+    noResults: '无结果',
   },
 };
 

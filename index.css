@@ -7,6 +7,7 @@
 
 :root {
   /* --- Brand Colors --- */
+  --accent:          var(--brand);
   --brand:           #2563eb;
   --brand-hover:     #1d4ed8;
   --brand-soft:      #eff6ff;
@@ -72,6 +73,7 @@
 }
 
 [data-theme='dark'] {
+  --accent:          var(--brand);
   --brand:           #3b82f6;
   --brand-hover:     #60a5fa;
   --brand-soft:      rgba(59, 130, 246, 0.15);

@@ -67,11 +67,20 @@ export enum ViewerTool {
   MEASURE = 'MEASURE',
   SECTION = 'SECTION',
   WALK = 'WALK',
+  ANNOTATION = 'ANNOTATION',
   NONE = 'NONE'
 }
 
 // Removed ELEVATION
 export type MeasurementMode = 'DISTANCE' | 'ANGLE' | 'COORDINATE' | 'AREA' | 'VOLUME';
+
+export interface AnnotationData {
+    id: string;
+    position: { x: number; y: number; z: number };
+    text: string;
+    cameraTarget: { x: number; y: number; z: number };
+    timestamp: number;
+}
 
 export interface MeasurementResult {
     id: string;
