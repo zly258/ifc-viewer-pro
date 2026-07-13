@@ -49,9 +49,7 @@ export class IFCManager {
     
     private isInitialized: boolean = false;
     
-    // Demand rendering — only render when scene changes
     private isDirty: boolean = true;
-    private lastUserInteraction: number = 0;
 
     // Models cache storage
     public models: Map<number, { group: THREE.Group, modelID: number, name: string }> = new Map();
@@ -367,32 +365,14 @@ export class IFCManager {
         } else {
             this.controls.update();
         }
-        
-        // Demand rendering: only render when dirty or recent interaction (within 150ms)
-        const now = performance.now();
-        const recentInteraction = (now - this.lastUserInteraction) < 150;
-        
-        if (this.isDirty || recentInteraction) {
-            if (this.postProcessing) {
-                this.postProcessing.render();
-            } else {
-                this.renderer.render(this.scene, this.camera);
-            }
-            if (this.measurementManager) this.labelRenderer.render(this.scene, this.camera);
-            this.isDirty = false;
-        }
 
-        // Idle-stop: cancel RAF loop after 500ms of no interaction to save CPU
-        if (!this.isWalking && !this.isDirty && (now - this.lastUserInteraction) > 500) {
-            cancelAnimationFrame(this.animationFrameId);
-            this.animationFrameId = null;
+        if (this.postProcessing) {
+            this.postProcessing.render();
+        } else {
+            this.renderer.render(this.scene, this.camera);
         }
-    }
-
-    private ensureRenderLoop() {
-        if (this.animationFrameId === null && this.renderer) {
-            this.animate();
-        }
+        if (this.measurementManager) this.labelRenderer.render(this.scene, this.camera);
+        this.isDirty = false;
     }
 
     async init(container: HTMLElement) {
@@ -444,15 +424,7 @@ export class IFCManager {
             // Mark dirty on any user interaction with controls
             this.controls.addEventListener('change', () => {
                 this.isDirty = true;
-                this.lastUserInteraction = performance.now();
             });
-
-            // Restart render loop on pointer interaction (after idle-stop)
-            container.addEventListener('pointerdown', () => {
-                this.lastUserInteraction = performance.now();
-                this.isDirty = true;
-                this.ensureRenderLoop();
-            }, { passive: true });
         } else {
             // Re-mounting
             this.renderer.setSize(container.clientWidth, container.clientHeight);
@@ -473,7 +445,7 @@ export class IFCManager {
         container.appendChild(this.labelRenderer.domElement);
 
         if (!this.animationFrameId) {
-            this.ensureRenderLoop();
+            this.animate();
         }
 
         // Ensure Init is only called once and errors are handled
@@ -2093,6 +2065,7 @@ export class IFCManager {
             this.container.addEventListener('mousedown', this.handleWalkMouseDown);
             this.container.addEventListener('mousemove', this.handleWalkMouseMove);
             window.addEventListener('mouseup', this.handleWalkMouseUp);
+            this.container.addEventListener('wheel', this.handleWalkWheel, { passive: false });
             
             // Mobile touch events
             this.container.addEventListener('touchstart', this.handleWalkTouchStart, { passive: false });
@@ -2127,6 +2100,7 @@ export class IFCManager {
             this.container.removeEventListener('mousedown', this.handleWalkMouseDown);
             this.container.removeEventListener('mousemove', this.handleWalkMouseMove);
             window.removeEventListener('mouseup', this.handleWalkMouseUp);
+            this.container.removeEventListener('wheel', this.handleWalkWheel);
             
             this.container.removeEventListener('touchstart', this.handleWalkTouchStart);
             this.container.removeEventListener('touchmove', this.handleWalkTouchMove);
@@ -2281,6 +2255,16 @@ export class IFCManager {
         this.isDirty = true;
     }
 
+    private handleWalkWheel = (e: WheelEvent) => {
+        e.preventDefault();
+        if (!this.isWalking) return;
+        
+        // Adjust FOV for zoom in/out (walk mode)
+        const delta = e.deltaY > 0 ? 1.5 : -1.5;
+        this.persCamera.fov = Math.max(15, Math.min(110, this.persCamera.fov + delta));
+        this.persCamera.updateProjectionMatrix();
+    }
+
     private updateWalkPosition() {
         if (!this.isWalking) return;
         
@@ -2415,9 +2399,7 @@ export class IFCManager {
     }
     
     renderScene() { 
-        // Mark dirty and restart render loop if idle-stopped
         this.isDirty = true;
-        this.ensureRenderLoop();
     }
     
     /**

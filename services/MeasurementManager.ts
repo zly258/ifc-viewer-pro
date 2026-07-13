@@ -116,8 +116,8 @@ export class MeasurementManager {
         const sprite = new THREE.Sprite(material);
         sprite.scale.set(1, 1, 1);
         
-        // Fixed screen-pixel size: always appear as 12px regardless of zoom
-        const desiredPixelSize = 12;
+        // Fixed screen-pixel size: always appear as 6px regardless of zoom
+        const desiredPixelSize = 6;
         sprite.onBeforeRender = (renderer, scene, camera) => {
             const height = renderer.getSize(new THREE.Vector2()).y;
             if (camera instanceof THREE.PerspectiveCamera) {
@@ -398,10 +398,7 @@ export class MeasurementManager {
             if (result.type !== 'none') {
                 this.snapMarker.position.copy(result.point);
                 this.snapMarker.visible = true;
-                // Scale sprite based on distance for consistent screen size
-                const dist = this.camera.position.distanceTo(result.point);
-                const scale = Math.max(0.08, dist / 80);
-                this.snapMarker.scale.set(scale, scale, 1);
+                // Scale handled by onBeforeRender — fixed screen-pixel size
                 // Update sprite color based on snap type
                 const material = this.snapMarker.material as THREE.SpriteMaterial;
                 if (material.map) {
