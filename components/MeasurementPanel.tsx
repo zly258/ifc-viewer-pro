@@ -96,7 +96,7 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
                 <tr>
                     <td>${idx + 1}</td>
                     <td style="font-weight: 600;">${getLabel(m.type)}</td>
-                    <td class="value-text">${m.value.replace(/\n/g, '<br/>')}</td>
+                    <td class="value-text">${m.value.replace(/\n/g, '<br/>')}${m.type === 'DISTANCE' && m.deltas ? `<br/><span style="font-size:11px;font-weight:400;color:#64748b;">ΔX: ${m.deltas.x.toFixed(3)}  ΔY: ${m.deltas.y.toFixed(3)}  ΔZ: ${m.deltas.z.toFixed(3)}</span>` : ''}</td>
                 </tr>
                 `).join('')}
             </tbody>
@@ -269,6 +269,16 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
                             }}>
                                 {m.value}
                             </span>
+                            {m.type === 'DISTANCE' && m.deltas && (
+                                <span style={{
+                                    fontSize: 10,
+                                    color: 'var(--text-muted)',
+                                    fontWeight: 400,
+                                    fontFamily: 'monospace',
+                                }}>
+                                    ΔX: {m.deltas.x.toFixed(3)}  ΔY: {m.deltas.y.toFixed(3)}  ΔZ: {m.deltas.z.toFixed(3)}
+                                </span>
+                            )}
                         </div>
 
                         {/* Delete btn */}

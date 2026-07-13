@@ -79,6 +79,7 @@ export interface MeasurementResult {
     value: string;
     label: string; // Detailed formatted string
     timestamp: number;
+    deltas?: { x: number; y: number; z: number };
 }
 
 export interface ReportColumn {

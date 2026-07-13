@@ -116,18 +116,18 @@ export class MeasurementManager {
         const sprite = new THREE.Sprite(material);
         sprite.scale.set(1, 1, 1);
         
-        // Fixed screen-pixel size: always appear as 6px regardless of zoom
-        const desiredPixelSize = 6;
+        // Fixed screen-pixel size: always appear as 10px regardless of zoom
+        const desiredPixelSize = 10;
         sprite.onBeforeRender = (renderer, scene, camera) => {
             const height = renderer.getSize(new THREE.Vector2()).y;
             if (camera instanceof THREE.PerspectiveCamera) {
                 const distance = camera.position.distanceTo(sprite.position);
-                const vFOV = (camera.fov * Math.PI) / 180;
+                const vFOV = THREE.MathUtils.degToRad(camera.fov);
                 const worldHeight = 2 * distance * Math.tan(vFOV / 2);
                 const scale = (desiredPixelSize / height) * worldHeight;
                 sprite.scale.set(scale, scale, 1);
             } else if (camera instanceof THREE.OrthographicCamera) {
-                const worldHeight = camera.top - camera.bottom;
+                const worldHeight = (camera.top - camera.bottom) / camera.zoom;
                 const scale = (desiredPixelSize / height) * worldHeight;
                 sprite.scale.set(scale, scale, 1);
             }
@@ -604,7 +604,7 @@ export class MeasurementManager {
 
     // --- Creation Logic ---
 
-    private addMeasurementRecord(type: MeasurementMode, value: string, label: string, objects: THREE.Object3D[], labels: THREE.Sprite[], center?: THREE.Vector3) {
+    private addMeasurementRecord(type: MeasurementMode, value: string, label: string, objects: THREE.Object3D[], labels: THREE.Sprite[], center?: THREE.Vector3, deltas?: { x: number; y: number; z: number }) {
         const id = `m_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
         
         // Calculate center if not provided
@@ -623,7 +623,7 @@ export class MeasurementManager {
             id,
             objects,
             labels,
-            data: { id, type, value, label, timestamp: Date.now() },
+            data: { id, type, value, label, timestamp: Date.now(), deltas },
             center: center || new THREE.Vector3()
         });
         this.notifyChange();
@@ -653,7 +653,13 @@ export class MeasurementManager {
         const label = this.createLabel(center, valStr);
         labels.push(label);
 
-        this.addMeasurementRecord('DISTANCE', valStr, `${this.tipsTranslations.length}: ${valStr}`, objects, labels);
+        // XYZ deltas
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const dz = p2.z - p1.z;
+        const deltas = { x: dx, y: dy, z: dz };
+
+        this.addMeasurementRecord('DISTANCE', valStr, `${this.tipsTranslations.length}: ${valStr}`, objects, labels, undefined, deltas);
     }
 
     private createAngleMeasurement(p1: THREE.Vector3, center: THREE.Vector3, p2: THREE.Vector3) {
@@ -816,17 +822,33 @@ export class MeasurementManager {
         const texture = new THREE.CanvasTexture(canvas);
         texture.minFilter = THREE.LinearFilter;
         
-        const spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthTest: false, sizeAttenuation: true });
-        const sprite = new THREE.Sprite(spriteMaterial);
-        
-        // Scale appropriately based on typical model size.
-        // A sprite's scale corresponds to units in 3D space. 
-        const spriteHeight = 0.4; // 0.4m text height
         const aspect = canvas.width / canvas.height;
-        sprite.scale.set(spriteHeight * aspect, spriteHeight, 1);
+
+        const spriteMaterial = new THREE.SpriteMaterial({ map: texture, depthTest: false, sizeAttenuation: true, transparent: true });
+        const sprite = new THREE.Sprite(spriteMaterial);
         sprite.position.copy(pos);
         sprite.renderOrder = 1000;
-        
+
+        // Fixed screen-pixel height: label is always ~36px tall regardless of zoom
+        const targetHeightPx = 36;
+        sprite.onBeforeRender = (renderer, _scene, camera) => {
+            const height = renderer.getSize(new THREE.Vector2()).y;
+            if (camera instanceof THREE.PerspectiveCamera) {
+                const distance = camera.position.distanceTo(sprite.position);
+                const vFOV = THREE.MathUtils.degToRad(camera.fov);
+                const worldHeight = 2 * distance * Math.tan(vFOV / 2);
+                const scaleY = (targetHeightPx / height) * worldHeight;
+                sprite.scale.set(scaleY * aspect, scaleY, 1);
+            } else if (camera instanceof THREE.OrthographicCamera) {
+                const worldHeight = (camera.top - camera.bottom) / camera.zoom;
+                const scaleY = (targetHeightPx / height) * worldHeight;
+                sprite.scale.set(scaleY * aspect, scaleY, 1);
+            }
+        };
+
+        // Trigger initial scale via manual invocation (avoid null renderer)
+        // Will be correctly set on first render frame
+
         // Store userdata for raycasting
         sprite.userData.isMeasurementLabel = true;
         
