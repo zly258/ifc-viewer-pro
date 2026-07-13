@@ -23,3 +23,7 @@ vite.config.ts.timestamp-*
 *.njsproj
 *.sln
 *.sw?
+
+# WorkBuddy local memory
+.workbuddy/
+

@@ -62,34 +62,28 @@ export class MeasurementManager {
         canvas.height = size;
         const ctx = canvas.getContext('2d')!;
         
-        const center = size / 2;
-        const outerR = size / 2 - 4;
-        const innerR = outerR * 0.35;
+        const pad = 4;
+        const rectSize = size - pad * 2;
         
-        // Outer glow ring
-        ctx.beginPath();
-        ctx.arc(center, center, outerR + 2, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(16, 185, 129, 0.2)';
-        ctx.fill();
+        // Clear
+        ctx.clearRect(0, 0, size, size);
         
-        // Outer ring
-        ctx.beginPath();
-        ctx.arc(center, center, outerR, 0, Math.PI * 2);
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
-        
-        // Filled center
-        ctx.beginPath();
-        ctx.arc(center, center, innerR, 0, Math.PI * 2);
+        // Fill rectangle (solid block like CAD snap marker)
         ctx.fillStyle = '#10b981';
-        ctx.fill();
+        ctx.fillRect(pad, pad, rectSize, rectSize);
         
-        // White dot in center
-        ctx.beginPath();
-        ctx.arc(center, center, innerR * 0.33, 0, Math.PI * 2);
+        // White border
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(pad, pad, rectSize, rectSize);
+        
+        // Small white cross in center
+        const cx = size / 2;
+        const cy = size / 2;
+        const cross = 4;
         ctx.fillStyle = '#ffffff';
-        ctx.fill();
+        ctx.fillRect(cx - cross, cy - 1, cross * 2 + 1, 3);
+        ctx.fillRect(cx - 1, cy - cross, 3, cross * 2 + 1);
         
         const texture = new THREE.CanvasTexture(canvas);
         texture.minFilter = THREE.LinearFilter;
@@ -104,7 +98,25 @@ export class MeasurementManager {
         });
         
         const sprite = new THREE.Sprite(material);
-        sprite.scale.set(0.25, 0.25, 1);
+        sprite.scale.set(1, 1, 1);
+        
+        // Fixed screen-pixel size: always appear as 12px regardless of zoom
+        const desiredPixelSize = 12;
+        sprite.onBeforeRender = (renderer, scene, camera) => {
+            const height = renderer.getSize(new THREE.Vector2()).y;
+            if (camera instanceof THREE.PerspectiveCamera) {
+                const distance = camera.position.distanceTo(sprite.position);
+                const vFOV = (camera.fov * Math.PI) / 180;
+                const worldHeight = 2 * distance * Math.tan(vFOV / 2);
+                const scale = (desiredPixelSize / height) * worldHeight;
+                sprite.scale.set(scale, scale, 1);
+            } else if (camera instanceof THREE.OrthographicCamera) {
+                const worldHeight = camera.top - camera.bottom;
+                const scale = (desiredPixelSize / height) * worldHeight;
+                sprite.scale.set(scale, scale, 1);
+            }
+        };
+        
         return sprite;
     }
 

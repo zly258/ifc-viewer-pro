@@ -529,6 +529,11 @@ select {
   font-size: 10px;
   line-height: 1;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  padding: 0 2px;
 }
 
 .toolbar-button:hover {
