@@ -49,14 +49,6 @@ export enum ViewerTool {
 // Removed ELEVATION
 export type MeasurementMode = 'DISTANCE' | 'ANGLE' | 'COORDINATE' | 'AREA' | 'VOLUME';
 
-export interface AnnotationData {
-    id: string;
-    position: { x: number; y: number; z: number };
-    text: string;
-    cameraTarget: { x: number; y: number; z: number };
-    timestamp: number;
-}
-
 export interface MeasurementResult {
     id: string;
     type: MeasurementMode;

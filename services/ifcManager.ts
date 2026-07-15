@@ -15,7 +15,6 @@ import { LoadingService } from './LoadingService';
 import { InteractionService } from './InteractionService';
 import { MeasurementManager } from './MeasurementManager';
 import { SectionManager } from './SectionManager';
-import { AnnotationManager } from './AnnotationManager';
 import { PostProcessingManager } from './PostProcessing';
 import { eventBus } from './eventBus';
 
@@ -45,7 +44,6 @@ export class IFCManager {
   // ── Sub-services (externally managed) ──
   public measurementManager: MeasurementManager | null = null;
   public sectionManager: SectionManager | null = null;
-  public annotationManager: AnnotationManager | null = null;
   public postProcessing: PostProcessingManager | null = null;
 
   // ── Container ──
@@ -81,6 +79,7 @@ export class IFCManager {
     this.loadingService.onError = (m) => this.onError(m);
     this.loadingService.onModelLoaded = () => {
       eventBus.emit('model-loaded', undefined);
+      eventBus.emit('models-changed', undefined);
     };
   }
 
@@ -182,15 +181,6 @@ export class IFCManager {
           container
         );
       }
-      if (!this.annotationManager) {
-        this.annotationManager = new AnnotationManager();
-        this.annotationManager.init(
-          this.sceneService.scene,
-          this.sceneService.camera,
-          this.sceneService.labelRenderer,
-          container
-        );
-      }
       if (!this.postProcessing) {
         this.postProcessing = new PostProcessingManager(
           this.sceneService.renderer,
@@ -201,8 +191,12 @@ export class IFCManager {
 
       // Wire sub-services to interaction service
       this.interactionService.measurementManager = this.measurementManager;
-      this.interactionService.annotationManager = this.annotationManager;
       this.interactionService.postProcessing = this.postProcessing;
+
+      // Re-derive the rotate pivot from the geometry in view when a rotate
+      // gesture starts, so close-up rotation no longer flings the model away.
+      this.sceneService.onRotatePivotRequest = (x, y) =>
+        this.interactionService.updateRotatePivot(x, y);
 
       // Resize handling
       this.resizeObserver = new ResizeObserver(() => this.handleResize());
@@ -223,13 +217,6 @@ export class IFCManager {
             const box = this.measurementManager.getMeasurementBox(detail.id);
             if (box && !box.isEmpty()) this.sceneService.zoomToBox(box);
           }
-        })
-      );
-
-      this.eventBusUnsubscribers.push(
-        eventBus.on('annotation-focus', (detail) => {
-          const t = detail.target;
-          this.sceneService.zoomToTarget(new THREE.Vector3(t.x, t.y, t.z), 15);
         })
       );
 
@@ -262,14 +249,6 @@ export class IFCManager {
       this.sceneService.reattachContainer(container);
       if (this.measurementManager) {
         this.measurementManager.updateContainer(container);
-      }
-      if (this.annotationManager) {
-        this.annotationManager.init(
-          this.sceneService.scene,
-          this.sceneService.camera,
-          this.sceneService.labelRenderer,
-          container
-        );
       }
       if (this.resizeObserver) this.resizeObserver.disconnect();
       this.resizeObserver = new ResizeObserver(() => this.handleResize());
@@ -379,7 +358,6 @@ export class IFCManager {
     this.modelService.clearAll();
     this.interactionService.clearSelection();
     this.measurementManager?.clear();
-    this.annotationManager?.clear();
     if (this.onMultiSelect) this.onMultiSelect([]);
     this.sectionManager?.clear();
     this.sceneService.renderer.clear();
@@ -390,6 +368,7 @@ export class IFCManager {
     this.sceneService.controls.target.set(0, 0, 0);
     this.sceneService.controls.update();
     this.renderScene();
+    eventBus.emit('models-changed', undefined);
   }
 
   removeModel(modelID: number) {
@@ -403,6 +382,7 @@ export class IFCManager {
       this.onSelect(null);
     }
     this.renderScene();
+    eventBus.emit('models-changed', undefined);
   }
 
   toggleModelVisibility(modelID: number): boolean {

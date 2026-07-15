@@ -6,7 +6,7 @@ import DraggablePanel from './components/common/DraggablePanel';
 import { TopStatusBar } from './components/TopStatusBar';
 import ContextMenu from './components/ContextMenu';
 import { IFCElementData, MeasurementResult, ViewerTool } from './types';
-import { Network, FileText, Ruler, Bookmark, Upload, TableProperties, X as XIcon, MessageSquare } from 'lucide-react';
+import { Network, FileText, Ruler, Upload, TableProperties, X as XIcon, MessageSquare } from 'lucide-react';
 import { ifcManager } from './services/ifcManager';
 import { eventBus } from './services/eventBus';
 import AboutModal from './components/AboutModal';
@@ -20,7 +20,6 @@ const PropertyPanel = lazy(() => import('./components/PropertyPanel'));
 const MeasurementPanel = lazy(() => import('./components/MeasurementPanel'));
 const BcfPanel = lazy(() => import('./components/BcfPanel'));
 const ReportPanel = lazy(() => import('./components/ReportPanel'));
-const AnnotationPanel = lazy(() => import('./components/AnnotationPanel'));
 
 const App: React.FC = () => {
   const { t } = useLanguage();
@@ -33,7 +32,6 @@ const App: React.FC = () => {
   const [showMeasurePanel, setShowMeasurePanel] = useState(false);
   const [showBcfPanel, setShowBcfPanel] = useState(false);
   const [showReportPanel, setShowReportPanel] = useState(false);
-  const [showAnnotationPanel, setShowAnnotationPanel] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -242,7 +240,6 @@ const App: React.FC = () => {
     try {
       ifcManager.clearModels();
       ifcManager.measurementManager?.clear();
-      ifcManager.annotationManager?.clear();
     } catch (e) {
       console.warn('Failed to fully clear 3D scene:', e);
     }
@@ -396,8 +393,8 @@ const App: React.FC = () => {
 
 
         <DraggablePanel
-          title={t.bcf.title}
-          icon={Bookmark}
+          title={t.toolbar.annotationTool}
+          icon={MessageSquare}
           isOpen={showBcfPanel}
           onClose={() => setShowBcfPanel(false)}
           initialPosition={{ x: Math.max(20, window.innerWidth - 340), y: 120 }}
@@ -425,22 +422,6 @@ const App: React.FC = () => {
           )}
         </DraggablePanel>
 
-        {/* Annotation Panel */}
-        <DraggablePanel
-          title={t.annotations.title}
-          icon={MessageSquare}
-          isOpen={showAnnotationPanel}
-          onClose={() => setShowAnnotationPanel(false)}
-          initialPosition={{ x: window.innerWidth - 320, y: 80 }}
-          initialSize={{ w: 280, h: 300 }}
-        >
-          {showAnnotationPanel && (
-            <Suspense fallback={null}>
-              <AnnotationPanel />
-            </Suspense>
-          )}
-        </DraggablePanel>
-
         {/* Bottom Toolbar */}
         <BottomToolbar
           onOpenFile={handleOpenFiles}
@@ -453,15 +434,6 @@ const App: React.FC = () => {
           isBcfPanelOpen={showBcfPanel}
           onToggleReportPanel={() => setShowReportPanel(!showReportPanel)}
           isReportPanelOpen={showReportPanel}
-          onToggleAnnotation={() => {
-            setShowAnnotationPanel(!showAnnotationPanel);
-            if (!showAnnotationPanel) {
-              ifcManager.setTool(ViewerTool.ANNOTATION);
-            } else {
-              ifcManager.setTool(ViewerTool.SELECT);
-            }
-          }}
-          isAnnotationActive={showAnnotationPanel}
         />
 
         {/* Loading Overlay */}
@@ -587,9 +559,6 @@ const App: React.FC = () => {
           isIsolated={isIsolated}
           onClose={() => setContextMenu(null)}
           onSelect={handleContextMenuSelect}
-          onAddAnnotation={(mID, eID) => {
-            setShowBcfPanel(true);
-          }}
           onHideElement={() => {
             setSelectedElement(null);
             setHasHiddenElements(ifcManager.hasHiddenElements);

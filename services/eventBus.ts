@@ -9,13 +9,16 @@ import { ViewerTool } from '../types';
  */
 export interface ViewerEventMap {
   'model-loaded': void;
+  // Emitted whenever the set of loaded models changes (load / remove / clear).
+  // Consumed by the annotation (BCF) panel so it only shows annotations that
+  // belong to the currently-loaded model(s).
+  'models-changed': void;
   'viewer-contextmenu': { x: number; y: number; hit: { modelID: number; expressID: number } | null };
   'viewer-isolation-changed': { isIsolated: boolean };
   'viewer-elements-changed': void;
   'tool-changed': { tool: ViewerTool };
   'open-measure-panel': void;
   'zoom-to-measurement': { id: string };
-  'annotation-focus': { target: { x: number; y: number; z: number } };
 }
 
 type Handler<T> = (payload: T) => void;

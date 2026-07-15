@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { EyeOff, Eye, MessageSquarePlus, X, Expand } from "lucide-react";
+import { EyeOff, Eye, X, Expand } from "lucide-react";
 import { ifcManager } from "../services/ifcManager";
 import { useLanguage } from "../locales/LanguageContext";
 
@@ -8,13 +8,12 @@ interface ContextMenuProps {
     y: number;
     hit: { modelID: number; expressID: number } | null;
     onClose: () => void;
-    onAddAnnotation?: (modelID: number, expressID: number) => void;
     onSelect: (modelID: number, expressID: number) => void;
     isIsolated: boolean;
     onHideElement?: () => void;
 }
 
-const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, hit, onClose, onAddAnnotation, onSelect, isIsolated, onHideElement }) => {
+const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, hit, onClose, onSelect, isIsolated, onHideElement }) => {
     const { t } = useLanguage();
     const menuRef = useRef<HTMLDivElement>(null);
     const adjustedX = Math.min(x, window.innerWidth - 200);
@@ -51,8 +50,6 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, hit, onClose, onAddAnno
     };
     const handleUnisolate = () => { ifcManager.unisolateAll(); onClose(); };
 
-    const handleAnnotation = () => { if (hit && onAddAnnotation) onAddAnnotation(hit.modelID, hit.expressID); onClose(); };
-
     return (
         <div ref={menuRef} className="context-menu" style={{ left: adjustedX, top: adjustedY }} onContextMenu={e => e.preventDefault()}>
             {hit ? (
@@ -68,12 +65,6 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, hit, onClose, onAddAnno
                     {isIsolated && (
                         <button className="context-menu-item" onClick={handleUnisolate}>
                             <EyeOff size={13} /> {t.contextMenu.unisolate}
-                        </button>
-                    )}
-
-                    {onAddAnnotation && (
-                        <button className="context-menu-item" onClick={handleAnnotation}>
-                            <MessageSquarePlus size={13} /> {t.contextMenu.addAnnotation}
                         </button>
                     )}
                 </>

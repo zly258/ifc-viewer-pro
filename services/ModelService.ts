@@ -292,6 +292,51 @@ export class ModelService {
     return this.meshIndex.get(`${modelID}_${expressID}`) || null;
   }
 
+  // World-space centroid of a single IFC element (by expressID). Handles both
+  // instanced meshes (per-instance transform) and merged/batched geometry
+  // (extracts the element's sub-geometry first so the center is accurate).
+  // Returns null if the element cannot be located.
+  getElementCenter(modelID: number, expressID: number): THREE.Vector3 | null {
+    const found = this.findMeshByExpressID(modelID, expressID);
+    if (!found) return null;
+    const { mesh, instanceId } = found;
+
+    const center = new THREE.Vector3();
+
+    if (mesh instanceof THREE.InstancedMesh && instanceId !== undefined) {
+      mesh.geometry.computeBoundingBox();
+      if (mesh.geometry.boundingBox) {
+        mesh.geometry.boundingBox.getCenter(center);
+        const m = new THREE.Matrix4();
+        mesh.getMatrixAt(instanceId, m);
+        center.applyMatrix4(m).applyMatrix4(mesh.matrixWorld);
+        return center;
+      }
+    }
+
+    const geo = mesh.geometry as THREE.BufferGeometry;
+    if (geo.getAttribute('expressID')) {
+      const sub = this.extractGeometryByExpressID(geo, expressID);
+      if (sub) {
+        sub.computeBoundingBox();
+        if (sub.boundingBox) {
+          sub.boundingBox.getCenter(center);
+          center.applyMatrix4(mesh.matrixWorld);
+        }
+        sub.dispose();
+        if (sub.boundingBox) return center;
+      }
+    }
+
+    geo.computeBoundingBox();
+    if (geo.boundingBox) {
+      geo.boundingBox.getCenter(center);
+      center.applyMatrix4(mesh.matrixWorld);
+      return center;
+    }
+    return null;
+  }
+
   extractGeometryByExpressID(
     mergedGeometry: THREE.BufferGeometry,
     targetExpressID: number

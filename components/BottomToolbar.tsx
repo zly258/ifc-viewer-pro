@@ -2,9 +2,8 @@ import React, { useRef, useState, useEffect } from 'react';
 import {
   FolderTree, FileText, Maximize, Settings,
   Ruler, Scissors, Trash2, Plus, DraftingCompass, MapPin,
-  List, Bookmark, LayoutGrid, TableProperties,
-  Database, MessageSquare,
-} from 'lucide-react';
+  List, LayoutGrid, TableProperties,
+  Database, MessageSquare,} from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
 import { CameraView, ViewerTool, MeasurementMode } from '../types';
 import { useLanguage } from '../locales/LanguageContext';
@@ -21,8 +20,6 @@ interface BottomToolbarProps {
   isBcfPanelOpen: boolean;
   onToggleReportPanel: () => void;
   isReportPanelOpen: boolean;
-  onToggleAnnotation: () => void;
-  isAnnotationActive: boolean;
 }
 
 // Camera views list
@@ -57,8 +54,6 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
     isBcfPanelOpen,
     onToggleReportPanel,
     isReportPanelOpen,
-    onToggleAnnotation,
-    isAnnotationActive,
 }) => {
   const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -428,8 +423,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
         {/* Panel Group */}
         <ToolButton icon={FolderTree} label={t.toolbar.model} active={isModelTreeOpen} onClick={onToggleModelTree} />
         <ToolButton icon={FileText} label={t.toolbar.properties} active={activeRightPanel === 'properties'} onClick={() => onToggleRightPanel()} />
-        <ToolButton icon={MessageSquare} label={t.toolbar.annotationTool} active={isAnnotationActive} onClick={onToggleAnnotation} />
-        <ToolButton icon={Bookmark} label={t.toolbar.bcf} active={isBcfPanelOpen} onClick={onToggleBcfPanel} />
+        <ToolButton icon={MessageSquare} label={t.toolbar.annotationTool} active={isBcfPanelOpen} onClick={onToggleBcfPanel} />
         <ToolButton icon={TableProperties} label={t.toolbar.report} active={isReportPanelOpen} onClick={onToggleReportPanel} />
 
         <div className="toolbar-divider" />

@@ -5,7 +5,6 @@ import { SceneService } from './SceneService';
 import { ModelService } from './ModelService';
 import { LoadingService } from './LoadingService';
 import type { MeasurementManager } from './MeasurementManager';
-import type { AnnotationManager } from './AnnotationManager';
 import type { PostProcessingManager } from './PostProcessing';
 import { eventBus } from './eventBus';
 
@@ -16,7 +15,6 @@ export class InteractionService {
 
   // Sub-service references (set by facade)
   public measurementManager: MeasurementManager | null = null;
-  public annotationManager: AnnotationManager | null = null;
   public postProcessing: PostProcessingManager | null = null;
 
   // ── Raycaster ──
@@ -145,13 +143,60 @@ export class InteractionService {
     return null;
   }
 
-  castRayFromCenter(): THREE.Intersection<THREE.Object3D>[] {
-    this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.sceneService.camera);
+  // ── Rotate pivot ──
+  // Re-derives the OrbitControls pivot (controls.target) at rotate-start so the
+  // close-up view orbits around the geometry the user is actually pointing at,
+  // instead of the far-away model center (which makes the model "fly away").
+  //
+  // Pivot is taken from a ray cast through the CURSOR (ndcX/ndcY), not the
+  // viewport center — so it tracks where the user pressed, even when the detail
+  // sits at the screen edge.
+  //
+  // IMPORTANT: we raycast against ALL raycast meshes and do NOT filter out the
+  // highlighted/selected element. Otherwise the element the user just selected
+  // would be skipped and the pivot would land behind it (or miss entirely).
+  //
+  // JUMP-FREE UPDATE: the pivot usually lies OFF the current view axis, and
+  // OrbitControls' internal `camera.lookAt(target)` would otherwise snap the
+  // view toward it. To keep the exact same orientation we translate the camera
+  // by the same delta as the target (delta = newPivot - oldTarget). Because
+  // OrbitControls recomputes the camera-offset as `position - target` on every
+  // update, moving both by the same delta leaves the offset (and therefore the
+  // view direction & zoom) untouched — only the center of rotation moves.
+  //
+  // If nothing is under the cursor at rotate-start we keep the CURRENT orbit
+  // center (usually the last selected element) instead of snapping to a far
+  // fallback — that fallback was the original cause of the "fly away" bug.
+  updateRotatePivot(ndcX: number, ndcY: number) {
+    const controls = this.sceneService.controls;
+    const camera = this.sceneService.camera;
+    const oldTarget = controls.target.clone();
+
+    this.raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
     this.raycaster.firstHitOnly = true;
-    const targets = this.modelService
-      .getRaycastMeshes()
-      .filter((c) => !this.multiHighlightMeshes.includes(c));
-    return this.raycaster.intersectObjects(targets, false);
+    const hits = this.raycaster.intersectObjects(this.modelService.getRaycastMeshes(), false);
+
+    if (hits.length === 0) {
+      // No geometry under the cursor: keep the current orbit center.
+      return;
+    }
+
+    const pivot = hits[0].point.clone();
+    const delta = pivot.clone().sub(oldTarget);
+    controls.target.copy(pivot);
+    camera.position.add(delta);
+    controls.update();
+
+    // Marker size: use camera→pivot distance for perspective, visible world height
+    // for orthographic, so the pivot dot stays a consistent on-screen size.
+    let depthDistance: number;
+    if (camera instanceof THREE.OrthographicCamera) {
+      depthDistance = (camera.top - camera.bottom) / camera.zoom;
+    } else {
+      depthDistance = camera.position.distanceTo(pivot);
+    }
+    this.sceneService.showPivot(pivot, depthDistance);
+    this.sceneService.isDirty = true;
   }
 
   // ── Mouse events ──
@@ -159,12 +204,6 @@ export class InteractionService {
     if (this.activeTool === ViewerTool.MEASURE) {
       this.measurementManager?.onMouseMove(event, this.modelService.getRaycastMeshes());
       this.sceneService.isDirty = true;
-      return;
-    }
-
-    if (this.activeTool === ViewerTool.ANNOTATION) {
-      const c = this.sceneService.getContainer();
-      if (c) c.style.cursor = 'crosshair';
       return;
     }
 
@@ -197,18 +236,6 @@ export class InteractionService {
     if (this.activeTool === ViewerTool.MEASURE) {
       this.measurementManager?.onClick(event, this.modelService.getRaycastMeshes());
       this.sceneService.isDirty = true;
-      return;
-    }
-
-    if (this.activeTool === ViewerTool.ANNOTATION) {
-      const hit = this.castRay(event);
-      if (hit && hit.point && this.annotationManager) {
-        const point = hit.point.clone();
-        const text = window.prompt('请输入批注文字 / Enter annotation text:');
-        if (text && text.trim()) {
-          this.annotationManager.addAnnotation(point, text.trim());
-        }
-      }
       return;
     }
 
@@ -282,11 +309,6 @@ export class InteractionService {
         eventBus.emit('tool-changed', { tool: ViewerTool.NONE });
         return;
       }
-      if (this.activeTool === ViewerTool.ANNOTATION) {
-        this.setTool(ViewerTool.SELECT);
-        eventBus.emit('tool-changed', { tool: ViewerTool.ANNOTATION });
-        return;
-      }
       if (this.activeTool === ViewerTool.SECTION) {
         this.setTool(ViewerTool.NONE);
         eventBus.emit('tool-changed', { tool: ViewerTool.NONE });
@@ -333,6 +355,11 @@ export class InteractionService {
     if (expressID !== -1 && modelID !== undefined) {
       await this.highlightElement(modelID, expressID, mesh, shiftKey);
       await this.selectElement(modelID, expressID, shiftKey);
+      // Focus the orbit pivot on the selected element so that a subsequent
+      // rotation (middle+Ctrl drag) orbits around THIS element instead of
+      // flying off to the far-away model center.
+      const center = this.modelService.getElementCenter(modelID, expressID);
+      if (center) this.sceneService.focusOn(center);
     } else if (mesh.userData.isGLB) {
       this.highlightElement(modelID, -1, mesh);
       this.onSelect({

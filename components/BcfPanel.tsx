@@ -349,7 +349,7 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
                                 </div>
                             </div>
 
-                            {/* Delete */}
+                            {/* Delete (always visible so it's easy to find) */}
                             <button
                                 onClick={(e) => handleDelete(e, vp.id)}
                                 className="icon-button danger-button"
@@ -362,12 +362,19 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
                                     right: 7,
                                     background: 'var(--surface-0)',
                                     border: '1px solid var(--border)',
-                                    opacity: 0,
-                                    transition: 'opacity 0.15s',
+                                    opacity: 0.75,
+                                    transition: 'opacity 0.15s, color 0.15s, border-color 0.15s',
                                 }}
-                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
-                                onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '0'}
-                                onMouseOver={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
+                                onMouseEnter={e => {
+                                    (e.currentTarget as HTMLElement).style.opacity = '1';
+                                    (e.currentTarget as HTMLElement).style.color = 'var(--danger)';
+                                    (e.currentTarget as HTMLElement).style.borderColor = 'var(--danger-border)';
+                                }}
+                                onMouseLeave={e => {
+                                    (e.currentTarget as HTMLElement).style.opacity = '0.75';
+                                    (e.currentTarget as HTMLElement).style.color = '';
+                                    (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
+                                }}
                             >
                                 <Trash2 size={12} />
                             </button>

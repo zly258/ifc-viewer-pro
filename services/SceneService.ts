@@ -31,6 +31,9 @@ export class SceneService {
   // Callbacks injected by facade
   public onBeforeFrame: (() => void) | null = null;
   public onPostRender: (() => void) | null = null;
+  // Requests the interaction layer to re-derive the rotate pivot (controls.target)
+  // from the geometry under the cursor when a rotate gesture starts.
+  public onRotatePivotRequest: ((ndcX: number, ndcY: number) => void) | null = null;
 
   constructor() {
     // ── Scene ──
@@ -152,7 +155,15 @@ export class SceneService {
       const isRotateMiddle = e.button === 1 && this.controls.mouseButtons.MIDDLE === THREE.MOUSE.ROTATE;
       if (isRotateMiddle && this.container) {
         this.container.style.cursor = rotateCursor;
-        // Defer depth-based pivot update to InteractionService via callback
+        // Re-derive the rotate pivot from the geometry UNDER THE CURSOR so that
+        // rotating a close-up detail orbits around that detail instead of the
+        // far-away model center (which otherwise makes the model "fly away").
+        // We convert the pointer to normalized device coords here (SceneService
+        // owns the canvas rect) and pass NDC to keep InteractionService DOM-free.
+        const rect = this.container.getBoundingClientRect();
+        const ndcX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        const ndcY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        this.onRotatePivotRequest?.(ndcX, ndcY);
       }
     };
 
@@ -483,6 +494,21 @@ export class SceneService {
 
   hidePivot() {
     this.pivotMarker.visible = false;
+  }
+
+  // Re-center the orbit pivot (controls.target) onto `point` WITHOUT changing
+  // the current view. OrbitControls derives the camera offset as
+  // `position - target` every frame, so translating the camera by the same
+  // delta as the target keeps the view direction & zoom identical — only the
+  // rotation center moves. Used when an element is selected so that subsequent
+  // rotation orbits around the selected element instead of flying off to the
+  // (far-away) model center.
+  focusOn(point: THREE.Vector3) {
+    const delta = point.clone().sub(this.controls.target);
+    this.controls.target.copy(point);
+    this.camera.position.add(delta);
+    this.controls.update();
+    this.isDirty = true;
   }
 
   // ── Cleanup (safe, does NOT destroy WebGL context) ──
