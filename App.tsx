@@ -83,6 +83,7 @@ const App: React.FC = () => {
 
   // Modal States
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [modelToRemove, setModelToRemove] = useState<number | null>(null);
 
   // Dark Theme — sync with settings
   const [isDarkTheme, setIsDarkTheme] = useState(() => {
@@ -254,6 +255,30 @@ const App: React.FC = () => {
     setModelKey(prev => prev + 1);
   };
 
+  const handleConfirmRemoveModel = () => {
+    if (modelToRemove === null) return;
+    try {
+      ifcManager.removeModel(modelToRemove);
+      ifcManager.measurementManager?.removeMeasurementsByModel(modelToRemove);
+    } catch (e) {
+      console.warn('Failed to remove model:', e);
+    }
+    const allModels = Array.from(ifcManager.models.values());
+    if (allModels.length === 0) {
+      setLastFileName(null);
+      setSelectedElement(null);
+      setSelectedElements([]);
+      setShowPropertyPanel(false);
+      setShowMeasurePanel(false);
+    } else if (allModels.length === 1) {
+      setLastFileName(allModels[0].group.name || t.app.unnamedModel);
+    } else {
+      setLastFileName(`${allModels.length} ${t.app.activeModels}`);
+    }
+    setModelKey(prev => prev + 1);
+    setModelToRemove(null);
+  };
+
   const onViewerReady = () => {
     if (ifcManager.measurementManager) {
       ifcManager.measurementManager.onMeasurementsChange = (results) => {
@@ -325,6 +350,7 @@ const App: React.FC = () => {
             key={modelKey}
             onLoadStructure={() => {}}
             selectedElement={selectedElement}
+            onRequestRemoveModel={(modelID) => setModelToRemove(modelID)}
           />
         </DraggablePanel>
 
@@ -478,13 +504,6 @@ const App: React.FC = () => {
               borderRadius: 'var(--radius-xl)',
               boxShadow: 'var(--shadow-panel)',
             }}>
-              <div style={{
-                width: 56, height: 56, borderRadius: 'var(--radius-lg)',
-                background: 'var(--brand-soft)', border: '1px solid var(--brand-border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 4,
-              }}>
-                <Upload size={26} style={{ color: 'var(--brand)' }} />
-              </div>
               <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{t.app.openModel}</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.7 }}>
                 {t.app.supportFormat}<br />
@@ -531,7 +550,7 @@ const App: React.FC = () => {
       </div>
 
       {/* Context Menu */}
-      {contextMenu && (
+      {contextMenu && lastFileName && (
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
@@ -576,6 +595,35 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Remove Model Confirm */}
+      {modelToRemove !== null && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(15, 23, 42, 0.42)',
+          backdropFilter: 'blur(3px)',
+          zIndex: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 16,
+        }}>
+          <div className="panel-surface animate-fade-in-up" style={{ width: '100%', maxWidth: 360, padding: 20 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>{t.modelTree.removeTitle}</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 18 }}>
+              {t.modelTree.removeDesc}
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setModelToRemove(null)} className="secondary-button">{t.app.cancel}</button>
+              <button
+                onClick={handleConfirmRemoveModel}
+                className="danger-primary-button"
+              >
+                {t.modelTree.confirmRemove}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* About Modal */}
       <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />
 

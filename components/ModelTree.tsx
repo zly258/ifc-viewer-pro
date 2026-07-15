@@ -31,6 +31,7 @@ interface FlatNode {
 interface ModelTreeProps {
     onLoadStructure: () => void;
     selectedElement: IFCElementData | null;
+    onRequestRemoveModel?: (modelID: number) => void;
 }
 
 // Type-to-color dot mapping for node type indicators
@@ -46,7 +47,7 @@ function getTypeColor(type: string): string {
     return 'var(--text-muted)';
 }
 
-const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
+const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement, onRequestRemoveModel }) => {
     const { t } = useLanguage();
     const [fileStructures, setFileStructures] = useState<LoadedFileStructure[]>([]);
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -55,7 +56,6 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const [loading, setLoading] = useState(true);
-    const [modelToRemove, setModelToRemove] = useState<number | null>(null);
     const listRef = useRef<any>(null);
 
     useEffect(() => {
@@ -124,7 +124,7 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
 
     const handleRemove = (e: React.MouseEvent, modelID: number) => {
         e.stopPropagation();
-        setModelToRemove(modelID);
+        onRequestRemoveModel?.(modelID);
     };
 
     const flatList = useMemo(() => {
@@ -431,43 +431,9 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement }) => {
                     </div>
                 )}
             </div>
-
-            {/* Remove model confirm dialog */}
-            {modelToRemove !== null && (
-                <div style={{
-                    position: 'fixed',
-                    inset: 0,
-                    background: 'rgba(15, 23, 42, 0.4)',
-                    backdropFilter: 'blur(2px)',
-                    zIndex: 50,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 16,
-                }}>
-                    <div className="panel-surface animate-fade-in-up" style={{ width: '100%', maxWidth: 360, padding: 20 }}>
-                        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>{t.modelTree.removeTitle}</h3>
-                        <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 16 }}>
-                            {t.modelTree.removeDesc}
-                        </p>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                            <button onClick={() => setModelToRemove(null)} className="secondary-button">{t.app.cancel}</button>
-                            <button
-                                onClick={() => {
-                                    ifcManager.removeModel(modelToRemove);
-                                    setFileStructures(prev => prev.filter(f => f.modelID !== modelToRemove));
-                                    setModelToRemove(null);
-                                }}
-                                className="danger-primary-button"
-                            >
-                                {t.modelTree.confirmRemove}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
+
 };
 
 export default ModelTree;

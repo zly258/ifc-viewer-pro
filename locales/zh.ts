@@ -205,6 +205,11 @@ const zh = {
     newColumn: '新列',
     elementName: '构件名称',
     elementType: '类型',
+    searchPlaceholder: '搜索过滤...',
+    prevPage: '上一页',
+    nextPage: '下一页',
+    pageInfo: '第 {current} / {total} 页',
+    pageSize: '每页',
   },
 
   // Settings Modal

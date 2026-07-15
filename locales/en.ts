@@ -207,6 +207,11 @@ const en: LocaleMessages = {
     newColumn: 'New Column',
     elementName: 'Element Name',
     elementType: 'Type',
+    searchPlaceholder: 'Search filter...',
+    prevPage: 'Previous',
+    nextPage: 'Next',
+    pageInfo: 'Page {current} / {total}',
+    pageSize: 'Per page',
   },
 
   // Settings Modal
