@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import {
   FolderTree, FileText, Maximize, Settings,
   Ruler, Scissors, Trash2, Plus, DraftingCompass, MapPin,
-  List, Navigation, Bookmark, LayoutGrid, TableProperties,
+  List, Bookmark, LayoutGrid, TableProperties,
   Database, MessageSquare,
 } from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
@@ -436,7 +436,6 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
         <div className="toolbar-divider" />
 
         {/* Tool Group */}
-        <ToolButton icon={Navigation} label={t.toolbar.walk} active={activeTool === ViewerTool.WALK} onClick={() => handleToolChange(ViewerTool.WALK)} />
         <ToolButton icon={Ruler} label={t.toolbar.measure} active={activeTool === ViewerTool.MEASURE} onClick={() => handleToolChange(ViewerTool.MEASURE)} />
         <ToolButton icon={Scissors} label={t.toolbar.section} active={activeTool === ViewerTool.SECTION} onClick={() => handleToolChange(ViewerTool.SECTION)} />
 

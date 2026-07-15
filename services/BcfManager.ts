@@ -14,7 +14,6 @@ export interface BcfViewpoint {
     cameraZoom: number;
     cameraYaw?: number;
     cameraPitch?: number;
-    isWalkMode: boolean;
     screenshot: string; // Base64 data URL
     clippingPlanes?: { axis: 'X' | 'Y' | 'Z', min: number, max: number }[];
     timestamp: number;
@@ -59,7 +58,6 @@ class BcfManager {
         }
 
         // 2. Read camera state
-        const isWalkMode = (ifcManager as any).isWalking;
         const cameraPos: [number, number, number] = [
             ifcManager.camera.position.x,
             ifcManager.camera.position.y,
@@ -115,7 +113,6 @@ class BcfManager {
             cameraZoom,
             cameraYaw,
             cameraPitch,
-            isWalkMode,
             screenshot,
             clippingPlanes: clippingPlanes.length > 0 ? clippingPlanes : undefined,
             timestamp: Date.now()
@@ -134,29 +131,16 @@ class BcfManager {
     }
 
     restoreViewpoint(vp: BcfViewpoint) {
-        if (vp.isWalkMode) {
-            ifcManager.setTool(ViewerTool.WALK);
-            
-            // Wait a tick for camera switch
-            setTimeout(() => {
-                ifcManager.camera.position.set(vp.cameraPosition[0], vp.cameraPosition[1], vp.cameraPosition[2]);
-                (ifcManager as any).cameraYaw = vp.cameraYaw || 0;
-                (ifcManager as any).cameraPitch = vp.cameraPitch || 0;
-                (ifcManager as any).updateCameraRotation();
-                (ifcManager as any).renderScene();
-            }, 50);
-        } else {
-            ifcManager.setTool(ViewerTool.SELECT);
-            
-            setTimeout(() => {
-                ifcManager.camera.position.set(vp.cameraPosition[0], vp.cameraPosition[1], vp.cameraPosition[2]);
-                (ifcManager as any).controls.target.set(vp.cameraTarget[0], vp.cameraTarget[1], vp.cameraTarget[2]);
-                ifcManager.camera.zoom = vp.cameraZoom || 1;
-                ifcManager.camera.updateProjectionMatrix();
-                (ifcManager as any).controls.update();
-                (ifcManager as any).renderScene();
-            }, 50);
-        }
+        ifcManager.setTool(ViewerTool.SELECT);
+
+        setTimeout(() => {
+            ifcManager.camera.position.set(vp.cameraPosition[0], vp.cameraPosition[1], vp.cameraPosition[2]);
+            (ifcManager as any).controls.target.set(vp.cameraTarget[0], vp.cameraTarget[1], vp.cameraTarget[2]);
+            ifcManager.camera.zoom = vp.cameraZoom || 1;
+            ifcManager.camera.updateProjectionMatrix();
+            (ifcManager as any).controls.update();
+            (ifcManager as any).renderScene();
+        }, 50);
 
         // Restore clipping planes
         if (ifcManager.sectionManager) {

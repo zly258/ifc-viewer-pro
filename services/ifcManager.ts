@@ -13,7 +13,6 @@ import { SceneService } from './SceneService';
 import { ModelService } from './ModelService';
 import { LoadingService } from './LoadingService';
 import { InteractionService } from './InteractionService';
-import { WalkthroughService } from './WalkthroughService';
 import { MeasurementManager } from './MeasurementManager';
 import { SectionManager } from './SectionManager';
 import { AnnotationManager } from './AnnotationManager';
@@ -33,8 +32,7 @@ THREE.Mesh.prototype.raycast = acceleratedRaycast;
  *     ├── SceneService        — scene, cameras, renderer, lights, controls, shadows, render loop
  *     ├── ModelService        — model CRUD, hide/show, isolate, bounding box, spatial, stats
  *     ├── LoadingService      — Worker, IFC/GLB loading, batcher, cache, property/report queries
- *     ├── InteractionService  — raycasting, selection, highlight/hover, keyboard, tool mgmt
- *     └── WalkthroughService  — walk mode, WASD, collision, touch
+ *     └── InteractionService  — raycasting, selection, highlight/hover, keyboard, tool mgmt
  */
 export class IFCManager {
   // ── Services ──
@@ -42,7 +40,6 @@ export class IFCManager {
   public modelService: ModelService;
   public loadingService: LoadingService;
   public interactionService: InteractionService;
-  public walkthroughService: WalkthroughService;
 
   // ── Sub-services (externally managed) ──
   public measurementManager: MeasurementManager | null = null;
@@ -74,10 +71,6 @@ export class IFCManager {
       this.sceneService,
       this.modelService,
       this.loadingService
-    );
-    this.walkthroughService = new WalkthroughService(
-      this.sceneService,
-      this.modelService
     );
 
     // Wire callbacks
@@ -204,9 +197,6 @@ export class IFCManager {
       this.interactionService.annotationManager = this.annotationManager;
       this.interactionService.postProcessing = this.postProcessing;
 
-      // Wire walkthrough sub-service
-      this.walkthroughService.postProcessing = this.postProcessing;
-
       // Resize handling
       this.resizeObserver = new ResizeObserver(() => this.handleResize());
       this.resizeObserver.observe(container);
@@ -245,13 +235,6 @@ export class IFCManager {
         }
         if (this.measurementManager) {
           this.sceneService.labelRenderer.render(this.sceneService.scene, this.sceneService.camera);
-        }
-      };
-
-      this.sceneService.onBeforeFrame = () => {
-        if (this.walkthroughService.isWalking) {
-          this.walkthroughService.updatePosition();
-          this.sceneService.isDirty = true;
         }
       };
 
@@ -317,7 +300,6 @@ export class IFCManager {
 
     // Dispose services
     this.interactionService.dispose();
-    this.walkthroughService.dispose();
     this.loadingService.dispose();
     this.modelService.dispose();
     this.sceneService.dispose();
@@ -492,12 +474,6 @@ export class IFCManager {
     this.interactionService.setTool(t);
 
     if (t !== ViewerTool.SECTION) this.sectionManager?.clear();
-
-    if (t === ViewerTool.WALK) {
-      this.walkthroughService.activate();
-    } else if (this.walkthroughService.isWalking) {
-      this.walkthroughService.deactivate();
-    }
 
     this.renderScene();
   }

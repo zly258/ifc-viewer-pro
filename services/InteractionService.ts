@@ -167,27 +167,25 @@ export class InteractionService {
       return;
     }
 
-    if (this.activeTool !== ViewerTool.WALK) {
-      if (this.sceneService.wasDraggingControls) return;
+    if (this.sceneService.wasDraggingControls) return;
 
-      const hit = this.castRay(event);
-      const c = this.sceneService.getContainer();
-      if (hit && hit.expressID !== -1 && hit.modelID !== undefined) {
-        if (c) c.style.cursor = 'pointer';
+    const hit = this.castRay(event);
+    const c = this.sceneService.getContainer();
+    if (hit && hit.expressID !== -1 && hit.modelID !== undefined) {
+      if (c) c.style.cursor = 'pointer';
 
-        if (this.enableHoverHighlight) {
-          const sameElement =
-            this.hoveredElement?.modelID === hit.modelID &&
-            this.hoveredElement?.expressID === hit.expressID;
-          if (!sameElement) {
-            this.clearHoverHighlight();
-            this.createHoverHighlight(hit.modelID, hit.expressID, hit.mesh);
-          }
+      if (this.enableHoverHighlight) {
+        const sameElement =
+          this.hoveredElement?.modelID === hit.modelID &&
+          this.hoveredElement?.expressID === hit.expressID;
+        if (!sameElement) {
+          this.clearHoverHighlight();
+          this.createHoverHighlight(hit.modelID, hit.expressID, hit.mesh);
         }
-      } else {
-        if (c) c.style.cursor = 'default';
-        this.clearHoverHighlight();
       }
+    } else {
+      if (c) c.style.cursor = 'default';
+      this.clearHoverHighlight();
     }
   };
 
@@ -213,30 +211,27 @@ export class InteractionService {
       return;
     }
 
-    if (this.activeTool !== ViewerTool.WALK) {
-      if (this.sceneService.wasDraggingControls) return;
-      event.preventDefault();
-      event.stopPropagation();
+    if (this.sceneService.wasDraggingControls) return;
+    event.preventDefault();
+    event.stopPropagation();
 
-      if (this.measurementManager) {
-        const measurementId = this.measurementManager.raycast(event);
-        if (measurementId) {
-          const box = this.measurementManager.getMeasurementBox(measurementId);
-          if (box && !box.isEmpty()) {
-            this.sceneService.zoomToBox(box);
-          }
-          return;
+    if (this.measurementManager) {
+      const measurementId = this.measurementManager.raycast(event);
+      if (measurementId) {
+        const box = this.measurementManager.getMeasurementBox(measurementId);
+        if (box && !box.isEmpty()) {
+          this.sceneService.zoomToBox(box);
         }
+        return;
       }
-
-      await this.selectFromPointer(event, event.ctrlKey);
     }
+
+    await this.selectFromPointer(event, event.ctrlKey);
   };
 
   handleDoubleClick = async (event: MouseEvent) => {
     const container = this.sceneService.getContainer();
     if (!container) return;
-    if (this.activeTool === ViewerTool.WALK) return;
 
     event.preventDefault();
     event.stopPropagation();

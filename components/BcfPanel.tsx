@@ -297,7 +297,7 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
                                         gap: 3,
                                     }}>
                                         <Eye size={8} />
-                                        {vp.isWalkMode ? t.bcf.walkMode : t.bcf.isoView}
+                                        {t.bcf.isoView}
                                     </div>
                                 </div>
                             ) : (
