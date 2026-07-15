@@ -279,15 +279,11 @@ export class InteractionService {
     event.stopPropagation();
 
     const hit = this.castRay(event);
-    window.dispatchEvent(
-      new CustomEvent('viewer-contextmenu', {
-        detail: {
-          x: event.clientX,
-          y: event.clientY,
-          hit: hit ? { modelID: hit.modelID, expressID: hit.expressID } : null,
-        },
-      })
-    );
+    eventBus.emit('viewer-contextmenu', {
+      x: event.clientX,
+      y: event.clientY,
+      hit: hit ? { modelID: hit.modelID, expressID: hit.expressID } : null,
+    });
   };
 
   handleKeyDown = (e: KeyboardEvent) => {
@@ -355,11 +351,11 @@ export class InteractionService {
     if (expressID !== -1 && modelID !== undefined) {
       await this.highlightElement(modelID, expressID, mesh, shiftKey);
       await this.selectElement(modelID, expressID, shiftKey);
-      // Focus the orbit pivot on the selected element so that a subsequent
-      // rotation (middle+Ctrl drag) orbits around THIS element instead of
-      // flying off to the far-away model center.
-      const center = this.modelService.getElementCenter(modelID, expressID);
-      if (center) this.sceneService.focusOn(center);
+      // NOTE: intentionally NOT re-centering the orbit pivot here (no focusOn /
+      // fit). Point-selecting should only highlight + show properties; moving
+      // the camera on every click feels like an unwanted auto-fit. The close-up
+      // rotation fix (updateRotatePivot at middle+Ctrl start) re-derives the
+      // pivot from the cursor on demand, so this removal is safe.
     } else if (mesh.userData.isGLB) {
       this.highlightElement(modelID, -1, mesh);
       this.onSelect({

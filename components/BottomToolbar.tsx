@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import {
   FolderTree, FileText, Maximize, Settings,
   Ruler, Scissors, Trash2, Plus, DraftingCompass, MapPin,
-  List, LayoutGrid, TableProperties,
+  List, LayoutGrid, TableProperties, Boxes,
   Database, MessageSquare,} from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
 import { CameraView, ViewerTool, MeasurementMode } from '../types';
@@ -39,7 +39,6 @@ const getViews = (t: any) => [
 const getSamples = (t: any) => [
     { file: 'Structure_Model.ifc', label: t.samples.structureModel },
     { file: 'LED_Screen.ifc', label: t.samples.ledScreen },
-    { file: 'Energy_Tower.ifc', label: t.samples.energyTower },
     { file: 'Wellness_Center.ifc', label: t.samples.wellnessCenter },
 ];
 
@@ -71,6 +70,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
   });
 
   const [measureMode, setMeasureMode] = useState<MeasurementMode>('DISTANCE');
+  const [explodeFactor, setExplodeFactor] = useState(0);
   const viewMenuRef = useRef<HTMLDivElement>(null);
   const sampleMenuRef = useRef<HTMLDivElement>(null);
 
@@ -139,7 +139,16 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
     if (activeTool === tool) {
       setActiveTool(ViewerTool.NONE);
       ifcManager.setTool(ViewerTool.NONE);
+      if (tool === ViewerTool.EXPLODE) {
+        ifcManager.resetExplosion();
+        setExplodeFactor(0);
+      }
     } else {
+      // Leaving a previously-active tool: clean up its transient state.
+      if (activeTool === ViewerTool.EXPLODE) {
+        ifcManager.resetExplosion();
+        setExplodeFactor(0);
+      }
       setActiveTool(tool);
       ifcManager.setTool(tool);
       if (tool === ViewerTool.MEASURE) {
@@ -147,6 +156,17 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
         ifcManager.setMeasurementMode('DISTANCE');
       }
     }
+  };
+
+  const handleExplodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    setExplodeFactor(val);
+    ifcManager.setExplosion(val / 100);
+  };
+
+  const handleResetExplode = () => {
+    ifcManager.resetExplosion();
+    setExplodeFactor(0);
   };
 
   const toggleSectionPlane = (axis: 'X' | 'Y' | 'Z') => {
@@ -345,6 +365,57 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
         </div>
       )}
 
+      {/* Sub-toolbar: Explode */}
+      {activeTool === ViewerTool.EXPLODE && (
+        <div className="sub-toolbar flex items-center gap-3" style={{ minWidth: 300 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+            {t.toolbar.explodeLevel}
+          </span>
+          <div className="flex-1 flex items-center gap-2">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={explodeFactor}
+              onChange={handleExplodeChange}
+              className="explode-range-input"
+              style={{ flex: 1 }}
+            />
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', minWidth: 34, textAlign: 'right' }}>
+              {explodeFactor}%
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleResetExplode}
+            style={{
+              padding: '6px 12px',
+              fontSize: 10,
+              fontWeight: 700,
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)',
+              cursor: 'pointer',
+              background: 'var(--surface-1)',
+              color: 'var(--text-secondary)',
+              transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = 'var(--brand-soft)';
+              (e.currentTarget as HTMLElement).style.color = 'var(--brand)';
+              (e.currentTarget as HTMLElement).style.borderColor = 'var(--brand-border)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = 'var(--surface-1)';
+              (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
+              (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
+            }}
+          >
+            {t.toolbar.resetExplode}
+          </button>
+        </div>
+      )}
+
       {/* Main Toolbar */}
       <div className="main-toolbar">
         <input
@@ -431,6 +502,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
         {/* Tool Group */}
         <ToolButton icon={Ruler} label={t.toolbar.measure} active={activeTool === ViewerTool.MEASURE} onClick={() => handleToolChange(ViewerTool.MEASURE)} />
         <ToolButton icon={Scissors} label={t.toolbar.section} active={activeTool === ViewerTool.SECTION} onClick={() => handleToolChange(ViewerTool.SECTION)} />
+        <ToolButton icon={Boxes} label={t.toolbar.explode} active={activeTool === ViewerTool.EXPLODE} onClick={() => handleToolChange(ViewerTool.EXPLODE)} />
 
         <div className="toolbar-divider" />
 

@@ -62,6 +62,7 @@ export class IFCManager {
   constructor() {
     this.sceneService = new SceneService();
     this.modelService = new ModelService(this.sceneService.scene);
+    this.modelService.requestRender = () => { this.sceneService.isDirty = true; };
     this.loadingService = new LoadingService(
       this.sceneService.scene,
       this.modelService,
@@ -469,6 +470,17 @@ export class IFCManager {
 
   setMeasurementMode(m: MeasurementMode) {
     this.measurementManager?.setMode(m);
+  }
+
+  // ── Explosion view ──
+  setExplosion(factor: number) {
+    this.modelService.setExplosion(factor);
+    this.renderScene();
+  }
+
+  resetExplosion() {
+    this.modelService.resetExplosion();
+    this.renderScene();
   }
 
   // ═══════════════════════════════════════════

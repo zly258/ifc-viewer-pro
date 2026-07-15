@@ -1,12 +1,12 @@
 
-import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import Viewer3D from './components/Viewer3D';
 import BottomToolbar from './components/BottomToolbar';
 import DraggablePanel from './components/common/DraggablePanel';
 import { TopStatusBar } from './components/TopStatusBar';
 import ContextMenu from './components/ContextMenu';
 import { IFCElementData, MeasurementResult, ViewerTool } from './types';
-import { Network, FileText, Ruler, Upload, TableProperties, X as XIcon, MessageSquare } from 'lucide-react';
+import { Network, FileText, Ruler, TableProperties, X as XIcon, MessageSquare } from 'lucide-react';
 import { ifcManager } from './services/ifcManager';
 import { eventBus } from './services/eventBus';
 import AboutModal from './components/AboutModal';
@@ -118,6 +118,7 @@ const App: React.FC = () => {
 
   // Drag & Drop state
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const homeFileInputRef = useRef<HTMLInputElement>(null);
 
   // Context Menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; hit: { modelID: number; expressID: number } | null } | null>(null);
@@ -224,6 +225,13 @@ const App: React.FC = () => {
     if (files.length > 0) {
       await handleOpenFiles(files);
     }
+  }, []);
+
+  const handleHomeFilePick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleOpenFiles(Array.from(e.target.files));
+    }
+    e.target.value = '';
   }, []);
 
   const handleContextMenuSelect = async (modelID: number, expressID: number) => {
@@ -496,29 +504,18 @@ const App: React.FC = () => {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             pointerEvents: 'none', zIndex: 0,
           }}>
-            <div style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-              padding: '32px 44px',
-              background: isDarkTheme ? 'rgba(22,27,39,0.9)' : 'rgba(255,255,255,0.88)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-xl)',
-              boxShadow: 'var(--shadow-panel)',
-            }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{t.app.openModel}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.7 }}>
-                {t.app.supportFormat}<br />
-                {t.app.dragHint} <strong style={{ color: 'var(--brand)' }}>{t.app.dragHere}</strong>{t.app.dragEnd}
+            <div className="home-empty" style={{ pointerEvents: 'auto' }}>
+              <div className="home-empty-title">{t.app.openModel}</div>
+              <div className="home-empty-desc">{t.app.emptyDesc}</div>
+              <button className="home-empty-btn" onClick={() => homeFileInputRef.current?.click()}>
+                {t.app.loadModel}
+              </button>
+              <div className="home-empty-hint">
+                {t.app.dragHint} <strong>{t.app.dragHere}</strong>{t.app.dragEnd}
               </div>
-              {/* Format badges */}
-              <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+              <div className="home-format-row">
                 {['IFC'].map(fmt => (
-                  <span key={fmt} style={{
-                    padding: '2px 8px', borderRadius: 99,
-                    fontSize: 10, fontWeight: 700,
-                    background: 'var(--surface-1)', border: '1px solid var(--border)',
-                    color: 'var(--text-muted)',
-                  }}>{fmt}</span>
+                  <span key={fmt} className="home-format-badge">{fmt}</span>
                 ))}
               </div>
             </div>
@@ -529,11 +526,12 @@ const App: React.FC = () => {
         {isDraggingOver && (
           <div className="drop-overlay">
             <div className="drop-overlay-inner">
-              <div className="drop-overlay-icon">
-                <Upload size={28} />
+              <div className="drop-overlay-title">{t.app.releaseToLoad}</div>
+              <div className="drop-format-row">
+                {['IFC'].map(fmt => (
+                  <span key={fmt} className="drop-format-badge">{fmt}</span>
+                ))}
               </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>{t.app.releaseToLoad}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.app.supportedFormat}</div>
             </div>
           </div>
         )}
@@ -621,6 +619,16 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Hidden file input for the empty-state "Load Model" button */}
+      <input
+        type="file"
+        ref={homeFileInputRef}
+        onChange={handleHomeFilePick}
+        accept=".ifc"
+        multiple
+        className="hidden"
+      />
 
       {/* About Modal */}
       <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />

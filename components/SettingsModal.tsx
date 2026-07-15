@@ -1,6 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { X } from 'lucide-react';
 import { useLanguage, Language } from '../locales/LanguageContext';
+import { cacheManager } from '../services/CacheManager';
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const value = bytes / Math.pow(1024, i);
+  return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
 
 // Theme color presets: name → { brand, hover, soft, border }
 const THEME_PRESETS = [
@@ -77,6 +86,36 @@ const SettingSection = ({ label, help, children }: { label: string; help?: strin
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings, onSave }) => {
     const { t, lang, setLanguage } = useLanguage();
     const [localSettings, setLocalSettings] = useState<ViewSettings>(settings);
+
+    // ── Cache section state ──
+    const [cacheInfo, setCacheInfo] = useState<{ count: number; bytes: number } | null>(null);
+    const [loadingCache, setLoadingCache] = useState(false);
+    const [confirmClearCache, setConfirmClearCache] = useState(false);
+    const [cacheToast, setCacheToast] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        let cancelled = false;
+        setLoadingCache(true);
+        setConfirmClearCache(false);
+        cacheManager.getSize()
+            .then(info => { if (!cancelled) setCacheInfo(info); })
+            .catch(() => { if (!cancelled) setCacheInfo({ count: 0, bytes: 0 }); })
+            .finally(() => { if (!cancelled) setLoadingCache(false); });
+        return () => { cancelled = true; };
+    }, [isOpen]);
+
+    const handleClearCache = useCallback(async () => {
+        try {
+            await cacheManager.clear();
+            setCacheInfo({ count: 0, bytes: 0 });
+            setCacheToast(t.settings.cacheCleared);
+            setConfirmClearCache(false);
+            setTimeout(() => setCacheToast(null), 2600);
+        } catch (e) {
+            console.warn('Clear cache failed:', e);
+        }
+    }, [t]);
 
     useEffect(() => {
         const migratedSettings = {
@@ -264,6 +303,42 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
                                 style={{ display: 'none' }}
                             />
                         </label>
+                    </SettingSection>
+
+                    {/* Cache */}
+                    <SettingSection
+                        label={t.settings.cache}
+                        help={t.settings.cacheHelp}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.65 }}>
+                                <div>
+                                    {t.settings.cacheSize}：<strong style={{ color: 'var(--text-primary)' }}>
+                                        {loadingCache ? '…' : formatBytes(cacheInfo?.bytes ?? 0)}
+                                    </strong>
+                                </div>
+                                <div style={{ color: 'var(--text-muted)', marginTop: 2 }}>
+                                    {t.settings.cacheEntries}：{loadingCache ? '…' : (cacheInfo?.count ?? 0)}
+                                </div>
+                            </div>
+                            {confirmClearCache ? (
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button onClick={() => setConfirmClearCache(false)} className="secondary-button">{t.app.cancel}</button>
+                                    <button onClick={handleClearCache} className="danger-primary-button">{t.settings.confirmClearCache}</button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setConfirmClearCache(true)}
+                                    disabled={(cacheInfo?.count ?? 0) === 0}
+                                    className="cache-clear-btn"
+                                >
+                                    {t.settings.clearCache}
+                                </button>
+                            )}
+                        </div>
+                        {cacheToast && (
+                            <div className="cache-toast">{cacheToast}</div>
+                        )}
                     </SettingSection>
 
                 </div>

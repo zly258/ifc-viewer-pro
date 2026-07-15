@@ -19,6 +19,11 @@ export class ModelService {
   public modelIdCounter: number = 1;
   public glbUpAxis: 'Y' | 'Z' = 'Y'; // GLB orientation default
 
+  // Render hook injected by the facade: when visibility/isolation changes we must
+  // flag the dirty-render loop so the screen actually refreshes (otherwise under
+  // dirty rendering the scene graph mutates but no frame is drawn).
+  public requestRender: (() => void) | null = null;
+
   // ── Hidden elements ──
   private hiddenElementPositions: Map<
     string,
@@ -29,6 +34,17 @@ export class ModelService {
   private cachedRaycastMeshes: THREE.Mesh[] = [];
   // O(1) expressID -> mesh lookup (rebuilt alongside the raycast cache, see updateRaycastMeshes)
   private meshIndex: Map<string, { mesh: THREE.Mesh | THREE.InstancedMesh; instanceId?: number }> = new Map();
+
+  // ── Explosion view ──
+  // Each record stores a mesh's original local position and the world-space
+  // direction from the model centroid to the mesh. setExplosion() re-places
+  // the mesh at  center + dir * (1 + factor * SPREAD)  so elements spread
+  // radially outward from the model's center as the factor grows.
+  private explosionRecords: { mesh: THREE.Object3D; originalPos: THREE.Vector3; dir: THREE.Vector3 }[] = [];
+  private explosionCenter = new THREE.Vector3();
+  private explosionInitialized = false;
+  private explosionFactor = 0;
+  private static readonly EXPLODE_SPREAD = 1.2;
 
   // ── Isolation ──
   private isolatedIDs: Set<number> | null = null;
@@ -83,6 +99,11 @@ export class ModelService {
     });
 
     this.models.delete(modelID);
+    // A removed model invalidates the explosion baseline — reset it so the
+    // next explosion rebuilds from the remaining models.
+    this.explosionRecords = [];
+    this.explosionInitialized = false;
+    this.explosionFactor = 0;
     this.updateRaycastMeshes();
   }
 
@@ -97,6 +118,9 @@ export class ModelService {
     this.hiddenElementPositions.clear();
     this.savedStructures.clear();
     this.partialGroups.clear();
+    this.explosionRecords = [];
+    this.explosionInitialized = false;
+    this.explosionFactor = 0;
     this.clearIsolation();
     this.updateRaycastMeshes();
   }
@@ -107,6 +131,7 @@ export class ModelService {
     if (!model) return false;
     model.group.visible = !model.group.visible;
     this.updateRaycastMeshes();
+    this.requestRender?.();
     return model.group.visible;
   }
 
@@ -229,6 +254,72 @@ export class ModelService {
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
     return { box, center, size: Math.max(size.x, size.y, size.z) };
+  }
+
+  // ── Explosion View ──
+  // Capture the current mesh positions as the baseline for an explosion.
+  // Idempotent: safe to call repeatedly; only (re)builds when not initialized.
+  initExplosion() {
+    if (this.explosionInitialized) return;
+    if (this.models.size === 0) return;
+
+    this.models.forEach((m) => m.group.updateMatrixWorld(true));
+    const merged = this.getMergedBoundingBox();
+    if (!merged || merged.box.isEmpty()) return;
+    this.explosionCenter.copy(merged.center);
+
+    const worldPos = new THREE.Vector3();
+    this.models.forEach((m) => {
+      m.group.traverse((c) => {
+        if (!(c instanceof THREE.Mesh) || !c.visible) return;
+        c.getWorldPosition(worldPos);
+        const dir = worldPos.clone().sub(this.explosionCenter);
+        // Skip meshes sitting exactly on the centroid (no meaningful offset).
+        if (dir.lengthSq() < 1e-6) return;
+        this.explosionRecords.push({
+          mesh: c,
+          originalPos: c.position.clone(),
+          dir,
+        });
+      });
+    });
+    this.explosionInitialized = true;
+  }
+
+  // factor: 0 = assembled, 1 = fully exploded (radial spread up to ~2.2× radius)
+  setExplosion(factor: number) {
+    if (this.models.size === 0) return;
+    if (!this.explosionInitialized) this.initExplosion();
+    if (this.explosionRecords.length === 0) return;
+
+    const f = Math.max(0, factor);
+    this.explosionFactor = f;
+
+    const target = new THREE.Vector3();
+    this.explosionRecords.forEach((rec) => {
+      const scale = 1 + f * ModelService.EXPLODE_SPREAD;
+      target.copy(this.explosionCenter).addScaledVector(rec.dir, scale);
+      if (rec.mesh.parent) {
+        rec.mesh.parent.worldToLocal(target);
+      }
+      rec.mesh.position.copy(target);
+    });
+    this.requestRender?.();
+  }
+
+  // Restore every mesh to its pre-explosion position and clear the baseline.
+  resetExplosion() {
+    this.explosionRecords.forEach((rec) => {
+      rec.mesh.position.copy(rec.originalPos);
+    });
+    this.explosionRecords = [];
+    this.explosionInitialized = false;
+    this.explosionFactor = 0;
+    this.requestRender?.();
+  }
+
+  get explosionActive(): boolean {
+    return this.explosionFactor > 0.0001;
   }
 
   // ── Spatial Structure ──
@@ -452,6 +543,7 @@ export class ModelService {
     });
 
     if (didHide) this.updateRaycastMeshes();
+    this.requestRender?.();
     return didHide;
   }
 
@@ -470,6 +562,7 @@ export class ModelService {
     });
     this.hiddenElementPositions.clear();
     this.updateRaycastMeshes();
+    this.requestRender?.();
   }
 
   get hasHiddenElements(): boolean {
@@ -497,6 +590,7 @@ export class ModelService {
       });
     });
     this.updateRaycastMeshes();
+    this.requestRender?.();
   }
 
   clearIsolation() {
@@ -506,6 +600,7 @@ export class ModelService {
     });
     this.originalMaterials.clear();
     this.updateRaycastMeshes();
+    this.requestRender?.();
   }
 
   unisolateAll() {

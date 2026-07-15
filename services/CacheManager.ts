@@ -54,6 +54,37 @@ export class CacheManager {
             req.onerror = () => reject(req.error);
         });
     }
+
+    /**
+     * Estimate the cache footprint by walking every record.
+     * IndexedDB has no built-in size API, so we sum the serialized byte
+     * length of each stored value. Approximate but good enough for display.
+     */
+    async getSize(): Promise<{ count: number; bytes: number }> {
+        if (!this.db) await this.init();
+        return new Promise((resolve, reject) => {
+            const tx = this.db!.transaction(this.storeName, 'readonly');
+            const store = tx.objectStore(this.storeName);
+            const req = store.openCursor();
+            let count = 0;
+            let bytes = 0;
+            req.onsuccess = () => {
+                const cursor = req.result;
+                if (cursor) {
+                    count++;
+                    try {
+                        bytes += new Blob([JSON.stringify(cursor.value)]).size;
+                    } catch {
+                        // Ignore un-serializable values; size stays approximate.
+                    }
+                    cursor.continue();
+                } else {
+                    resolve({ count, bytes });
+                }
+            };
+            req.onerror = () => reject(req.error);
+        });
+    }
 }
 
 export const cacheManager = new CacheManager();
