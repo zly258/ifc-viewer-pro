@@ -11,9 +11,7 @@
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
-    "crypto": "latest",
     "lucide-react": "0.454.0",
-    "process": "latest",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-virtualized-auto-sizer": "1.0.24",

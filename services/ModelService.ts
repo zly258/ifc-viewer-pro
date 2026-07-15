@@ -27,6 +27,8 @@ export class ModelService {
 
   // ── Raycast cache ──
   private cachedRaycastMeshes: THREE.Mesh[] = [];
+  // O(1) expressID -> mesh lookup (rebuilt alongside the raycast cache, see updateRaycastMeshes)
+  private meshIndex: Map<string, { mesh: THREE.Mesh | THREE.InstancedMesh; instanceId?: number }> = new Map();
 
   // ── Isolation ──
   private isolatedIDs: Set<number> | null = null;
@@ -116,11 +118,32 @@ export class ModelService {
   // ── Raycast cache ──
   updateRaycastMeshes() {
     const meshes: THREE.Mesh[] = [];
+    this.meshIndex.clear();
     this.models.forEach((m) => {
       if (m.group.visible !== false) {
         m.group.traverse((c) => {
           if (c instanceof THREE.Mesh && c.visible) {
             meshes.push(c);
+
+            // Build expressID -> mesh index for O(1) hover/selection lookup.
+            // (Replaces the previous O(n) scene traversal on every hover.)
+            if (c instanceof THREE.InstancedMesh && c.userData.instanceExpressIDs) {
+              const ids = c.userData.instanceExpressIDs as number[];
+              ids.forEach((eid, i) => {
+                const key = `${m.modelID}_${eid}`;
+                if (!this.meshIndex.has(key)) this.meshIndex.set(key, { mesh: c, instanceId: i });
+              });
+            } else if (c.userData.isBatch && c.geometry.getAttribute('expressID')) {
+              const arr = c.geometry.getAttribute('expressID').array as ArrayLike<number>;
+              for (let i = 0; i < arr.length; i++) {
+                const eid = arr[i];
+                const key = `${m.modelID}_${eid}`;
+                // Skip hidden elements so they can't be re-selected/hovered after hide.
+                if (!this.hiddenElementPositions.has(key) && !this.meshIndex.has(key)) {
+                  this.meshIndex.set(key, { mesh: c });
+                }
+              }
+            }
           }
         });
       }
@@ -265,32 +288,8 @@ export class ModelService {
     modelID: number,
     expressID: number
   ): { mesh: THREE.Mesh | THREE.InstancedMesh; instanceId?: number } | null {
-    const model = this.models.get(modelID);
-    if (!model) return null;
-
-    let found: { mesh: THREE.Mesh | THREE.InstancedMesh; instanceId?: number } | null = null;
-    model.group.traverse((c) => {
-      if (found) return;
-      if (c instanceof THREE.InstancedMesh) {
-        const ids = c.userData.instanceExpressIDs as number[];
-        if (ids) {
-          const idx = ids.indexOf(expressID);
-          if (idx !== -1) found = { mesh: c, instanceId: idx };
-        }
-      } else if (c instanceof THREE.Mesh && c.userData.isBatch) {
-        const attr = c.geometry.getAttribute('expressID');
-        if (attr) {
-          const arr = attr.array;
-          for (let i = 0; i < arr.length; i++) {
-            if (arr[i] === expressID) {
-              found = { mesh: c };
-              break;
-            }
-          }
-        }
-      }
-    });
-    return found;
+    // O(1) lookup via the index built in updateRaycastMeshes().
+    return this.meshIndex.get(`${modelID}_${expressID}`) || null;
   }
 
   extractGeometryByExpressID(
@@ -504,10 +503,12 @@ export class ModelService {
     if (typeof window !== 'undefined' && (window.performance as any)?.memory) {
       jsHeapMemory = (window.performance as any).memory.usedJSHeapSize / (1024 * 1024);
     } else {
-      const baseMemory = 68.2;
+      // No Chrome-only performance.memory: derive a transparent estimate from
+      // real model metrics (GPU buffer bytes + geometry/triangle counts) instead
+      // of a hardcoded constant.
       const geometriesCount = rendererInfo?.geometries || 0;
       const triangleCount = rendererInfo?.triangles || 0;
-      jsHeapMemory = baseMemory + geometriesCount * 0.12 + triangleCount * 0.000032;
+      jsHeapMemory = gpuMemoryMB * 0.35 + geometriesCount * 0.05 + triangleCount * 0.00002;
     }
 
     return {

@@ -8,6 +8,7 @@ import {
 import { ifcManager } from '../services/ifcManager';
 import { CameraView, ViewerTool, MeasurementMode } from '../types';
 import { useLanguage } from '../locales/LanguageContext';
+import { eventBus } from '../services/eventBus';
 
 interface BottomToolbarProps {
   onOpenFile: (files: File[]) => void;
@@ -118,14 +119,12 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
 
   // Listen for tool changes from keyboard shortcuts (e.g. ESC)
   useEffect(() => {
-    const handleToolChanged = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
+    const handleToolChanged = (detail: { tool: ViewerTool }) => {
       if (detail?.tool !== undefined) {
         setActiveTool(detail.tool);
       }
     };
-    window.addEventListener('tool-changed', handleToolChanged);
-    return () => window.removeEventListener('tool-changed', handleToolChanged);
+    return eventBus.on('tool-changed', handleToolChanged);
   }, []);
 
   useEffect(() => {
@@ -235,7 +234,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
           <SubBtn icon={DraftingCompass} onClick={() => handleMeasureMode('ANGLE')} active={measureMode === 'ANGLE'} title={t.toolbar.angle} />
           <SubBtn icon={MapPin} onClick={() => handleMeasureMode('COORDINATE')} active={measureMode === 'COORDINATE'} title={t.toolbar.coordinate} />
           <div className="toolbar-divider" />
-          <SubBtn icon={List} onClick={() => window.dispatchEvent(new Event('open-measure-panel'))} title={t.toolbar.measureList} />
+          <SubBtn icon={List} onClick={() => eventBus.emit('open-measure-panel', undefined)} title={t.toolbar.measureList} />
           <SubBtn
             icon={Trash2}
             danger

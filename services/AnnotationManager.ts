@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/Addons.js';
 import type { AnnotationData } from '../types';
+import { eventBus } from './eventBus';
 
 const STORAGE_KEY = 'bimvision_annotations';
 
@@ -102,10 +103,8 @@ export class AnnotationManager {
         if (!data) return;
 
         const target = new THREE.Vector3(data.cameraTarget.x, data.cameraTarget.y, data.cameraTarget.z);
-        // Dispatch custom event for ifcManager to handle
-        window.dispatchEvent(new CustomEvent('annotation-focus', {
-            detail: { target: { x: target.x, y: target.y, z: target.z } }
-        }));
+        // Dispatch typed event for ifcManager to handle
+        eventBus.emit('annotation-focus', { target: { x: target.x, y: target.y, z: target.z } });
     }
 
     // --- Internal ---

@@ -7,6 +7,7 @@ import { LoadingService } from './LoadingService';
 import type { MeasurementManager } from './MeasurementManager';
 import type { AnnotationManager } from './AnnotationManager';
 import type { PostProcessingManager } from './PostProcessing';
+import { eventBus } from './eventBus';
 
 export class InteractionService {
   private sceneService: SceneService;
@@ -278,17 +279,17 @@ export class InteractionService {
     if (e.key === 'Escape') {
       if (this.activeTool === ViewerTool.MEASURE) {
         this.setTool(ViewerTool.NONE);
-        window.dispatchEvent(new CustomEvent('tool-changed', { detail: { tool: ViewerTool.NONE } }));
+        eventBus.emit('tool-changed', { tool: ViewerTool.NONE });
         return;
       }
       if (this.activeTool === ViewerTool.ANNOTATION) {
         this.setTool(ViewerTool.SELECT);
-        window.dispatchEvent(new CustomEvent('tool-changed', { detail: { tool: ViewerTool.ANNOTATION } }));
+        eventBus.emit('tool-changed', { tool: ViewerTool.ANNOTATION });
         return;
       }
       if (this.activeTool === ViewerTool.SECTION) {
         this.setTool(ViewerTool.NONE);
-        window.dispatchEvent(new CustomEvent('tool-changed', { detail: { tool: ViewerTool.NONE } }));
+        eventBus.emit('tool-changed', { tool: ViewerTool.NONE });
         return;
       }
       this.clearSelection();
@@ -302,19 +303,19 @@ export class InteractionService {
         toHide.forEach((el) => this.modelService.hideElement(el.modelID, el.expressID));
         this.onSelect(null);
         this.onMultiSelect?.([]);
-        window.dispatchEvent(new CustomEvent('viewer-elements-changed'));
+        eventBus.emit('viewer-elements-changed', undefined);
       }
     } else if (key === 'i') {
       if (this.selectedElements.length > 0) {
         const first = this.selectedElements[0];
         this.modelService.isolateElement(first.modelID, first.expressID);
-        window.dispatchEvent(new CustomEvent('viewer-isolation-changed', { detail: { isIsolated: true } }));
+        eventBus.emit('viewer-isolation-changed', { isIsolated: true });
       }
     } else if (key === 'u') {
       this.modelService.unisolateAll();
       this.modelService.showAllElements();
-      window.dispatchEvent(new CustomEvent('viewer-isolation-changed', { detail: { isIsolated: false } }));
-      window.dispatchEvent(new CustomEvent('viewer-elements-changed'));
+      eventBus.emit('viewer-isolation-changed', { isIsolated: false });
+      eventBus.emit('viewer-elements-changed', undefined);
     }
   };
 
@@ -409,8 +410,19 @@ export class InteractionService {
     this.multiHighlightMeshes = [];
     this.selectedElements = [];
     this.highlightModel = null;
-    this.postProcessing?.setSelection([]);
+    this.updatePostProcessingSelection();
     this.sceneService.isDirty = true;
+  }
+
+  /**
+   * Sync the post-processing selection + active state in one place.
+   * The OutlinePass composer is only enabled when at least one element
+   * is highlighted — otherwise we render directly (no per-frame cost).
+   */
+  private updatePostProcessingSelection() {
+    if (!this.postProcessing) return;
+    this.postProcessing.setSelection(this.multiHighlightMeshes);
+    this.postProcessing.setActive(this.multiHighlightMeshes.length > 0);
   }
 
   // ── Highlight ──
@@ -442,7 +454,7 @@ export class InteractionService {
           this.multiHighlightMeshes.length > 0
             ? this.multiHighlightMeshes[this.multiHighlightMeshes.length - 1]
             : null;
-        this.postProcessing?.setSelection(this.multiHighlightMeshes);
+        this.updatePostProcessingSelection();
         this.sceneService.isDirty = true;
         return;
       }
@@ -502,7 +514,7 @@ export class InteractionService {
         } else {
           this.selectedElements.push({ modelID, expressID });
         }
-        this.postProcessing?.setSelection(this.multiHighlightMeshes);
+        this.updatePostProcessingSelection();
         this.sceneService.isDirty = true;
         return;
       }
@@ -557,7 +569,7 @@ export class InteractionService {
       } else {
         this.selectedElements.push({ modelID, expressID });
       }
-      this.postProcessing?.setSelection(this.multiHighlightMeshes);
+      this.updatePostProcessingSelection();
       this.sceneService.isDirty = true;
     }
   }
@@ -568,6 +580,7 @@ export class InteractionService {
       this.sceneService.scene.remove(this.hoverModel);
       if (this.hoverModel.geometry) this.hoverModel.geometry.dispose();
       this.hoverModel = null;
+      this.sceneService.isDirty = true;
     }
     this.hoveredElement = null;
   }

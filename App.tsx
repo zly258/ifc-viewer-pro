@@ -1,9 +1,6 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import Viewer3D from './components/Viewer3D';
-import PropertyPanel from './components/PropertyPanel';
-import ModelTree from './components/ModelTree';
-import MeasurementPanel from './components/MeasurementPanel';
 import BottomToolbar from './components/BottomToolbar';
 import DraggablePanel from './components/common/DraggablePanel';
 import { TopStatusBar } from './components/TopStatusBar';
@@ -11,12 +8,19 @@ import ContextMenu from './components/ContextMenu';
 import { IFCElementData, MeasurementResult, ViewerTool } from './types';
 import { Network, FileText, Ruler, Bookmark, Upload, TableProperties, X as XIcon, MessageSquare } from 'lucide-react';
 import { ifcManager } from './services/ifcManager';
-import BcfPanel from './components/BcfPanel';
-import ReportPanel from './components/ReportPanel';
-import AnnotationPanel from './components/AnnotationPanel';
+import { eventBus } from './services/eventBus';
 import AboutModal from './components/AboutModal';
 import SettingsModal, { ViewSettings, DEFAULT_VIEW_SETTINGS, applyThemeColor, applyThemeMode } from './components/SettingsModal';
 import { useLanguage } from './locales/LanguageContext';
+
+// Code-split the heavy, conditionally-shown panels so they load on demand
+// (keeps them out of the initial bundle and off the first paint path).
+const ModelTree = lazy(() => import('./components/ModelTree'));
+const PropertyPanel = lazy(() => import('./components/PropertyPanel'));
+const MeasurementPanel = lazy(() => import('./components/MeasurementPanel'));
+const BcfPanel = lazy(() => import('./components/BcfPanel'));
+const ReportPanel = lazy(() => import('./components/ReportPanel'));
+const AnnotationPanel = lazy(() => import('./components/AnnotationPanel'));
 
 const App: React.FC = () => {
   const { t } = useLanguage();
@@ -134,34 +138,30 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const handleMeasurePanelOpen = () => setShowMeasurePanel(true);
-    window.addEventListener('open-measure-panel', handleMeasurePanelOpen);
-    return () => window.removeEventListener('open-measure-panel', handleMeasurePanelOpen);
+    return eventBus.on('open-measure-panel', handleMeasurePanelOpen);
   }, []);
 
   // Context menu from viewer
   useEffect(() => {
-    const handleContextMenu = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
+    const handleContextMenu = (detail: { x: number; y: number; hit: { modelID: number; expressID: number } | null }) => {
       setContextMenu({ x: detail.x, y: detail.y, hit: detail.hit });
     };
-    window.addEventListener('viewer-contextmenu', handleContextMenu);
-    return () => window.removeEventListener('viewer-contextmenu', handleContextMenu);
+    return eventBus.on('viewer-contextmenu', handleContextMenu);
   }, []);
 
   // Listen to isolation & element visibility events
   useEffect(() => {
-    const handleIsolationChange = (e: Event) => {
-      const isIso = (e as CustomEvent).detail?.isIsolated;
-      setIsIsolated(!!isIso);
+    const handleIsolationChange = (detail: { isIsolated: boolean }) => {
+      setIsIsolated(!!detail.isIsolated);
     };
     const handleElementsChanged = () => {
       setHasHiddenElements(ifcManager.hasHiddenElements);
     };
-    window.addEventListener('viewer-isolation-changed', handleIsolationChange);
-    window.addEventListener('viewer-elements-changed', handleElementsChanged);
+    const offIso = eventBus.on('viewer-isolation-changed', handleIsolationChange);
+    const offElems = eventBus.on('viewer-elements-changed', handleElementsChanged);
     return () => {
-      window.removeEventListener('viewer-isolation-changed', handleIsolationChange);
-      window.removeEventListener('viewer-elements-changed', handleElementsChanged);
+      offIso();
+      offElems();
     };
   }, []);
 
@@ -178,7 +178,13 @@ const App: React.FC = () => {
     for (const file of files) {
       const lower = file.name.toLowerCase();
       if (lower.endsWith('.ifc')) {
-        await ifcManager.loadIfc(file, true);
+        try {
+          await ifcManager.loadIfc(file, true);
+        } catch (err) {
+          // Per-file failure must not abort the whole batch; the error
+          // banner is already shown via ifcManager.onError.
+          console.error('Failed to load IFC:', file.name, err);
+        }
       }
     }
 
@@ -319,12 +325,11 @@ const App: React.FC = () => {
         {/* 3D Viewer */}
         <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
           <Viewer3D
-            file={null}
             onSelectElement={handleElementSelect}
             onLoadingStatus={(loading, prog) => {
               setIsLoading(loading);
               setProgress(prog);
-              if (!loading && prog === 100) {
+              if (!loading && prog === 100 && ifcManager.models.size > 0) {
                 setShowModelTree(true);
                 setModelKey(prev => prev + 1);
                 onViewerReady();
@@ -346,12 +351,16 @@ const App: React.FC = () => {
           initialPosition={{ x: 20, y: 20 }}
           initialSize={{ w: 300, h: 500 }}
         >
-          <ModelTree
-            key={modelKey}
-            onLoadStructure={() => {}}
-            selectedElement={selectedElement}
-            onRequestRemoveModel={(modelID) => setModelToRemove(modelID)}
-          />
+          {showModelTree && (
+            <Suspense fallback={null}>
+              <ModelTree
+                key={modelKey}
+                onLoadStructure={() => {}}
+                selectedElement={selectedElement}
+                onRequestRemoveModel={(modelID) => setModelToRemove(modelID)}
+              />
+            </Suspense>
+          )}
         </DraggablePanel>
 
         <DraggablePanel
@@ -362,7 +371,11 @@ const App: React.FC = () => {
           initialPosition={{ x: Math.max(20, window.innerWidth - 340), y: 20 }}
           initialSize={{ w: 320, h: 500 }}
         >
-          <PropertyPanel data={selectedElement} selectedCount={selectedElements.length} />
+          {showPropertyPanel && (
+            <Suspense fallback={null}>
+              <PropertyPanel data={selectedElement} selectedCount={selectedElements.length} />
+            </Suspense>
+          )}
         </DraggablePanel>
 
         <DraggablePanel
@@ -373,7 +386,11 @@ const App: React.FC = () => {
           initialPosition={{ x: 20, y: 120 }}
           initialSize={{ w: 300, h: 300 }}
         >
-          <MeasurementPanel measurements={measurements} onClear={() => setMeasurements([])} />
+          {showMeasurePanel && (
+            <Suspense fallback={null}>
+              <MeasurementPanel measurements={measurements} onClear={() => setMeasurements([])} />
+            </Suspense>
+          )}
         </DraggablePanel>
 
 
@@ -386,7 +403,11 @@ const App: React.FC = () => {
           initialPosition={{ x: Math.max(20, window.innerWidth - 340), y: 120 }}
           initialSize={{ w: 320, h: 480 }}
         >
-          <BcfPanel selectedElement={selectedElement} />
+          {showBcfPanel && (
+            <Suspense fallback={null}>
+              <BcfPanel selectedElement={selectedElement} />
+            </Suspense>
+          )}
         </DraggablePanel>
 
         <DraggablePanel
@@ -397,7 +418,11 @@ const App: React.FC = () => {
           initialPosition={{ x: Math.max(20, (window.innerWidth - 600) / 2), y: Math.max(20, (window.innerHeight - 450) / 2 - 30) }}
           initialSize={{ w: 600, h: 450 }}
         >
-          <ReportPanel />
+          {showReportPanel && (
+            <Suspense fallback={null}>
+              <ReportPanel />
+            </Suspense>
+          )}
         </DraggablePanel>
 
         {/* Annotation Panel */}
@@ -409,7 +434,11 @@ const App: React.FC = () => {
           initialPosition={{ x: window.innerWidth - 320, y: 80 }}
           initialSize={{ w: 280, h: 300 }}
         >
-          <AnnotationPanel />
+          {showAnnotationPanel && (
+            <Suspense fallback={null}>
+              <AnnotationPanel />
+            </Suspense>
+          )}
         </DraggablePanel>
 
         {/* Bottom Toolbar */}

@@ -4,6 +4,7 @@ import { MeasurementResult } from '../types';
 import { Trash2, Ruler, DraftingCompass, MapPin, Download } from 'lucide-react';
 import { ifcManager } from '../services/ifcManager';
 import { useLanguage } from '../locales/LanguageContext';
+import { eventBus } from '../services/eventBus';
 
 interface MeasurementPanelProps {
     measurements: MeasurementResult[];
@@ -235,7 +236,7 @@ const MeasurementPanel: React.FC<MeasurementPanelProps> = ({ measurements, onCle
                             (e.currentTarget as HTMLElement).style.boxShadow = 'none';
                         }}
                         onDoubleClick={() => {
-                            window.dispatchEvent(new CustomEvent('zoom-to-measurement', { detail: { id: m.id } }));
+                            eventBus.emit('zoom-to-measurement', { id: m.id });
                         }}
                         title={t.measurement.locateHint}
                     >

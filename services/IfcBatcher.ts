@@ -183,7 +183,6 @@ export class IfcBatcher {
             const instanceId = intersection.instanceId;
             if (instanceId !== undefined && mesh.userData.instanceExpressIDs) {
                 const id = mesh.userData.instanceExpressIDs[instanceId];
-                console.log(`[IfcBatcher] Hit instance: ${instanceId}. ExpressID: ${id}`);
                 return id;
             }
             return null;
@@ -198,7 +197,6 @@ export class IfcBatcher {
 
         if (intersection.face) {
             const id = geometry.attributes.expressID.getX(intersection.face.a);
-            console.log(`[IfcBatcher] Face: ${intersection.face.a}. ExpressID: ${id}`);
             return id;
         }
 

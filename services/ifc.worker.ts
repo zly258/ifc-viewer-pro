@@ -1,4 +1,5 @@
 import * as WebIFC from 'web-ifc';
+import { FLUSH_EVERY, WASM_PATH } from './config';
 
 const ifcApi = new WebIFC.IfcAPI();
 let isInitialized = false;
@@ -54,7 +55,7 @@ self.onmessage = async (e: MessageEvent) => {
     
     if (type === 'INIT') {
         try {
-            ifcApi.SetWasmPath('https://cdn.jsdelivr.net/npm/web-ifc@0.0.66/');
+            ifcApi.SetWasmPath(import.meta.env.BASE_URL + WASM_PATH);
             await ifcApi.Init();
             isInitialized = true;
             self.postMessage({ type: 'INIT_SUCCESS' });
@@ -67,7 +68,7 @@ self.onmessage = async (e: MessageEvent) => {
         const { fileBuffer, modelID } = data;
         if (!isInitialized) {
             try {
-                ifcApi.SetWasmPath('https://cdn.jsdelivr.net/npm/web-ifc@0.0.66/');
+                ifcApi.SetWasmPath(import.meta.env.BASE_URL + WASM_PATH);
                 await ifcApi.Init();
                 isInitialized = true;
             } catch (err: any) {
@@ -94,17 +95,20 @@ self.onmessage = async (e: MessageEvent) => {
             self.postMessage({ type: 'PROCESSING', message: '解析模型属性映射关系...' });
             await buildPropertyMap(openedModelID, meta);
             
-            // --- Pre-count total mesh elements for accurate progress ---
+            // --- Pre-count total mesh elements (cheap enumeration, no geometry decode) ---
             self.postMessage({ type: 'PROCESSING', message: '统计模型构件数量...' });
             let totalMeshCount = 0;
-            ifcApi.StreamAllMeshes(openedModelID, () => { totalMeshCount++; });
+            try {
+              totalMeshCount = ifcApi.GetLineIDsWithType(openedModelID, WebIFC.IFCELEMENT).size();
+            } catch {
+              totalMeshCount = 0;
+            }
             
             // Stream geometries with progress reporting
             self.postMessage({ type: 'PROGRESS', progress: 82, message: `正在生成几何体 (共 ${totalMeshCount} 个构件)...` });
             let streamedMeshCount = 0;
             let pendingFlush: any[] = [];
             let pendingTransfers: ArrayBuffer[] = [];
-            const FLUSH_EVERY = 150; // flush every N elements for incremental display
             let lastProgressReport = 0;
             
             ifcApi.StreamAllMeshes(openedModelID, (flatMesh: WebIFC.FlatMesh) => {
@@ -218,7 +222,7 @@ self.onmessage = async (e: MessageEvent) => {
         const { fileBuffer, modelID } = data;
         if (!isInitialized) {
             try {
-                ifcApi.SetWasmPath('https://cdn.jsdelivr.net/npm/web-ifc@0.0.66/');
+                ifcApi.SetWasmPath(import.meta.env.BASE_URL + WASM_PATH);
                 await ifcApi.Init();
                 isInitialized = true;
             } catch (err: any) {

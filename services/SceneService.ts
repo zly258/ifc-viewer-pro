@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { CameraView } from '../types';
+import { FRUSTUM_SIZE, DRAG_END_DELAY, ENABLE_LOGARITHMIC_DEPTH_BUFFER } from './config';
 
 export class SceneService {
   public scene: THREE.Scene;
@@ -49,7 +50,7 @@ export class SceneService {
       antialias: true,
       alpha: true,
       preserveDrawingBuffer: false,
-      logarithmicDepthBuffer: true,
+      logarithmicDepthBuffer: ENABLE_LOGARITHMIC_DEPTH_BUFFER,
       powerPreference: 'high-performance',
       stencil: false,
     });
@@ -109,7 +110,7 @@ export class SceneService {
         this.pivotMarker.visible = false;
       }
       this.isDirty = true;
-      setTimeout(() => { this.wasDraggingControls = false; }, 150);
+      setTimeout(() => { this.wasDraggingControls = false; }, DRAG_END_DELAY);
     });
 
     // ── Pivot Marker ──
@@ -179,13 +180,15 @@ export class SceneService {
     this.onBeforeFrame?.();
     this.controls.update();
 
-    if (this.onPostRender) {
-      this.onPostRender();
-    } else {
-      this.renderer.render(this.scene, this.camera);
+    // Only render when something changed. Idle frames cost nothing.
+    if (this.isDirty) {
+      if (this.onPostRender) {
+        this.onPostRender();
+      } else {
+        this.renderer.render(this.scene, this.camera);
+      }
+      this.isDirty = false;
     }
-
-    this.isDirty = false;
   };
 
   startRenderLoop() {
@@ -263,7 +266,7 @@ export class SceneService {
     const aspect = width / height;
 
     if (this.camera instanceof THREE.OrthographicCamera) {
-      const frustumSize = 100;
+      const frustumSize = FRUSTUM_SIZE;
       this.camera.left = -frustumSize * aspect / 2;
       this.camera.right = frustumSize * aspect / 2;
       this.camera.top = frustumSize / 2;

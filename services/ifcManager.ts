@@ -17,6 +17,7 @@ import { MeasurementManager } from './MeasurementManager';
 import { SectionManager } from './SectionManager';
 import { AnnotationManager } from './AnnotationManager';
 import { PostProcessingManager } from './PostProcessing';
+import { eventBus } from './eventBus';
 
 // Enable BVH acceleration (must run once)
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -51,6 +52,7 @@ export class IFCManager {
   private container: HTMLElement | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private isInitialized: boolean = false;
+  private eventBusUnsubscribers: Array<() => void> = [];
 
   // ── Callbacks ──
   public onSelect: (data: IFCElementData | null) => void = () => {};
@@ -78,7 +80,7 @@ export class IFCManager {
     this.loadingService.onProcessing = (m) => this.onProcessing(m);
     this.loadingService.onError = (m) => this.onError(m);
     this.loadingService.onModelLoaded = () => {
-      window.dispatchEvent(new CustomEvent('model-loaded'));
+      eventBus.emit('model-loaded', undefined);
     };
   }
 
@@ -155,6 +157,11 @@ export class IFCManager {
   async init(container: HTMLElement) {
     this.container = container;
 
+    // StrictMode / double-invoke guard: if we're already initialized for this
+    // container, skip. The matching dispose() resets isInitialized, so a real
+    // re-mount after cleanup still runs the full init below.
+    if (this.isInitialized) return;
+
     if (!this.isInitialized) {
       // First-time init
       this.sceneService.initContainer(container);
@@ -209,22 +216,22 @@ export class IFCManager {
       dom.addEventListener('dblclick', this.interactionService.handleDoubleClick);
       dom.addEventListener('contextmenu', this.interactionService.handleContextMenu);
 
-      // Custom events
-      window.addEventListener('zoom-to-measurement', (e: Event) => {
-        const ce = e as CustomEvent;
-        if (this.measurementManager && ce.detail?.id) {
-          const box = this.measurementManager.getMeasurementBox(ce.detail.id);
-          if (box && !box.isEmpty()) this.sceneService.zoomToBox(box);
-        }
-      });
+      // Custom events (typed bus)
+      this.eventBusUnsubscribers.push(
+        eventBus.on('zoom-to-measurement', (detail) => {
+          if (this.measurementManager) {
+            const box = this.measurementManager.getMeasurementBox(detail.id);
+            if (box && !box.isEmpty()) this.sceneService.zoomToBox(box);
+          }
+        })
+      );
 
-      window.addEventListener('annotation-focus', (e: Event) => {
-        const ce = e as CustomEvent;
-        if (ce.detail?.target) {
-          const t = ce.detail.target;
+      this.eventBusUnsubscribers.push(
+        eventBus.on('annotation-focus', (detail) => {
+          const t = detail.target;
           this.sceneService.zoomToTarget(new THREE.Vector3(t.x, t.y, t.z), 15);
-        }
-      });
+        })
+      );
 
       // Set up render loop with post-processing
       this.sceneService.onPostRender = () => {
@@ -281,6 +288,8 @@ export class IFCManager {
 
   dispose() {
     // Remove event listeners
+    this.eventBusUnsubscribers.forEach((off) => off());
+    this.eventBusUnsubscribers = [];
     window.removeEventListener('keydown', this.interactionService.handleKeyDown);
     const dom = this.sceneService.renderer?.domElement;
     if (dom) {
@@ -458,12 +467,12 @@ export class IFCManager {
   async isolateElement(modelID: number, expressID: number) {
     this.modelService.isolateElement(modelID, expressID);
     await this.interactionService.highlightElement(modelID, expressID);
-    window.dispatchEvent(new CustomEvent('viewer-isolation-changed', { detail: { isIsolated: true } }));
+    eventBus.emit('viewer-isolation-changed', { isIsolated: true });
   }
 
   unisolateAll() {
     this.modelService.clearIsolation();
-    window.dispatchEvent(new CustomEvent('viewer-isolation-changed', { detail: { isIsolated: false } }));
+    eventBus.emit('viewer-isolation-changed', { isIsolated: false });
   }
 
   // ═══════════════════════════════════════════

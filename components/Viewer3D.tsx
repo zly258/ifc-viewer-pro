@@ -8,10 +8,9 @@ interface Viewer3DProps {
   onSelectElement: (data: IFCElementData | null) => void;
   onLoadingStatus: (isLoading: boolean, progress: number) => void;
   onProcessingStatus: (status: string | null) => void; 
-  file: File | null;
 }
 
-const Viewer3D: React.FC<Viewer3DProps> = ({ onSelectElement, onLoadingStatus, onProcessingStatus, file }) => {
+const Viewer3D: React.FC<Viewer3DProps> = ({ onSelectElement, onLoadingStatus, onProcessingStatus }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,12 +41,6 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ onSelectElement, onLoadingStatus, o
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (file) {
-      ifcManager.loadIfc(file);
-    }
-  }, [file]);
 
   return (
     <div className="relative w-full h-full bg-slate-50 overflow-hidden group">

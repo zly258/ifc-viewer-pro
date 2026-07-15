@@ -10,7 +10,7 @@ export class PostProcessingManager {
     private renderer: THREE.WebGLRenderer;
     private scene: THREE.Scene;
     private camera: THREE.Camera;
-    private isActive = true;
+    private isActive = false;
 
     constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera) {
         this.renderer = renderer;

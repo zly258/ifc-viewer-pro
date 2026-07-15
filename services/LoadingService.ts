@@ -6,6 +6,7 @@ import { IfcBatcher } from './IfcBatcher';
 import { cacheManager } from './CacheManager';
 import { ModelService } from './ModelService';
 import { SceneService } from './SceneService';
+import { MATERIAL_CACHE_MAX, DRACO_PATH, PROPERTY_QUERY_TIMEOUT } from './config';
 
 export class LoadingService {
   private worker: Worker | null = null;
@@ -18,6 +19,7 @@ export class LoadingService {
 
   // Resolver callbacks for async worker communication
   private loadResolver: (() => void) | null = null;
+  private loadRejecter: ((reason: any) => void) | null = null;
   private propertyResolver: ((props: any) => void) | null = null;
   private highlightResolver: ((geoms: any[]) => void) | null = null;
   private propertyKeysResolver: ((keys: string[]) => void) | null = null;
@@ -57,7 +59,7 @@ export class LoadingService {
     try {
       const dracoLoader = new DRACOLoader();
       dracoLoader.setDecoderPath(
-        'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/'
+        import.meta.env.BASE_URL + DRACO_PATH
       );
       this.gltfLoader.setDRACOLoader(dracoLoader);
     } catch (e) {
@@ -95,10 +97,14 @@ export class LoadingService {
           console.error('[Worker Error]', data || e.data.message);
           this.onError(data || e.data.message);
           this.onProcessing(null);
-          if (this.loadResolver) {
-            this.loadResolver();
-            this.loadResolver = null;
+          // A failed load must reject, not silently resolve (avoids "fake success").
+          if (this.loadRejecter) {
+            this.loadRejecter(new Error(data || e.data.message || '模型加载失败'));
+            this.loadRejecter = null;
           }
+          this.loadResolver = null;
+          // End the loading indicator so the spinner doesn't get stuck.
+          this.onLoading(100, 100);
           break;
 
         case 'GEOMETRY_BATCH':
@@ -292,12 +298,11 @@ export class LoadingService {
 
   // ── Material (shared with InteractionService) ──
   private materialCache: Map<string, THREE.MeshStandardMaterial> = new Map();
-  private static MATERIAL_CACHE_MAX = 500;
 
   // Clipping plane reference (set by facade)
   public getClippingPlanes: (() => THREE.Plane[]) | null = null;
 
-  getMaterial(color: number, opacity: number): THREE.MeshStandardMaterial {
+  getMaterial = (color: number, opacity: number = 1): THREE.MeshStandardMaterial => {
     const key = `${color}-${opacity.toFixed(2)}`;
 
     if (this.materialCache.has(key)) {
@@ -307,7 +312,7 @@ export class LoadingService {
       return mat;
     }
 
-    if (this.materialCache.size >= LoadingService.MATERIAL_CACHE_MAX) {
+    if (this.materialCache.size >= MATERIAL_CACHE_MAX) {
       const oldest = this.materialCache.keys().next().value;
       if (oldest) {
         this.materialCache.get(oldest)!.dispose();
@@ -508,6 +513,7 @@ export class LoadingService {
         }
 
         this.loadResolver = resolve;
+        this.loadRejecter = reject;
         this.worker!.postMessage(
           {
             type: 'LOAD_IFC_MODEL',
@@ -556,7 +562,7 @@ export class LoadingService {
           resolve([]);
           this.propertyKeysResolver = null;
         }
-      }, 3000);
+      }, PROPERTY_QUERY_TIMEOUT);
     });
   }
 

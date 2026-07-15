@@ -3,6 +3,7 @@ import { ifcManager } from '../services/ifcManager';
 import { IFCSpatialStructure, IFCElementData } from '../types';
 import { ChevronRight, ChevronDown, RotateCw, Trash2, Eye, EyeOff } from 'lucide-react';
 import { useLanguage } from '../locales/LanguageContext';
+import { eventBus } from '../services/eventBus';
 
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
@@ -237,9 +238,9 @@ const ModelTree: React.FC<ModelTreeProps> = ({ selectedElement, onRequestRemoveM
             e.stopPropagation();
             if (!isRootFile && modelID !== undefined && expressID !== undefined) {
                 ifcManager.selectByID(modelID, expressID, true);
-                window.dispatchEvent(new CustomEvent('viewer-contextmenu', {
-                    detail: { x: e.clientX, y: e.clientY, hit: { modelID, expressID } }
-                }));
+                eventBus.emit('viewer-contextmenu', {
+                    x: e.clientX, y: e.clientY, hit: { modelID, expressID }
+                });
             }
         };
 

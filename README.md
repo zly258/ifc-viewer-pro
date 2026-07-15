@@ -47,7 +47,7 @@ The workflow file is located at `.github/workflows/publish.yml`.
 
 ### Notes
 
-- The project is configured as a Vite app and uses `react@19`.
+- The project is configured as a Vite app and uses `react@18`.
 - If you want to deploy to GitHub Pages, make sure the repository default branch is `main` or adjust the workflow branch filter.
 
 ---
@@ -95,5 +95,5 @@ npm run preview
 
 ### 说明
 
-- 本项目为 Vite 应用，使用 `react@19`。
+- 本项目为 Vite 应用，使用 `react@18`。
 - 若要部署到 GitHub Pages，请确保仓库默认分支为 `main`，或根据实际分支修改工作流配置。
