@@ -461,9 +461,19 @@ export class IFCManager {
   // ═══════════════════════════════════════════
 
   setTool(t: ViewerTool) {
-    this.interactionService.setTool(t);
+    // Keep materials double-sided while a section clip is still active so the
+    // cut faces stay solid even after the Section tool is closed.
+    const keepClip = this.sectionManager?.hasActiveClipping() ?? false;
+    this.interactionService.setTool(t, keepClip);
 
-    if (t !== ViewerTool.SECTION) this.sectionManager?.clear();
+    // Leaving the Section tool no longer cancels the clipping — it only hides
+    // the translucent indicator planes. The model stays sliced. Re-entering the
+    // tool restores the indicator planes in place.
+    if (t === ViewerTool.SECTION) {
+      this.sectionManager?.restoreHelpers();
+    } else {
+      this.sectionManager?.hideHelpers();
+    }
 
     this.renderScene();
   }

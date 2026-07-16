@@ -1,6 +1,28 @@
 import * as THREE from 'three';
 import { IFCSpatialStructure } from '../types';
 
+// A merged-mesh record keeps the original vertex positions and a per-vertex
+// direction (element centroid − model center). setExplosion moves each vertex
+// by dir * factor * SPREAD; reset copies the original array back.
+// An instanced-mesh record keeps each instance's base matrix and radial
+// direction; setExplosion adds dir * factor * SPREAD to the translation.
+export type ExplosionRecord =
+  | {
+      kind: 'vertex';
+      mesh: THREE.Mesh;
+      original: Float32Array;
+      dir: Float32Array;
+      hadBoundsTree: boolean;
+    }
+  | {
+      kind: 'instance';
+      mesh: THREE.InstancedMesh;
+      indices: number[];
+      base: THREE.Matrix4[];
+      dir: THREE.Vector3[];
+      hadBoundsTree: boolean;
+    };
+
 export interface ModelRecord {
   group: THREE.Group;
   modelID: number;
@@ -36,11 +58,18 @@ export class ModelService {
   private meshIndex: Map<string, { mesh: THREE.Mesh | THREE.InstancedMesh; instanceId?: number }> = new Map();
 
   // ── Explosion view ──
-  // Each record stores a mesh's original local position and the world-space
-  // direction from the model centroid to the mesh. setExplosion() re-places
-  // the mesh at  center + dir * (1 + factor * SPREAD)  so elements spread
-  // radially outward from the model's center as the factor grows.
-  private explosionRecords: { mesh: THREE.Object3D; originalPos: THREE.Vector3; dir: THREE.Vector3 }[] = [];
+  // IFC geometry is batched by material: unique elements are merged into one
+  // BufferGeometry (vertices already in world space) and repeated elements
+  // become an InstancedMesh. In BOTH cases the mesh OBJECT sits at the origin,
+  // so moving mesh.position just slides the whole model as one rigid block.
+  // A real explosion must therefore operate at the ELEMENT level:
+  //   • merged meshes   → shift each vertex by its element's radial direction,
+  //     derived from the per-vertex `expressID` attribute in a single O(verts)
+  //     pass (no per-element geometry extraction needed).
+  //   • instanced meshes → shift each instance matrix's translation radially.
+  // Directions are the element centroid relative to the model's bounding-box
+  // center, so elements spread APART instead of the model drifting as a whole.
+  private explosionRecords: ExplosionRecord[] = [];
   private explosionCenter = new THREE.Vector3();
   private explosionInitialized = false;
   private explosionFactor = 0;
@@ -257,8 +286,9 @@ export class ModelService {
   }
 
   // ── Explosion View ──
-  // Capture the current mesh positions as the baseline for an explosion.
-  // Idempotent: safe to call repeatedly; only (re)builds when not initialized.
+  // Capture every element's centroid (relative to the model center) as the
+  // baseline for a radial explosion. Idempotent: only (re)builds when not
+  // initialized yet.
   initExplosion() {
     if (this.explosionInitialized) return;
     if (this.models.size === 0) return;
@@ -268,49 +298,158 @@ export class ModelService {
     if (!merged || merged.box.isEmpty()) return;
     this.explosionCenter.copy(merged.center);
 
-    const worldPos = new THREE.Vector3();
+    const records: ExplosionRecord[] = [];
+
     this.models.forEach((m) => {
       m.group.traverse((c) => {
-        if (!(c instanceof THREE.Mesh) || !c.visible) return;
-        c.getWorldPosition(worldPos);
-        const dir = worldPos.clone().sub(this.explosionCenter);
-        // Skip meshes sitting exactly on the centroid (no meaningful offset).
-        if (dir.lengthSq() < 1e-6) return;
-        this.explosionRecords.push({
-          mesh: c,
-          originalPos: c.position.clone(),
-          dir,
-        });
+        if (!c.visible) return;
+
+        // Repeated elements: one InstancedMesh, explode per instance.
+        if (c instanceof THREE.InstancedMesh && c.userData.instanceExpressIDs) {
+          const ids = c.userData.instanceExpressIDs as number[];
+          const indices: number[] = [];
+          const base: THREE.Matrix4[] = [];
+          const dir: THREE.Vector3[] = [];
+          for (let i = 0; i < ids.length; i++) {
+            const center = this.getElementCenter(m.modelID, ids[i]);
+            if (!center) continue;
+            const d = center.clone().sub(this.explosionCenter);
+            const mat = new THREE.Matrix4();
+            c.getMatrixAt(i, mat);
+            indices.push(i);
+            base.push(mat);
+            dir.push(d);
+          }
+          if (indices.length > 0) {
+            const hadBoundsTree = !!(c.geometry as any).boundsTree;
+            if (hadBoundsTree && (c.geometry as any).disposeBoundsTree) {
+              (c.geometry as any).disposeBoundsTree();
+            }
+            records.push({ kind: 'instance', mesh: c, indices, base, dir, hadBoundsTree });
+          }
+          return;
+        }
+
+        // IFC batched meshes carry a per-vertex expressID attribute that maps
+        // each vertex back to its source element. Explode per element via a
+        // single-pass centroid map (no per-element geometry extraction).
+        if (c instanceof THREE.Mesh) {
+          const geo = c.geometry as THREE.BufferGeometry;
+          const posAttr = geo.getAttribute('position');
+          const eidAttr = geo.getAttribute('expressID');
+          if (!posAttr || !eidAttr) return;
+          const pos = posAttr.array as Float32Array;
+          const eids = eidAttr.array as ArrayLike<number>;
+          const count = posAttr.count;
+
+          // Accumulate each element's centroid (mesh-local space, which equals
+          // world space because the batched mesh transform is identity).
+          const acc = new Map<number, { x: number; y: number; z: number; n: number }>();
+          for (let i = 0; i < count; i++) {
+            const e = eids[i];
+            let a = acc.get(e);
+            if (!a) {
+              a = { x: 0, y: 0, z: 0, n: 0 };
+              acc.set(e, a);
+            }
+            a.x += pos[i * 3];
+            a.y += pos[i * 3 + 1];
+            a.z += pos[i * 3 + 2];
+            a.n++;
+          }
+          // Work in the mesh's own local space so the radial direction stays
+          // correct even if the model group were transformed.
+          const modelLocal = c.worldToLocal(this.explosionCenter.clone());
+          const centerMap = new Map<number, THREE.Vector3>();
+          acc.forEach((a, e) =>
+            centerMap.set(e, new THREE.Vector3(a.x / a.n, a.y / a.n, a.z / a.n))
+          );
+
+          // Per-vertex radial direction = element centroid − model center.
+          const dir = new Float32Array(pos.length);
+          for (let i = 0; i < count; i++) {
+            const ctr = centerMap.get(eids[i]);
+            if (ctr) {
+              dir[i * 3] = ctr.x - modelLocal.x;
+              dir[i * 3 + 1] = ctr.y - modelLocal.y;
+              dir[i * 3 + 2] = ctr.z - modelLocal.z;
+            }
+          }
+
+          const hadBoundsTree = !!(geo as any).boundsTree;
+          if (hadBoundsTree && (geo as any).disposeBoundsTree) {
+            (geo as any).disposeBoundsTree();
+          }
+          records.push({ kind: 'vertex', mesh: c, original: pos.slice(), dir, hadBoundsTree });
+        }
       });
     });
+
+    this.explosionRecords = records;
     this.explosionInitialized = true;
   }
 
-  // factor: 0 = assembled, 1 = fully exploded (radial spread up to ~2.2× radius)
+  // factor: 0 = assembled, 1 = fully exploded (each element pushed radially
+  // outward from the model center by up to EXPLODE_SPREAD × its distance).
   setExplosion(factor: number) {
     if (this.models.size === 0) return;
     if (!this.explosionInitialized) this.initExplosion();
     if (this.explosionRecords.length === 0) return;
 
-    const f = Math.max(0, factor);
+    const f = Math.max(0, Math.min(1, factor));
     this.explosionFactor = f;
+    const s = f * ModelService.EXPLODE_SPREAD;
 
-    const target = new THREE.Vector3();
+    const tmpMat = new THREE.Matrix4();
+    const tmpPos = new THREE.Vector3();
     this.explosionRecords.forEach((rec) => {
-      const scale = 1 + f * ModelService.EXPLODE_SPREAD;
-      target.copy(this.explosionCenter).addScaledVector(rec.dir, scale);
-      if (rec.mesh.parent) {
-        rec.mesh.parent.worldToLocal(target);
+      if (rec.kind === 'vertex') {
+        const geo = rec.mesh.geometry as THREE.BufferGeometry;
+        const arr = geo.getAttribute('position').array as Float32Array;
+        for (let i = 0; i < arr.length; i++) {
+          arr[i] = rec.original[i] + rec.dir[i] * s;
+        }
+        geo.getAttribute('position').needsUpdate = true;
+        rec.mesh.frustumCulled = false;
+      } else {
+        for (let k = 0; k < rec.indices.length; k++) {
+          const idx = rec.indices[k];
+          tmpMat.copy(rec.base[k]);
+          tmpPos.setFromMatrixPosition(rec.base[k]);
+          tmpPos.addScaledVector(rec.dir[k], s);
+          tmpMat.setPosition(tmpPos);
+          rec.mesh.setMatrixAt(idx, tmpMat);
+        }
+        rec.mesh.instanceMatrix.needsUpdate = true;
+        rec.mesh.frustumCulled = false;
       }
-      rec.mesh.position.copy(target);
     });
     this.requestRender?.();
   }
 
-  // Restore every mesh to its pre-explosion position and clear the baseline.
+  // Restore every element to its assembled geometry/instance and clear the
+  // baseline. Bounds trees (if any) are rebuilt so picking stays accurate.
   resetExplosion() {
     this.explosionRecords.forEach((rec) => {
-      rec.mesh.position.copy(rec.originalPos);
+      if (rec.kind === 'vertex') {
+        const geo = rec.mesh.geometry as THREE.BufferGeometry;
+        const arr = geo.getAttribute('position').array as Float32Array;
+        arr.set(rec.original);
+        geo.getAttribute('position').needsUpdate = true;
+        rec.mesh.frustumCulled = true;
+        if (rec.hadBoundsTree && (geo as any).computeBoundsTree) {
+          (geo as any).computeBoundsTree();
+        }
+      } else {
+        for (let k = 0; k < rec.indices.length; k++) {
+          rec.mesh.setMatrixAt(rec.indices[k], rec.base[k]);
+        }
+        rec.mesh.instanceMatrix.needsUpdate = true;
+        rec.mesh.frustumCulled = true;
+        if (rec.hadBoundsTree && (rec.mesh.geometry as any).computeBoundsTree) {
+          (rec.mesh.geometry as any).computeBoundsTree();
+        }
+      }
     });
     this.explosionRecords = [];
     this.explosionInitialized = false;

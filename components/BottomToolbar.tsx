@@ -93,7 +93,7 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({
       setSampleMenuOpen(false);
     } catch (e) {
       console.error(e);
-      alert(t.app.downloadSampleFailed);
+      eventBus.emit('toast', { message: t.app.downloadSampleFailed, type: 'warning' });
     } finally {
       setIsLoadingSample(false);
     }

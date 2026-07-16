@@ -19,6 +19,9 @@ export interface ViewerEventMap {
   'tool-changed': { tool: ViewerTool };
   'open-measure-panel': void;
   'zoom-to-measurement': { id: string };
+  // Lightweight, non-blocking notifications. Replaces ad-hoc `alert()` calls
+  // throughout the UI so failures and hints stay consistent and dismissable.
+  'toast': { message: string; type?: 'info' | 'success' | 'warning' | 'error'; duration?: number };
 }
 
 type Handler<T> = (payload: T) => void;

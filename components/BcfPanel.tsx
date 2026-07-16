@@ -4,6 +4,7 @@ import { ifcManager } from '../services/ifcManager';
 import { Camera, Trash2, Download, Upload, Plus, Eye, AlertCircle } from 'lucide-react';
 import { IFCElementData } from '../types';
 import { useLanguage } from '../locales/LanguageContext';
+import { eventBus } from '../services/eventBus';
 
 interface BcfPanelProps {
     selectedElement: IFCElementData | null;
@@ -62,7 +63,7 @@ const BcfPanel: React.FC<BcfPanelProps> = ({ selectedElement }) => {
         reader.onload = (event) => {
             const content = event.target?.result as string;
             if (!bcfManager.importFromJson(content)) {
-                alert(t.bcf.importFailed);
+                eventBus.emit('toast', { message: t.bcf.importFailed, type: 'error' });
             }
         };
         reader.readAsText(file);

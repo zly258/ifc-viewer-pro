@@ -268,7 +268,30 @@ export class SectionManager {
     public clear() {
         this.activeAxis.clear();
         this.renderer.clippingPlanes = [];
+        this.updateClippingPlanes(); // push empty planes to materials (fully un-clip)
         this.clearHelpers();
+    }
+
+    /** Whether any section plane is currently active (clipping the model). */
+    public hasActiveClipping(): boolean {
+        return this.activeAxis.size > 0;
+    }
+
+    /**
+     * Hide the visual indicator planes WITHOUT cancelling the clipping effect.
+     * Used when leaving the Section tool: the model stays sliced, only the
+     * translucent helper planes disappear.
+     */
+    public hideHelpers() {
+        this.clearHelpers();
+    }
+
+    /**
+     * Rebuild the indicator planes for whatever axes are still active.
+     * Used when re-entering the Section tool so helpers reappear in place.
+     */
+    public restoreHelpers() {
+        this.updateHelpers();
     }
 
     public dispose() {

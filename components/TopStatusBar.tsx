@@ -1,5 +1,5 @@
 import React from "react";
-import { Moon, Sun, Camera, Info, Settings } from "lucide-react";
+import { Moon, Sun, Camera, Info, Settings, HelpCircle } from "lucide-react";
 import { useLanguage, Language } from "../locales/LanguageContext";
 
 interface TopStatusBarProps {
@@ -7,9 +7,10 @@ interface TopStatusBarProps {
   isDarkTheme?: boolean;
   onToggleTheme?: () => void;
   onScreenshot?: () => void;
+  onShowShortcuts?: () => void;
 }
 
-export const TopStatusBar = ({ fileName, isDarkTheme, onToggleTheme, onScreenshot }: TopStatusBarProps) => {
+export const TopStatusBar = ({ fileName, isDarkTheme, onToggleTheme, onScreenshot, onShowShortcuts }: TopStatusBarProps) => {
     const { t, lang, setLanguage } = useLanguage();
     const hasModel = !!fileName;
 
@@ -85,6 +86,16 @@ export const TopStatusBar = ({ fileName, isDarkTheme, onToggleTheme, onScreensho
                         style={{ width: 28, height: 28, border: "1px solid var(--border)" }}
                     >
                         {isDarkTheme ? <Sun size={13} /> : <Moon size={13} />}
+                    </button>
+                )}
+                {onShowShortcuts && (
+                    <button
+                        onClick={onShowShortcuts}
+                        title={t.shortcuts.title}
+                        className="icon-button"
+                        style={{ width: 28, height: 28, border: "1px solid var(--border)" }}
+                    >
+                        <HelpCircle size={13} />
                     </button>
                 )}
                 <button

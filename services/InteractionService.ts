@@ -70,12 +70,15 @@ export class InteractionService {
   }
 
   // ── Tool ──
-  setTool(t: ViewerTool) {
+  // keepDoubleSide: force DoubleSide even when not in Section mode — used when a
+  // section clip is still active after the Section tool is closed, so cut faces
+  // stay solid instead of revealing hollow back-faces.
+  setTool(t: ViewerTool, keepDoubleSide = false) {
     this.activeTool = t;
     this.measurementManager?.setActive(t === 'MEASURE');
 
-    // Update material side for Section mode
-    const side = t === ViewerTool.SECTION ? THREE.DoubleSide : THREE.FrontSide;
+    // Update material side for Section mode (or while a clip is still active)
+    const side = (t === ViewerTool.SECTION || keepDoubleSide) ? THREE.DoubleSide : THREE.FrontSide;
     this.loadingService.getMaterialCache().forEach((mat) => {
       if (mat.side !== side) {
         mat.side = side;

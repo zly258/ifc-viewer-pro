@@ -10,7 +10,9 @@ import { Network, FileText, Ruler, TableProperties, X as XIcon, MessageSquare } 
 import { ifcManager } from './services/ifcManager';
 import { eventBus } from './services/eventBus';
 import AboutModal from './components/AboutModal';
-import SettingsModal, { ViewSettings, DEFAULT_VIEW_SETTINGS, applyThemeColor, applyThemeMode } from './components/SettingsModal';
+import SettingsModal, { ViewSettings, DEFAULT_VIEW_SETTINGS, applyThemeMode } from './components/SettingsModal';
+import ShortcutsModal from './components/ShortcutsModal';
+import Toast from './components/Toast';
 import { useLanguage } from './locales/LanguageContext';
 
 // Code-split the heavy, conditionally-shown panels so they load on demand
@@ -34,6 +36,7 @@ const App: React.FC = () => {
   const [showReportPanel, setShowReportPanel] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   // View Settings (persisted in localStorage)
   const [viewSettings, setViewSettings] = useState<ViewSettings>(() => {
@@ -83,6 +86,24 @@ const App: React.FC = () => {
     }
   }, [t, ifcManager.measurementManager]);
 
+  // Global keyboard: "?" opens shortcuts help (ignored while typing in inputs)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement as HTMLElement | null;
+      const typing = !!el && (
+        el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.getAttribute('contenteditable') === 'true'
+      );
+      if (e.key === '?' && !typing) {
+        e.preventDefault();
+        setShowShortcuts(true);
+      } else if (e.key === 'Escape' && showShortcuts) {
+        setShowShortcuts(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showShortcuts]);
+
   // Modal States
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [modelToRemove, setModelToRemove] = useState<number | null>(null);
@@ -102,18 +123,16 @@ const App: React.FC = () => {
 
   useEffect(() => {
     applyThemeMode(isDarkTheme ? 'dark' : 'light');
-    applyThemeColor(viewSettings.themeColor, isDarkTheme ? 'dark' : 'light');
     localStorage.setItem('bimvision_theme', isDarkTheme ? 'dark' : 'light');
     // Update Three.js scene background color
     ifcManager.scene && (ifcManager.scene as any).background?.set && 
       (ifcManager.scene as any).background.set(isDarkTheme ? 0x111827 : 0xf8fafc);
     ifcManager.renderScene();
-  }, [isDarkTheme, viewSettings.themeColor]);
+  }, [isDarkTheme]);
 
   // Apply theme on first load
   useEffect(() => {
     applyThemeMode(viewSettings.themeMode);
-    applyThemeColor(viewSettings.themeColor, viewSettings.themeMode);
   }, []);
 
   // Drag & Drop state
@@ -185,6 +204,7 @@ const App: React.FC = () => {
           console.error('Failed to load IFC:', file.name, err);
         }
       }
+      // Non-IFC files are ignored (only IFC is supported).
     }
 
     const allModels = Array.from(ifcManager.models.values());
@@ -218,7 +238,7 @@ const App: React.FC = () => {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOver(false);
-    const files = (Array.from(e.dataTransfer.files) as File[]).filter(f => {
+    const files = (Array.from(e.dataTransfer.files) as File[]).filter((f) => {
       const lower = f.name.toLowerCase();
       return lower.endsWith('.ifc');
     });
@@ -322,6 +342,7 @@ const App: React.FC = () => {
           localStorage.setItem('bimvision_settings', JSON.stringify(updated));
         }}
         onScreenshot={lastFileName ? handleScreenshot : undefined}
+        onShowShortcuts={() => setShowShortcuts(true)}
       />
 
       {/* Main Content Area */}
@@ -633,6 +654,9 @@ const App: React.FC = () => {
       {/* About Modal */}
       <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />
 
+      {/* Shortcuts Help Modal */}
+      <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+
       {/* Settings Modal */}
       <SettingsModal
         isOpen={showSettings}
@@ -649,6 +673,8 @@ const App: React.FC = () => {
         }}
       />
 
+      {/* Global Toast notifications */}
+      <Toast />
     </div>
   );
 };

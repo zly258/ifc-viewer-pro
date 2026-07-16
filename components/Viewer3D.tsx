@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ifcManager } from '../services/ifcManager';
 import { IFCElementData } from '../types';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, X } from 'lucide-react';
 
 interface Viewer3DProps {
   onSelectElement: (data: IFCElementData | null) => void;
@@ -51,6 +51,15 @@ const Viewer3D: React.FC<Viewer3DProps> = ({ onSelectElement, onLoadingStatus, o
         <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-lg border border-red-500 flex items-center gap-2 z-50">
            <AlertTriangle className="w-5 h-5 text-white" />
            <span>{error}</span>
+           <button
+             onClick={() => setError(null)}
+             aria-label="close"
+             title="close"
+             className="ml-1 hover:opacity-75 transition-opacity"
+             style={{ display: 'flex', alignItems: 'center', background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: 2 }}
+           >
+             <X size={14} />
+           </button>
         </div>
       )}
     </div>

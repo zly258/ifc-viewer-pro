@@ -11,22 +11,9 @@ function formatBytes(bytes: number): string {
   return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-// Theme color presets: name → { brand, hover, soft, border }
-const THEME_PRESETS = [
-    { id: 'blue',    brand: '#2563eb', hover: '#1d4ed8', soft: '#eff6ff', border: '#bfdbfe' },
-    { id: 'green',   brand: '#16a34a', hover: '#15803d', soft: '#f0fdf4', border: '#bbf7d0' },
-    { id: 'purple',  brand: '#7c3aed', hover: '#6d28d9', soft: '#f5f3ff', border: '#ddd6fe' },
-    { id: 'orange',  brand: '#ea580c', hover: '#c2410c', soft: '#fff7ed', border: '#fed7aa' },
-    { id: 'teal',    brand: '#0d9488', hover: '#0f766e', soft: '#f0fdfa', border: '#99f6e4' },
-    { id: 'rose',    brand: '#e11d48', hover: '#be123c', soft: '#fff1f2', border: '#fecdd3' },
-] as const;
-
-export type ThemeColorId = typeof THEME_PRESETS[number]['id'];
-
 export interface ViewSettings {
     shadowQuality: 'high' | 'low' | 'off';
     enableHoverHighlight: boolean;
-    themeColor: ThemeColorId;
     themeMode: 'light' | 'dark';
     language: Language;
     settingsVersion?: number;
@@ -37,25 +24,10 @@ export const SETTINGS_VERSION = 5;
 export const DEFAULT_VIEW_SETTINGS: ViewSettings = {
     shadowQuality: 'off',
     enableHoverHighlight: true,
-    themeColor: 'blue',
     themeMode: 'light',
     language: 'zh',
     settingsVersion: SETTINGS_VERSION,
 };
-
-/** Apply a theme color preset to :root / [data-theme] CSS variables */
-export function applyThemeColor(colorId: ThemeColorId, themeMode: 'light' | 'dark') {
-    const preset = THEME_PRESETS.find(p => p.id === colorId) || THEME_PRESETS[0];
-    const root = themeMode === 'dark'
-        ? document.querySelector('[data-theme="dark"]') as HTMLElement | null
-        : document.documentElement;
-    const target = root || document.documentElement;
-    target.style.setProperty('--brand', preset.brand);
-    target.style.setProperty('--brand-hover', preset.hover);
-    target.style.setProperty('--brand-soft', preset.soft);
-    target.style.setProperty('--brand-border', preset.border);
-    target.style.setProperty('--accent', preset.brand);
-}
 
 /** Apply theme mode (light/dark) */
 export function applyThemeMode(mode: 'light' | 'dark') {
@@ -121,7 +93,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
         const migratedSettings = {
             shadowQuality: settings.shadowQuality || 'off',
             enableHoverHighlight: (settings as any).settingsVersion && (settings as any).settingsVersion >= 4 ? (settings.enableHoverHighlight ?? true) : true,
-            themeColor: ((settings as any).themeColor || 'blue') as ThemeColorId,
             themeMode: ((settings as any).themeMode || 'light') as 'light' | 'dark',
             language: ((settings as any).language || lang) as Language,
             settingsVersion: SETTINGS_VERSION,
@@ -130,8 +101,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
     }, [settings, isOpen]);
 
     const handleSave = useCallback(() => {
-        // Apply theme color & mode immediately
-        applyThemeColor(localSettings.themeColor, localSettings.themeMode);
+        // Apply theme mode immediately
         applyThemeMode(localSettings.themeMode);
         // Apply language
         setLanguage(localSettings.language);
@@ -166,37 +136,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings
 
                 {/* Body */}
                 <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-
-                    {/* Theme Color */}
-                    <SettingSection
-                        label={t.settings.themeColor}
-                        help={t.settings.themeColorHelp}
-                    >
-                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                            {THEME_PRESETS.map(p => (
-                                <button
-                                    key={p.id}
-                                    onClick={() => update('themeColor', p.id)}
-                                    title={p.id}
-                                    style={{
-                                        width: 32,
-                                        height: 32,
-                                        borderRadius: '50%',
-                                        background: p.brand,
-                                        border: localSettings.themeColor === p.id
-                                            ? `3px solid var(--text-primary)`
-                                            : '3px solid transparent',
-                                        boxShadow: localSettings.themeColor === p.id
-                                            ? `0 0 0 2px ${p.brand}40`
-                                            : 'none',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s',
-                                        outline: 'none',
-                                    }}
-                                />
-                            ))}
-                        </div>
-                    </SettingSection>
 
                     {/* Theme Mode (Light/Dark) */}
                     <SettingSection

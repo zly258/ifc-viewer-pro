@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ifcManager } from '../services/ifcManager';
 import { ReportConfig, ReportColumn, ReportRow } from '../types';
 import { useLanguage } from '../locales/LanguageContext';
+import { eventBus } from '../services/eventBus';
 import { 
     Play, Download, Upload, Edit, 
     FileSpreadsheet, ChevronDown, 
@@ -307,7 +308,7 @@ const ReportPanel: React.FC = () => {
                         setColumns(parsed);
                     }
                 } catch (err) {
-                    alert(t.report.invalidConfig);
+                    eventBus.emit('toast', { message: t.report.invalidConfig, type: 'error' });
                 }
             };
             reader.readAsText(file);

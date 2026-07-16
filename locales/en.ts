@@ -26,6 +26,9 @@ const en: LocaleMessages = {
     downloadSampleFailed: 'Failed to download sample. Please check network!',
     activeModels: 'active models',
     unnamedModel: 'Unnamed Model',
+    errorTitle: 'Something went wrong',
+    errorDesc: 'The app encountered an unexpected error. Reload to recover.',
+    reload: 'Reload',
   },
 
   // Toolbar
@@ -229,8 +232,6 @@ const en: LocaleMessages = {
     hoverHighlightHelp: 'Show an amber highlight when hovering over elements for quick visual identification.',
     enabled: 'Enabled',
     disabled: 'Disabled',
-    themeColor: 'Accent Color',
-    themeColorHelp: 'Choose a primary accent color for buttons, selections, highlights, and links.',
     themeMode: 'Theme Mode',
     themeModeHelp: 'Switch between light and dark appearance to suit ambient lighting.',
     light: 'Light',
@@ -320,6 +321,25 @@ const en: LocaleMessages = {
   // Screenshot
   screenshot: {
     save: 'Save Screenshot',
+  },
+
+  // Shortcuts help
+  shortcuts: {
+    title: 'Keyboard Shortcuts',
+    keyboard: 'Keyboard',
+    mouse: 'Mouse',
+    esc: 'Cancel current tool / clear selection',
+    focus: 'Zoom to selected element',
+    hide: 'Hide selected element',
+    isolate: 'Isolate selected element',
+    unisolate: 'Un-isolate and show all',
+    help: 'Open this help panel',
+    mouseLeft: 'Left click',
+    mouseMiddle: 'Middle drag',
+    mouseCtrlMiddle: 'Ctrl + Middle',
+    mouseWheel: 'Wheel',
+    mouseRight: 'Right click',
+    mouseDouble: 'Double click',
   },
 
   // Service messages

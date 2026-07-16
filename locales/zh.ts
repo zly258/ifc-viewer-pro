@@ -24,6 +24,9 @@ const zh = {
     downloadSampleFailed: '下载案例模型失败，请检查网络！',
     activeModels: '个活动模型',
     unnamedModel: '未命名模型',
+    errorTitle: '出现错误',
+    errorDesc: '应用遇到了未预期的错误，可尝试重新加载恢复。',
+    reload: '重新加载',
   },
 
   // Toolbar
@@ -47,7 +50,7 @@ const zh = {
     measureList: '测量结果列表',
     clearAllMeasure: '清除全部测量',
     resetSection: '重置并关闭所有剖切面',
-    explode: '爆炸视图',
+    explode: '爆炸',
     explodeLevel: '爆炸程度',
     resetExplode: '复位',
   },
@@ -227,8 +230,6 @@ const zh = {
     hoverHighlightHelp: '鼠标悬停在构件上时显示橙色高亮效果，方便快速识别可交互元素。',
     enabled: '已开启',
     disabled: '已关闭',
-    themeColor: '主题颜色',
-    themeColorHelp: '选择应用的主色调，将影响按钮、选中高亮、链接等元素的颜色。',
     themeMode: '主题模式',
     themeModeHelp: '切换浅色或深色外观，适应不同环境光线。',
     light: '浅色',
@@ -318,6 +319,25 @@ const zh = {
   // Screenshot
   screenshot: {
     save: '截图保存',
+  },
+
+  // Shortcuts help
+  shortcuts: {
+    title: '快捷键帮助',
+    keyboard: '键盘',
+    mouse: '鼠标',
+    esc: '取消当前工具 / 清除选择',
+    focus: '缩放至选中构件',
+    hide: '隐藏选中构件',
+    isolate: '隔离选中构件',
+    unisolate: '取消隔离并显示全部',
+    help: '打开本帮助面板',
+    mouseLeft: '左键',
+    mouseMiddle: '中键拖拽',
+    mouseCtrlMiddle: 'Ctrl + 中键',
+    mouseWheel: '滚轮',
+    mouseRight: '右键',
+    mouseDouble: '双击',
   },
 
   // Service messages
