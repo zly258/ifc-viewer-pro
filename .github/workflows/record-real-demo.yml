@@ -8,6 +8,13 @@ on:
       - .github/workflows/record-real-demo.yml
       - scripts/record-real-demo.mjs
       - scripts/build-narration.py
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/record-real-demo.yml
+      - scripts/record-real-demo.mjs
+      - scripts/build-narration.py
 
 permissions:
   contents: write
@@ -57,7 +64,16 @@ jobs:
           cp demo-recording/build/subtitles.srt outputs/IFC_Viewer_Pro_subtitles_zh.srt
           ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 outputs/IFC_Viewer_Pro_real_operation_chinese.mp4
 
+      - name: Upload generated video
+        uses: actions/upload-artifact@v4
+        with:
+          name: IFC_Viewer_Pro_real_operation_video
+          path: outputs/
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Commit generated video to the temporary branch
+        if: github.event_name == 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
