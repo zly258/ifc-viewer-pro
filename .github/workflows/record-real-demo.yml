@@ -1,0 +1,68 @@
+name: Record real IFC viewer demo
+
+on:
+  push:
+    branches:
+      - automation/real-demo-video
+    paths:
+      - .github/workflows/record-real-demo.yml
+      - scripts/record-real-demo.mjs
+      - scripts/build-narration.py
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install recording dependencies
+        run: |
+          npm install --no-save playwright@1.54.1
+          npx playwright install --with-deps chromium
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk
+          python -m pip install --upgrade pip
+          python -m pip install edge-tts
+
+      - name: Record the live GitHub Pages application
+        run: node scripts/record-real-demo.mjs
+
+      - name: Generate Chinese narration and subtitles
+        run: python scripts/build-narration.py
+
+      - name: Encode final MP4
+        run: |
+          mkdir -p outputs
+          ffmpeg -y \
+            -i demo-recording/real-demo.webm \
+            -i demo-recording/build/narration.wav \
+            -vf "subtitles=demo-recording/build/subtitles.srt:force_style='FontName=Noto Sans CJK SC,FontSize=17,PrimaryColour=&H00FFFFFF,OutlineColour=&H90000000,BorderStyle=1,Outline=2,Shadow=0,MarginV=38,Alignment=2'" \
+            -map 0:v:0 -map 1:a:0 \
+            -c:v libx264 -preset medium -crf 20 -pix_fmt yuv420p \
+            -c:a aac -b:a 192k -ar 48000 \
+            -movflags +faststart -shortest \
+            outputs/IFC_Viewer_Pro_real_operation_chinese.mp4
+          cp demo-recording/narration.txt outputs/IFC_Viewer_Pro_narration_zh.txt
+          cp demo-recording/build/subtitles.srt outputs/IFC_Viewer_Pro_subtitles_zh.srt
+          ffprobe -v error -show_entries format=duration,size -of default=noprint_wrappers=1 outputs/IFC_Viewer_Pro_real_operation_chinese.mp4
+
+      - name: Commit generated video to the temporary branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add outputs/IFC_Viewer_Pro_real_operation_chinese.mp4 \
+                  outputs/IFC_Viewer_Pro_narration_zh.txt \
+                  outputs/IFC_Viewer_Pro_subtitles_zh.srt
+          git commit -m "chore: add real operation demo video [skip ci]"
+          git push origin HEAD:automation/real-demo-video
