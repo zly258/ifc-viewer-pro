@@ -2,6 +2,7 @@
   "name": "ifc-viewer-pro",
   "private": true,
   "version": "0.0.0",
+  "author": "zly258 <zhangly1403@gmail.com>",
   "type": "module",
   "scripts": {
     "dev": "vite",
