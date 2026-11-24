@@ -1,99 +1,113 @@
-# IFC Viewer Pro
+<h1 align="center">IFC Viewer Pro</h1>
 
-[English](#english) | [中文](#中文)
+<p align="center">A browser-based 3D IFC model viewer built with React, Three.js, and WebAssembly for inspecting BIM geometry, properties, measurements, sections, and viewpoints.</p>
 
----
+<p align="center">
+  <a href="./README.md">English</a> | <a href="./README.zh-CN.md">简体中文</a>
+</p>
 
-## English
+<p align="center">
+  <img src="https://img.shields.io/badge/React-18.2-3776AB?style=flat-square" alt="React 18.2"> <img src="https://img.shields.io/badge/TypeScript-5.8-3776AB?style=flat-square" alt="TypeScript 5.8"> <img src="https://img.shields.io/badge/Three.js-0.182-3776AB?style=flat-square" alt="Three.js 0.182"> <img src="https://img.shields.io/badge/Platform-Web%20Browser-4B5563?style=flat-square" alt="Platform Web Browser"> <a href="https://github.com/zly258/ifc-viewer-pro/actions/workflows/publish.yml"><img src="https://img.shields.io/github/actions/workflow/status/zly258/ifc-viewer-pro/publish.yml?branch=main&amp;style=flat-square&amp;label=Deploy" alt="Deploy workflow status"></a>
+</p>
 
-### Overview
+IFC Viewer Pro runs entirely in the browser using `web-ifc` inside a dedicated Web Worker and Three.js with BVH-accelerated raycasting (`three-mesh-bvh`). Open local `.ifc` files via drag-and-drop or file picker to explore spatial hierarchies, inspect element property sets, take measurements, slice models with section planes, and save model-associated BCF viewpoints.
 
-IFC Viewer Pro is a lightweight React + Vite web application for viewing IFC models in the browser. It uses `three`, `web-ifc`, and optimized rendering techniques to provide an interactive 3D model viewer.
+## Highlights
 
-### Features
+| Highlight | Why it matters |
+|---|---|
+| Off-thread IFC parsing and batched rendering | `web-ifc` runs in a Web Worker (`services/ifc.worker.ts`) and streams geometry in batches (`IfcBatcher`) with IndexedDB caching (`CacheManager`) to keep the UI responsive. |
+| BVH-accelerated 3D interaction | `three-mesh-bvh` accelerates raycasting for element selection, hover highlighting, and picking across large meshes. |
+| Modular BIM inspection workspace | Code-split draggable panels provide spatial tree browsing (`ModelTree`), property inspection (`PropertyPanel`), custom quantity reports (`ReportPanel`), and BCF viewpoints (`BcfPanel`). |
+| Measurement and sectioning tools | Supports distance, angle, coordinate, area, and volume measurements (`MeasurementManager`) alongside interactive clipping planes (`SectionManager`). |
+| Bilingual UI and theme switching | Ships with English and Simplified Chinese locales (`locales/en.ts`, `locales/zh.ts`), light/dark themes, keyboard shortcuts (`?`), and PNG screenshot export. |
 
-- Load and inspect IFC models
-- 3D model navigation and visualization
-- Property and measurement panels
-- Sectioning and lighting controls
-- Vite-based build and local development
+## Architecture
 
-### Run locally
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         React UI Layer (App.tsx)                        │
+│  ┌───────────┐  ┌──────────────┐  ┌───────────────┐  ┌───────────────┐  │
+│  │ Viewer3D  │  │  ModelTree   │  │ PropertyPanel │  │ Report / BCF  │  │
+│  │  Canvas   │  │ (Virtualized)│  │ & Measurement │  │    Panels     │  │
+│  └─────┬─────┘  └──────┬───────┘  └───────┬───────┘  └───────┬───────┘  │
+└────────┼───────────────┼──────────────────┼──────────────────┼──────────┘
+         │               └──────────────────┼──────────────────┘
+         ▼                                  ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│               IFCManager Facade (services/ifcManager.ts)                │
+│                      + EventBus (services/eventBus.ts)                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐  │
+│  │ SceneService │  │ ModelService │  │ Interaction  │  │  Feature    │  │
+│  │  (Three.js)  │  │  (Visibility │  │   Service    │  │  Managers   │  │
+│  │              │  │   & Bounds)  │  │ (BVH Picking)│  │(Measure/Sec)│  │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └─────────────┘  │
+└───────────────────────────────────┬─────────────────────────────────────┘
+                                    │
+                                    ▼
+                     ┌─────────────────────────────┐
+                     │       LoadingService        │
+                     │ (IfcBatcher / GLTF / Draco) │
+                     └──────┬───────────────┬──────┘
+                            │               │
+                 postMessage│               │IndexedDB
+                            ▼               ▼
+             ┌───────────────────────┐  ┌───────────────────────┐
+             │     ifc.worker.ts     │  │     CacheManager      │
+             │   (web-ifc WASM in    │  │  (IFCViewerCache DB)  │
+             │      Web Worker)      │  │                       │
+             └───────────────────────┘  └───────────────────────┘
+```
+
+## Quick Install
+
+Clone the repository and install dependencies:
 
 ```bash
+git clone https://github.com/zly258/ifc-viewer-pro.git
+cd ifc-viewer-pro
 npm install
+```
+
+Prerequisites:
+
+- Node.js 20+ (verified against the CI workflow in [`.github/workflows/publish.yml`](./.github/workflows/publish.yml))
+- A modern browser with WebGL and WebAssembly support
+
+## Quick Start
+
+Start the local Vite development server:
+
+```bash
 npm run dev
 ```
 
-Then open the local server URL shown by Vite.
+Open `http://localhost:3000` in your browser (configured in [`vite.config.ts`](./vite.config.ts)):
 
-### Build
+1. Click the load button or drag and drop any local `.ifc` file into the viewport.
+2. To test immediately without supplying your own model, load one of the bundled sample files from [`public/samples/`](./public/samples):
+   - `public/samples/LED_Screen.ifc`
+   - `public/samples/Structure_Model.ifc`
+   - `public/samples/Wellness_Center.ifc`
+3. Once loaded, the spatial tree opens automatically. Click elements to inspect properties, use the bottom toolbar for measurement, sectioning, BCF viewpoints, and reports, or press `?` to open the keyboard shortcuts reference.
 
-```bash
-npm run build
-```
+## Commands
 
-### Preview build
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the Vite development server on port `3000` (`0.0.0.0`). |
+| `npm run build` | Build the production bundle into `dist/` with vendor chunk splitting. |
+| `npm run preview` | Serve the production build locally for verification. |
+| `npm run deploy` | Run `npm run build` (`predeploy`) and publish `dist/` to the `gh-pages` branch via `gh-pages`. |
 
-```bash
-npm run preview
-```
+## Configuration and Deployment
 
-### GitHub Pages Publishing
+### Base path and runtime tuning
 
-This repository includes a GitHub Actions workflow to build and publish the `dist` directory to the `gh-pages` branch automatically.
+- **Production base path**: In [`vite.config.ts`](./vite.config.ts), `base` defaults to `/ifc-viewer-pro/` for production builds and `/` in development. Set `VITE_BASE` to override the production base path (for example, `VITE_BASE=/ npm run build`).
+- **Pipeline constants**: Geometry flush batch size (`FLUSH_EVERY`), material cache cap (`MATERIAL_CACHE_MAX`), orthographic frustum size (`FRUSTUM_SIZE`), property query timeout (`PROPERTY_QUERY_TIMEOUT`), logarithmic depth buffer toggle (`ENABLE_LOGARITHMIC_DEPTH_BUFFER`), and local WASM/Draco asset paths (`WASM_PATH`, `DRACO_PATH`) are centralized in [`services/config.ts`](./services/config.ts).
+- **Local browser storage**: User view settings (`bimvision_settings`, `bimvision_theme`) and model-associated BCF viewpoints (`bimvision_bcf_viewpoints_v2`) persist in `localStorage`, while parsed geometry batches are cached in IndexedDB (`IFCViewerCache`).
 
-The workflow file is located at `.github/workflows/publish.yml`.
+### GitHub Pages publishing
 
-### Notes
-
-- The project is configured as a Vite app and uses `react@18`.
-- If you want to deploy to GitHub Pages, make sure the repository default branch is `main` or adjust the workflow branch filter.
-
----
-
-## 中文
-
-### 概要
-
-IFC Viewer Pro 是一个基于 React + Vite 的轻量级浏览器 IFC 模型查看器。它使用 `three`、`web-ifc` 以及优化渲染技术，提供交互式 3D 模型展示能力。
-
-### 功能
-
-- 加载与查看 IFC 模型
-- 3D 模型导航与可视化
-- 属性面板与测量面板
-- 截面分析与灯光控制
-- 基于 Vite 的构建与本地开发
-
-### 本地运行
-
-```bash
-npm install
-npm run dev
-```
-
-然后打开 Vite 显示的本地服务地址。
-
-### 构建
-
-```bash
-npm run build
-```
-
-### 预览构建
-
-```bash
-npm run preview
-```
-
-### GitHub Pages 发布
-
-该仓库包含 GitHub Actions 工作流，可自动构建并将 `dist` 目录发布到 `gh-pages` 分支。
-
-工作流文件路径：`.github/workflows/publish.yml`
-
-### 说明
-
-- 本项目为 Vite 应用，使用 `react@18`。
-- 若要部署到 GitHub Pages，请确保仓库默认分支为 `main`，或根据实际分支修改工作流配置。
+The workflow in [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) runs on pushes to `main` and manual `workflow_dispatch` triggers. It installs dependencies on Node.js 20, executes `npm run build`, and deploys `./dist` to the `gh-pages` branch. If your default branch differs from `main`, update the branch filter in that workflow file.
